@@ -15,7 +15,6 @@ function getInitialTheme(): ThemeMode {
 }
 
 export default function ThemeToggle() {
-export default function ThemeToggle() {
   const [theme, setTheme] = useState<ThemeMode>("light");
   const [mounted, setMounted] = useState(false);
 
@@ -29,7 +28,6 @@ export default function ThemeToggle() {
     if (!mounted) return;
     document.documentElement.classList.toggle("dark", theme === "dark");
     window.localStorage.setItem("theme", theme);
-  }, [theme, mounted]);
   }, [theme, mounted]);
 
   return (
