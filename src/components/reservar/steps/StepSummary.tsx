@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import type { ReservationState } from "@/components/reservar/ReservationWizard";
 import type { ReservationTotals } from "@/lib/calcTotal";
-import { PACKAGES } from "@/lib/bookingData";
+import { EXTRAS, PACKAGES } from "@/lib/bookingData";
 
 type StepSummaryProps = {
   state: ReservationState;
@@ -20,6 +20,20 @@ function formatCurrency(value: number) {
   return `$${rounded}`;
 }
 
+function formatHourRange(value: string) {
+  const [start, end] = value.split("-");
+  if (!start || !end) return value;
+  const format = (time: string) => {
+    const [hourText] = time.split(":");
+    const hour = Number(hourText);
+    if (Number.isNaN(hour)) return time;
+    const period = hour >= 12 ? "P.M." : "A.M.";
+    const display = hour % 12 === 0 ? 12 : hour % 12;
+    return `${display}:00 ${period}`;
+  };
+  return `${format(start)} - ${format(end)}`;
+}
+
 export default function StepSummary({
   state,
   selectedPackage,
@@ -28,10 +42,21 @@ export default function StepSummary({
   minPeople,
   weekend,
 }: StepSummaryProps) {
+  const selectedExtras = EXTRAS.filter(
+    (extra) => state.extras[extra.id] ?? false
+  )
+    .map((extra) => extra.label)
+    .join(", ");
+
   return (
     <section className="space-y-4">
       <div className="space-y-2">
-        <h2 className="font-display text-2xl font-semibold">Resumen</h2>
+        <h2
+          id="reservation-summary-title"
+          className="font-display text-2xl font-semibold"
+        >
+          Resumen
+        </h2>
         <p className="text-sm text-muted-foreground">
           Confirma los datos antes de enviar la solicitud.
         </p>
@@ -56,7 +81,11 @@ export default function StepSummary({
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground">Horario</span>
             <span className="font-semibold">
-              {state.timeSlot ?? "Por definir"}
+              {state.timeSlot
+                ? state.packageId === "EVENTO"
+                  ? formatHourRange(state.timeSlot)
+                  : state.timeSlot
+                : "Por definir"}
             </span>
           </div>
           <Separator />
@@ -64,6 +93,13 @@ export default function StepSummary({
             <span className="text-muted-foreground">Personas</span>
             <span className="font-semibold">
               {state.adults} adultos, {state.kids} niños
+            </span>
+          </div>
+          <Separator />
+          <div className="flex items-start justify-between gap-6">
+            <span className="text-muted-foreground">Extras</span>
+            <span className="text-right font-semibold">
+              {selectedExtras || "Sin extras"}
             </span>
           </div>
           <Separator />
@@ -99,8 +135,8 @@ export default function StepSummary({
       {showMinWarning && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           {weekend
-            ? `En fines de semana se requiere mínimo ${minPeople} personas o pagar el equivalente. (Prototipo: no aplicado al total).`
-            : `Mínimo recomendado: ${minPeople} personas en esta fecha. (Prototipo: no aplica al total).`}
+            ? `Minimo: ${minPeople} personas en fines de semana.`
+            : `Minimo: ${minPeople} personas en esta fecha.`}
         </div>
       )}
     </section>

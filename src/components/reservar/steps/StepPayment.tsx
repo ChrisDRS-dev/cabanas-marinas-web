@@ -37,9 +37,14 @@ const METHODS: {
 type StepPaymentProps = {
   state: ReservationState;
   dispatch: React.Dispatch<{ type: "setPayment"; value: PaymentMethod | null }>;
+  onSelected?: () => void;
 };
 
-export default function StepPayment({ state, dispatch }: StepPaymentProps) {
+export default function StepPayment({
+  state,
+  dispatch,
+  onSelected,
+}: StepPaymentProps) {
   return (
     <section className="space-y-4">
       <div className="space-y-2">
@@ -60,14 +65,21 @@ export default function StepPayment({ state, dispatch }: StepPaymentProps) {
                 type="button"
                 onClick={() =>
                   method.enabled &&
-                  dispatch({ type: "setPayment", value: method.id })
+                  (() => {
+                    dispatch({ type: "setPayment", value: method.id });
+                    requestAnimationFrame(() => onSelected?.());
+                  })()
                 }
                 disabled={!method.enabled}
                 className={`rounded-2xl border px-4 py-4 text-left transition ${
                   selected
                     ? "border-primary bg-primary/10"
                     : "border-border/70 bg-background"
-                } ${method.enabled ? "hover:border-primary/60" : "opacity-60"} `}
+                } ${
+                  method.enabled
+                    ? "hover:-translate-y-0.5 hover:border-primary/60 hover:shadow-md"
+                    : "opacity-60"
+                } `}
               >
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-base font-semibold">{method.label}</p>

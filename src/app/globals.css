@@ -153,3 +153,17 @@
   background: rgba(255, 179, 71, 0.85);
   background-clip: content-box;
 }
+
+.glass-panel {
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 20px 45px rgba(15, 31, 36, 0.12);
+  backdrop-filter: blur(18px) saturate(160%);
+}
+
+.dark .glass-panel {
+  background: rgba(15, 23, 25, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(18px) saturate(160%);
+}

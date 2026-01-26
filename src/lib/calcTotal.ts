@@ -19,9 +19,11 @@ export function calcTotal(
     return { base: 0, extrasTotal: 0, total: 0 };
   }
 
-  const base =
+  const baseRaw =
     adults * pkg.pricePerAdult +
     kids * pkg.pricePerAdult * KID_DISCOUNT;
+  const minBase = 4 * pkg.pricePerAdult;
+  const base = Math.max(baseRaw, minBase);
   const extrasTotal = EXTRAS.reduce((sum, extra) => {
     const selected = extras[extra.id] ?? false;
     return sum + (selected ? extra.price : 0);

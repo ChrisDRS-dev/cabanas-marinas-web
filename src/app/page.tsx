@@ -1,144 +1,60 @@
 import FAQAccordion from "@/components/FAQAccordion";
-import InfoChips from "@/components/InfoChips";
 import MapCard from "@/components/MapCard";
 import NavbarMobile from "@/components/NavbarMobile";
-import PlanCard from "@/components/PlanCard";
+import GalleryCarousel from "@/components/GalleryCarousel";
+import ReservationOverlay from "@/components/ReservationOverlay";
 import { siteData } from "@/lib/siteData";
 
 export default function HomePage() {
   const {
     brand,
-    infoChips,
     about,
     benefits,
     plans,
-    planNotes,
     steps,
     gallery,
+    activities,
     location,
     faq,
     finalCta,
   } = siteData;
+  const planGallery = plans.map((plan, index) => ({
+    title: plan.name,
+    price: plan.price,
+    unit: plan.unit,
+    duration: plan.duration,
+    schedule: plan.schedule,
+    rule: plan.rule,
+    note: plan.note,
+    image: gallery[index]?.image ?? "",
+    accent:
+      gallery[index]?.accent ??
+      "linear-gradient(135deg, #0085a1 0%, #7fd7e4 100%)",
+    href: `/?reservar=1&package=${plan.id}`,
+  }));
 
   return (
     <div className="bg-background text-foreground">
-      <NavbarMobile
-        brand={brand.name}
-        primaryHref="/reservar"
-        primaryLabel="Reservar"
-      />
+      <NavbarMobile brand={brand.name} />
       <main className="pb-28">
         <section
-          id="galeria"
+          id="planes"
           className="relative overflow-hidden border-b border-border/70"
         >
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(0,133,161,0.18),transparent_55%)]" />
           <div className="absolute -right-24 top-20 h-72 w-72 rounded-full bg-[radial-gradient(circle,rgba(255,200,120,0.35),transparent_65%)] blur-2xl" />
           <div className="absolute bottom-0 left-0 h-48 w-48 -translate-x-1/3 translate-y-1/3 rounded-full bg-[radial-gradient(circle,rgba(0,133,161,0.25),transparent_60%)]" />
-          <div className="relative mx-auto grid max-w-6xl gap-10 px-6 py-14 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
-            <div className="flex flex-col gap-5">
-              <p className="text-xs uppercase tracking-[0.4em] text-muted-foreground">
-                Galeria
-              </p>
+          <div className="relative mx-auto flex max-w-6xl flex-col gap-10 px-6 py-14">
+            <div className="flex max-w-2xl flex-col gap-5">
               <h1 className="font-display text-3xl font-semibold sm:text-4xl lg:text-5xl">
-                {brand.headline}
+                Planes claros, decisiones rapidas
               </h1>
               <p className="text-sm text-muted-foreground sm:text-base">
-                {brand.subtitle}
-              </p>
-              <div className="flex flex-wrap gap-3">
-                <a
-                  href="/reservar"
-                  className="rounded-full bg-primary px-5 py-2 text-xs font-semibold uppercase tracking-wide text-primary-foreground shadow-lg shadow-primary/30 transition hover:brightness-105"
-                >
-                  Reservar ahora
-                </a>
-                <a
-                  href="#planes"
-                  className="rounded-full border border-border bg-background/70 px-5 py-2 text-xs font-semibold uppercase tracking-wide text-foreground backdrop-blur transition hover:bg-secondary"
-                >
-                  Ver planes
-                </a>
-              </div>
-              <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                <span className="rounded-full border border-border/70 bg-background/70 px-3 py-1">
-                  Check-in flexible
-                </span>
-                <span className="rounded-full border border-border/70 bg-background/70 px-3 py-1">
-                  Vista al mar
-                </span>
-                <span className="rounded-full border border-border/70 bg-background/70 px-3 py-1">
-                  Pago seguro
-                </span>
-              </div>
-            </div>
-            <div className="gallery-scroll flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4 scroll-smooth">
-              {gallery.map((item) => (
-                <div
-                  key={item.title}
-                  className="relative min-w-[78%] snap-center overflow-hidden rounded-[2rem] border border-border bg-card p-6 shadow-xl shadow-black/5 sm:min-w-[48%] lg:min-w-[34%]"
-                >
-                  <div
-                    className="absolute inset-0 bg-cover bg-center"
-                    style={{
-                      backgroundImage: item.image ? `url(${item.image})` : "",
-                    }}
-                  />
-                  <div
-                    className="absolute inset-0 opacity-60"
-                    style={{ background: item.accent }}
-                  />
-                  <div className="relative space-y-3 text-white">
-                    <h2 className="font-display text-2xl font-semibold">
-                      {item.title}
-                    </h2>
-                    <p className="text-sm text-white/85">{item.caption}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section id="planes" className="mx-auto max-w-6xl px-6 py-14">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div className="space-y-3">
-              <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-                Paquetes y horarios
-              </p>
-              <h2 className="font-display text-3xl font-semibold">
-                Planes claros, decisiones rapidas
-              </h2>
-              <p className="text-sm text-muted-foreground">
                 Elige entre 4 horas, 8 horas o la experiencia especial de
                 amanecer.
               </p>
             </div>
-            <a
-              href="/reservar"
-              className="rounded-full border border-border bg-background px-4 py-2 text-xs font-semibold uppercase tracking-wide text-foreground transition hover:bg-secondary"
-            >
-              Ver detalles y reservar
-            </a>
-          </div>
-          <div className="mt-8 grid gap-4 lg:grid-cols-3">
-            {plans.map((plan) => (
-              <a
-                key={plan.name}
-                href={`/reservar?package=${plan.id}`}
-                className="transition hover:-translate-y-1"
-              >
-                <PlanCard {...plan} />
-              </a>
-            ))}
-          </div>
-          <div className="mt-6 space-y-2 text-sm text-muted-foreground">
-            {planNotes.slice(0, 2).map((note) => (
-              <p key={note}>- {note}</p>
-            ))}
-          </div>
-          <div className="mt-6">
-            <InfoChips items={infoChips} />
+            <GalleryCarousel items={planGallery} />
           </div>
         </section>
 
@@ -159,12 +75,50 @@ export default function HomePage() {
               {benefits.slice(0, 4).map((benefit) => (
                 <div
                   key={benefit.title}
-                  className="rounded-3xl border border-border bg-card/80 p-5 shadow-lg shadow-black/5"
+                  className="rounded-3xl border border-border/80 bg-card/80 p-5 shadow-lg shadow-black/5 transition hover:-translate-y-1 hover:shadow-xl"
                 >
                   <h3 className="text-base font-semibold">{benefit.title}</h3>
                   <p className="mt-2 text-sm text-muted-foreground">
                     {benefit.description}
                   </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section id="actividades" className="mx-auto max-w-6xl px-6 py-14">
+          <div className="space-y-6">
+            <div className="space-y-3">
+              <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+                Actividades
+              </p>
+              <h2 className="font-display text-3xl font-semibold">
+                Experiencias para tu grupo
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Descubre opciones para disfrutar el mar y el descanso.
+              </p>
+            </div>
+            <div className="gallery-scroll flex gap-4 overflow-x-auto pb-2 pt-1 lg:grid lg:grid-cols-3 lg:overflow-visible">
+              {activities.map((activity) => (
+                <div
+                  key={activity.title}
+                  className="min-w-[250px] flex-1 rounded-3xl border border-border/80 bg-card shadow-lg shadow-black/5 transition hover:-translate-y-1 hover:shadow-xl"
+                >
+                  <div className="h-40 overflow-hidden rounded-t-3xl">
+                    <img
+                      src={activity.image}
+                      alt={activity.title}
+                      className="h-full w-full object-cover transition duration-500 hover:scale-105"
+                    />
+                  </div>
+                  <div className="space-y-2 p-5">
+                    <h3 className="text-lg font-semibold">{activity.title}</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {activity.description}
+                    </p>
+                  </div>
                 </div>
               ))}
             </div>
@@ -181,19 +135,19 @@ export default function HomePage() {
                 Como funciona
               </p>
               <h2 className="font-display text-3xl font-semibold">
-                Reserva en tres pasos
+                Reserva en cuatro pasos
               </h2>
             </div>
-            <div className="grid gap-4 lg:grid-cols-3">
+            <div className="grid gap-4 lg:grid-cols-4">
               {steps.map((step, index) => (
                 <div
                   key={step.title}
-                  className="rounded-3xl border border-border bg-card p-6 shadow-lg shadow-black/5"
+                  className="rounded-3xl border border-border/80 bg-card p-6 shadow-lg shadow-black/5 transition hover:-translate-y-1 hover:shadow-xl"
                 >
                   <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
                     Paso {index + 1}
                   </p>
-                  <h3 className="mt-2 text-lg font-semibold">{step.title}</h3>
+                  <h3 className="mt-3 text-lg font-semibold">{step.title}</h3>
                   <p className="mt-2 text-sm text-muted-foreground">
                     {step.description}
                   </p>
@@ -232,8 +186,8 @@ export default function HomePage() {
                 {finalCta.title}
               </h2>
               <a
-                href="/reservar"
-                className="inline-flex items-center justify-center rounded-full bg-background px-6 py-3 text-sm font-semibold uppercase tracking-wide text-foreground transition hover:brightness-105"
+                href="/?reservar=1"
+                className="inline-flex items-center justify-center rounded-full bg-background px-8 py-3 text-sm font-semibold uppercase tracking-wide text-foreground transition hover:brightness-105"
               >
                 {finalCta.button}
               </a>
@@ -241,6 +195,8 @@ export default function HomePage() {
           </div>
         </section>
       </main>
+
+      <ReservationOverlay />
 
       <footer className="border-t border-border/70 bg-secondary/50">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-8 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">

@@ -34,7 +34,7 @@ export default function StepExtras({ state, dispatch }: StepExtrasProps) {
                 <div>
                   <p className="text-base font-semibold">{extra.label}</p>
                   <p className="text-xs text-muted-foreground">
-                    ${extra.price} por reserva
+                    ${extra.price} {extra.unit ?? "por reserva"}
                   </p>
                 </div>
                 <Button

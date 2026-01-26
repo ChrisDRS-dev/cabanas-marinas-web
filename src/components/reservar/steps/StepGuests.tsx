@@ -3,6 +3,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import type { ReservationState } from "@/components/reservar/ReservationWizard";
+import type { PackageType } from "@/lib/calcTotal";
 import type React from "react";
 
 type StepGuestsProps = {
@@ -14,6 +15,7 @@ type StepGuestsProps = {
   >;
   minPeople: number;
   showMinWarning: boolean;
+  packageId: PackageType | null;
 };
 
 function CounterRow({
@@ -22,12 +24,14 @@ function CounterRow({
   value,
   onChange,
   disableAdd,
+  disableSubtract,
 }: {
   label: string;
   description: string;
   value: number;
   onChange: (value: number) => void;
   disableAdd: boolean;
+  disableSubtract: boolean;
 }) {
   return (
     <div className="flex items-center justify-between gap-4 rounded-2xl border border-border/70 bg-background px-4 py-4">
@@ -42,6 +46,7 @@ function CounterRow({
           size="icon-lg"
           onClick={() => onChange(value - 1)}
           className="rounded-full"
+          disabled={disableSubtract}
         >
           -
         </Button>
@@ -67,9 +72,13 @@ export default function StepGuests({
   dispatch,
   minPeople,
   showMinWarning,
+  packageId,
 }: StepGuestsProps) {
   const totalPeople = state.adults + state.kids;
   const maxReached = totalPeople >= 16;
+  const showCouplePackage = totalPeople < 4 && packageId !== "EVENTO";
+  const adultsLocked = state.couplePackage;
+  const maxKids = state.couplePackage ? 1 : 16 - state.adults;
 
   return (
     <section className="space-y-4">
@@ -78,34 +87,38 @@ export default function StepGuests({
           Cuantas personas vienen
         </h2>
         <p className="text-sm text-muted-foreground">
-          Los ninos pagan 50% del valor por adulto.
+          Los niños pagan 50% del valor por adulto.
         </p>
       </div>
       <Card className="border-border/70 py-4">
         <CardContent className="space-y-3">
           <CounterRow
             label="Adultos"
-            description="13 anos en adelante"
+            description="13 años en adelante"
             value={state.adults}
             onChange={(value) =>
               dispatch({
                 type: "setAdults",
-                value: Math.min(16 - state.kids, Math.max(0, value)),
+                value: adultsLocked
+                  ? 2
+                  : Math.min(16 - state.kids, Math.max(0, value)),
               })
             }
-            disableAdd={maxReached}
+            disableAdd={maxReached || adultsLocked}
+            disableSubtract={adultsLocked}
           />
           <CounterRow
             label="Ninos"
-            description="3 a 12 anos"
+            description="3 a 12 años"
             value={state.kids}
             onChange={(value) =>
               dispatch({
                 type: "setKids",
-                value: Math.min(16 - state.adults, Math.max(0, value)),
+                value: Math.min(maxKids, Math.max(0, value)),
               })
             }
-            disableAdd={maxReached}
+            disableAdd={maxReached || (state.couplePackage && state.kids >= 1)}
+            disableSubtract={false}
           />
         </CardContent>
       </Card>
@@ -113,13 +126,25 @@ export default function StepGuests({
         <span className="text-muted-foreground">Total de personas</span>
         <span className="font-semibold">{totalPeople} / 16</span>
       </div>
-      {totalPeople < 4 && (
+      <div className="rounded-2xl border border-border/70 bg-card px-4 py-3 text-sm text-muted-foreground">
+        Cobro mínimo: 4 personas por cabaña.
+      </div>
+      {showCouplePackage && (
         <div className="rounded-2xl border border-border/70 bg-card px-4 py-3">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-sm font-semibold">Paquete pareja</p>
               <p className="text-xs text-muted-foreground">
-                Disponible para grupos pequenos.
+                Reservar una cabaña solo para dos.
+              </p>
+              <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-muted-foreground">
+                <li>Sofá marino incluido.</li>
+                <li>Traslado en lancha ida y vuelta.</li>
+                <li>Juegos de mesa.</li>
+                <li>Utensilios para asador.</li>
+              </ul>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Plan exclusivo para parejas.
               </p>
             </div>
             <Button
@@ -139,9 +164,12 @@ export default function StepGuests({
         </div>
       )}
       {showMinWarning && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          Minimo recomendado: {minPeople} personas en esta fecha. (Prototipo:
-          no aplica al total).
+        <div className="space-y-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p>Minimo: {minPeople} personas en esta fecha.</p>
+          <p>
+            El precio minimo cubre costos de mantenimiento, transporte y
+            facilidades.
+          </p>
         </div>
       )}
     </section>
