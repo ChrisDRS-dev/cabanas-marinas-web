@@ -6,6 +6,8 @@ import ReservationOverlayClient from "@/components/ReservationOverlayClient";
 import { siteData } from "@/lib/siteData";
 import { Suspense } from "react";
 
+export const dynamic = "force-dynamic";
+
 export default function HomePage() {
   const {
     brand,
