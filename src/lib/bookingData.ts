@@ -64,19 +64,45 @@ export const TIME_SLOTS: Record<
 };
 
 export const EXTRAS = [
-  { id: "paddleboard", label: "Paddleboard", price: 10, unit: "por hora" },
-  { id: "kayak", label: "Kayak", price: 10, unit: "por hora" },
   {
-    id: "mascara_bucear",
-    label: "Mascara de bucear",
+    id: "paddleboard",
+    label: "Paddleboard",
+    description: "Tabla de remo para paseos tranquilos cerca de la costa.",
     price: 10,
     unit: "por hora",
   },
-  { id: "cana_pesca", label: "Cana de pesca", price: 10, unit: "por hora" },
-  { id: "sofa_marino", label: "Sofa marino", price: 4, unit: "por persona" },
+  {
+    id: "kayak",
+    label: "Kayak",
+    description: "Kayak individual para remar y explorar el área marina.",
+    price: 10,
+    unit: "por hora",
+  },
+  {
+    id: "mascara_bucear",
+    label: "Mascara de bucear",
+    description: "Máscara para snorkel y observar peces en la orilla.",
+    price: 10,
+    unit: "por hora",
+  },
+  {
+    id: "cana_pesca",
+    label: "Cana de pesca",
+    description: "Caña lista para pesca recreativa desde la orilla.",
+    price: 10,
+    unit: "por hora",
+  },
+  {
+    id: "sofa_marino",
+    label: "Sofa marino",
+    description: "Sofá inflable para flotar y relajarse en el agua.",
+    price: 4,
+    unit: "por persona",
+  },
   {
     id: "wakeboarding",
     label: "Wakeboarding",
+    description: "Tabla con cuerda para deslizarse en lancha a velocidad.",
     price: 19,
     unit: "por persona (7 intentos)",
   },

@@ -126,7 +126,7 @@ export default function StepSummary({
           </div>
           <Separator />
           <div className="flex items-center justify-between text-base font-semibold">
-            <span>Total estimado</span>
+            <span>Costo total</span>
             <span>{formatCurrency(totals.total)}</span>
           </div>
         </CardContent>

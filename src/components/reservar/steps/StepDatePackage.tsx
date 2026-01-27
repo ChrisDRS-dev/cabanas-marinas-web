@@ -34,6 +34,38 @@ function parseHour(value: string) {
   return hour;
 }
 
+function parseTimeToMinutes(value: string) {
+  const [hourText, minuteText = "0"] = value.split(":");
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  if (Number.isNaN(hour) || Number.isNaN(minute)) return null;
+  return hour * 60 + minute;
+}
+
+function isSameDate(dateValue: string, compareDate: Date) {
+  const [year, month, day] = dateValue.split("-").map(Number);
+  return (
+    year === compareDate.getFullYear() &&
+    month - 1 === compareDate.getMonth() &&
+    day === compareDate.getDate()
+  );
+}
+
+function isPastTimeSlot(
+  timeValue: string,
+  dateValue: string | null,
+  now: Date
+) {
+  if (!dateValue) return false;
+  if (!isSameDate(dateValue, now)) return false;
+  const startTime = timeValue.split("-")[0];
+  if (!startTime) return false;
+  const minutes = parseTimeToMinutes(startTime);
+  if (minutes === null) return false;
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  return minutes <= nowMinutes;
+}
+
 function getDurationHours(start: string, end: string) {
   const startHour = parseHour(start);
   const endHour = parseHour(end);
@@ -57,6 +89,7 @@ export default function StepDatePackage({
   const [customError, setCustomError] = useState<string | null>(null);
   const calendarRef = useRef<HTMLDivElement | null>(null);
   const lastPackageRef = useRef<PackageType | null>(null);
+  const now = new Date();
 
   const today = new Date();
   const displayDate = new Date(
@@ -72,6 +105,7 @@ export default function StepDatePackage({
     month: "long",
     year: "numeric",
   });
+  const activeDate = pendingDate ?? state.date;
 
   const timeSlots = useMemo(() => {
     if (!state.packageId) return [];
@@ -91,6 +125,15 @@ export default function StepDatePackage({
         };
       }),
     []
+  );
+
+  const startHourOptionsWithAvailability = useMemo(
+    () =>
+      startHourOptions.map((option) => ({
+        ...option,
+        disabled: isPastTimeSlot(`${option.value}:00`, activeDate, now),
+      })),
+    [startHourOptions, activeDate, now]
   );
 
   const endHourOptions = useMemo(() => {
@@ -199,6 +242,7 @@ export default function StepDatePackage({
 
   const handleConfirmTime = () => {
     if (!pendingTimeSlot) return;
+    if (isPastTimeSlot(pendingTimeSlot, activeDate, now)) return;
     dispatch({ type: "setTimeSlot", value: pendingTimeSlot });
     setShowTimeModal(false);
   };
@@ -398,8 +442,12 @@ export default function StepDatePackage({
                         className="w-full rounded-2xl border border-border/70 bg-background px-4 py-3 text-sm font-semibold"
                       >
                         <option value="">Selecciona</option>
-                        {startHourOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
+                        {startHourOptionsWithAvailability.map((option) => (
+                          <option
+                            key={option.value}
+                            value={option.value}
+                            disabled={option.disabled}
+                          >
                             {option.label}
                           </option>
                         ))}
@@ -440,16 +488,24 @@ export default function StepDatePackage({
                       )}
                       {morningSlots.map((slot) => {
                         const selected = pendingTimeSlot === slot.id;
+                        const disabled = isPastTimeSlot(
+                          slot.id,
+                          activeDate,
+                          now
+                        );
                         return (
                           <button
                             key={slot.id}
                             type="button"
-                            onClick={() => setPendingTimeSlot(slot.id)}
+                            onClick={() =>
+                              !disabled && setPendingTimeSlot(slot.id)
+                            }
+                            disabled={disabled}
                             className={`rounded-full border px-5 py-3 text-sm font-semibold transition ${
                               selected
                                 ? "border-primary bg-primary text-primary-foreground"
                                 : "border-border/70 bg-secondary/40 hover:border-primary/60"
-                            }`}
+                            } ${disabled ? "cursor-not-allowed opacity-40" : ""}`}
                           >
                             {slot.label}
                           </button>
@@ -469,16 +525,24 @@ export default function StepDatePackage({
                       )}
                       {afternoonSlots.map((slot) => {
                         const selected = pendingTimeSlot === slot.id;
+                        const disabled = isPastTimeSlot(
+                          slot.id,
+                          activeDate,
+                          now
+                        );
                         return (
                           <button
                             key={slot.id}
                             type="button"
-                            onClick={() => setPendingTimeSlot(slot.id)}
+                            onClick={() =>
+                              !disabled && setPendingTimeSlot(slot.id)
+                            }
+                            disabled={disabled}
                             className={`rounded-full border px-5 py-3 text-sm font-semibold transition ${
                               selected
                                 ? "border-primary bg-primary text-primary-foreground"
                                 : "border-border/70 bg-secondary/40 hover:border-primary/60"
-                            }`}
+                            } ${disabled ? "cursor-not-allowed opacity-40" : ""}`}
                           >
                             {slot.label}
                           </button>
@@ -502,7 +566,10 @@ export default function StepDatePackage({
                 type="button"
                 onClick={handleConfirmTime}
                 className="rounded-full"
-                disabled={!pendingTimeSlot}
+                disabled={
+                  !pendingTimeSlot ||
+                  isPastTimeSlot(pendingTimeSlot, activeDate, now)
+                }
               >
                 Confirmar horario
               </Button>

@@ -11,9 +11,6 @@ export default function NavbarMobile({ brand }: NavbarMobileProps) {
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-2xl bg-[conic-gradient(from_180deg_at_50%_50%,#0085a1,#ffb347,#0085a1)]" />
           <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-              Cabañas
-            </p>
             <p className="font-display text-lg font-semibold">{brand}</p>
           </div>
         </div>

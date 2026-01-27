@@ -47,7 +47,7 @@ export default function HomePage() {
           <div className="relative mx-auto flex max-w-6xl flex-col gap-10 px-6 py-14">
             <div className="flex max-w-2xl flex-col gap-5">
               <h1 className="font-display text-3xl font-semibold sm:text-4xl lg:text-5xl">
-                Planes claros, decisiones rapidas
+                Planes de reserva
               </h1>
               <p className="text-sm text-muted-foreground sm:text-base">
                 Elige entre 4 horas, 8 horas o la experiencia especial de

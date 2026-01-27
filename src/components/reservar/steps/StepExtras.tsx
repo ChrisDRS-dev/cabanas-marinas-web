@@ -33,6 +33,11 @@ export default function StepExtras({ state, dispatch }: StepExtrasProps) {
               >
                 <div>
                   <p className="text-base font-semibold">{extra.label}</p>
+                  {extra.description && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {extra.description}
+                    </p>
+                  )}
                   <p className="text-xs text-muted-foreground">
                     ${extra.price} {extra.unit ?? "por reserva"}
                   </p>
