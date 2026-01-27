@@ -2,7 +2,7 @@ import FAQAccordion from "@/components/FAQAccordion";
 import MapCard from "@/components/MapCard";
 import NavbarMobile from "@/components/NavbarMobile";
 import GalleryCarousel from "@/components/GalleryCarousel";
-import ReservationOverlay from "@/components/ReservationOverlay";
+import ReservationOverlayClient from "@/components/ReservationOverlayClient";
 import { siteData } from "@/lib/siteData";
 import { Suspense } from "react";
 
@@ -198,7 +198,7 @@ export default function HomePage() {
       </main>
 
       <Suspense fallback={null}>
-        <ReservationOverlay />
+        <ReservationOverlayClient />
       </Suspense>
 
       <footer className="border-t border-border/70 bg-secondary/50">
