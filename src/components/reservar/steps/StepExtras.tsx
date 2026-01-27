@@ -38,7 +38,7 @@ export default function StepExtras({ state, dispatch }: StepExtrasProps) {
                       {extra.description}
                     </p>
                   )}
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-sm font-semibold text-foreground">
                     ${extra.price} {extra.unit ?? "por reserva"}
                   </p>
                 </div>
