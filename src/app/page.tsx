@@ -3,6 +3,7 @@ import MapCard from "@/components/MapCard";
 import NavbarMobile from "@/components/NavbarMobile";
 import GalleryCarousel from "@/components/GalleryCarousel";
 import ReservationOverlayClient from "@/components/ReservationOverlayClient";
+import SupabaseSmokeTestClient from "@/components/SupabaseSmokeTestClient";
 import { siteData } from "@/lib/siteData";
 import { Suspense } from "react";
 
@@ -202,6 +203,7 @@ export default function HomePage() {
       <Suspense fallback={null}>
         <ReservationOverlayClient />
       </Suspense>
+      <SupabaseSmokeTestClient />
 
       <footer className="border-t border-border/70 bg-secondary/50">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-8 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
