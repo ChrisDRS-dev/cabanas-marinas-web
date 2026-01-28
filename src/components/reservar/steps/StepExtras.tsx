@@ -2,16 +2,32 @@
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { EXTRAS } from "@/lib/bookingData";
 import type { ReservationState } from "@/components/reservar/ReservationWizard";
+import type { Extra } from "@/lib/supabase/catalog";
 import type React from "react";
 
 type StepExtrasProps = {
   state: ReservationState;
   dispatch: React.Dispatch<{ type: "setExtra"; id: string; value: boolean }>;
+  extras: Extra[];
 };
 
-export default function StepExtras({ state, dispatch }: StepExtrasProps) {
+function formatExtraUnit(value: Extra["pricingUnit"]) {
+  switch (value) {
+    case "PER_HOUR":
+      return "por hora";
+    case "PER_PERSON":
+      return "por persona";
+    default:
+      return "por reserva";
+  }
+}
+
+export default function StepExtras({
+  state,
+  dispatch,
+  extras,
+}: StepExtrasProps) {
   return (
     <section className="space-y-4">
       <div className="space-y-2">
@@ -24,7 +40,12 @@ export default function StepExtras({ state, dispatch }: StepExtrasProps) {
       </div>
       <Card className="border-border/70 py-4">
         <CardContent className="space-y-3">
-          {EXTRAS.map((extra) => {
+          {extras.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-border/70 bg-secondary/40 px-4 py-3 text-sm text-muted-foreground">
+              Cargando extras disponibles...
+            </div>
+          )}
+          {extras.map((extra) => {
             const selected = state.extras[extra.id] ?? false;
             return (
               <div
@@ -39,7 +60,7 @@ export default function StepExtras({ state, dispatch }: StepExtrasProps) {
                     </p>
                   )}
                   <p className="text-sm font-semibold text-foreground">
-                    ${extra.price} {extra.unit ?? "por reserva"}
+                    ${extra.price} {formatExtraUnit(extra.pricingUnit)}
                   </p>
                 </div>
                 <Button

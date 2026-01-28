@@ -4,15 +4,16 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import type { ReservationState } from "@/components/reservar/ReservationWizard";
 import type { ReservationTotals } from "@/lib/calcTotal";
-import { EXTRAS, PACKAGES } from "@/lib/bookingData";
+import type { Extra, Package } from "@/lib/supabase/catalog";
 
 type StepSummaryProps = {
   state: ReservationState;
-  selectedPackage?: (typeof PACKAGES)[number];
+  selectedPackage?: Package;
   totals: ReservationTotals;
   showMinWarning: boolean;
   minPeople: number;
   weekend: boolean;
+  extrasCatalog: Extra[];
 };
 
 function formatCurrency(value: number) {
@@ -41,10 +42,10 @@ export default function StepSummary({
   showMinWarning,
   minPeople,
   weekend,
+  extrasCatalog,
 }: StepSummaryProps) {
-  const selectedExtras = EXTRAS.filter(
-    (extra) => state.extras[extra.id] ?? false
-  )
+  const selectedExtras = extrasCatalog
+    .filter((extra) => state.extras[extra.id] ?? false)
     .map((extra) => extra.label)
     .join(", ");
 

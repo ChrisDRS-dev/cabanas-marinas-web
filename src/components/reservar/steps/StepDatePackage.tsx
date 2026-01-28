@@ -4,9 +4,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { PACKAGES, TIME_SLOTS } from "@/lib/bookingData";
 import type { ReservationState } from "@/components/reservar/ReservationWizard";
 import type { PackageType } from "@/lib/calcTotal";
+import type { Package, TimeSlot } from "@/lib/supabase/catalog";
 import type React from "react";
 
 type StepDatePackageProps = {
@@ -16,7 +16,9 @@ type StepDatePackageProps = {
     | { type: "setPackage"; value: PackageType }
     | { type: "setTimeSlot"; value: string | null }
   >;
-  selectedPackage?: (typeof PACKAGES)[number];
+  selectedPackage?: Package;
+  packages: Package[];
+  timeSlotsByPackage: Record<string, TimeSlot[]>;
 };
 
 const EVENTO_PACKAGE_ID: PackageType = "EVENTO";
@@ -77,6 +79,8 @@ export default function StepDatePackage({
   state,
   dispatch,
   selectedPackage,
+  packages,
+  timeSlotsByPackage,
 }: StepDatePackageProps) {
   const [monthOffset, setMonthOffset] = useState(0);
   const [showTimeModal, setShowTimeModal] = useState(false);
@@ -109,8 +113,8 @@ export default function StepDatePackage({
 
   const timeSlots = useMemo(() => {
     if (!state.packageId) return [];
-    return TIME_SLOTS[state.packageId] ?? [];
-  }, [state.packageId]);
+    return timeSlotsByPackage[state.packageId] ?? [];
+  }, [state.packageId, timeSlotsByPackage]);
 
   const morningSlots = timeSlots.filter((slot) => slot.period === "mañana");
   const afternoonSlots = timeSlots.filter((slot) => slot.period !== "mañana");
@@ -260,7 +264,12 @@ export default function StepDatePackage({
           )}
         </div>
         <div className="grid gap-3">
-          {PACKAGES.map((pkg) => {
+          {packages.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-border/70 bg-secondary/40 px-4 py-3 text-sm text-muted-foreground">
+              Cargando paquetes disponibles...
+            </div>
+          )}
+          {packages.map((pkg) => {
             const selected = state.packageId === pkg.id;
             return (
               <button

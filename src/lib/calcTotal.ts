@@ -1,6 +1,6 @@
-import { EXTRAS, KID_DISCOUNT, PACKAGES } from "@/lib/bookingData";
+import type { Extra, Package } from "@/lib/supabase/catalog";
 
-export type PackageType = (typeof PACKAGES)[number]["id"];
+export type PackageType = string;
 
 export type ReservationTotals = {
   base: number;
@@ -8,23 +8,37 @@ export type ReservationTotals = {
   total: number;
 };
 
-export function calcTotal(
-  packageId: PackageType | null,
-  adults: number,
-  kids: number,
-  extras: Record<string, boolean>
-): ReservationTotals {
-  const pkg = PACKAGES.find((item) => item.id === packageId);
+type CalcTotalInput = {
+  packageId: PackageType | null;
+  adults: number;
+  kids: number;
+  extras: Record<string, boolean>;
+  packages: Package[];
+  extrasCatalog: Extra[];
+  minPeopleForDate?: number;
+};
+
+export function calcTotal({
+  packageId,
+  adults,
+  kids,
+  extras,
+  packages,
+  extrasCatalog,
+  minPeopleForDate,
+}: CalcTotalInput): ReservationTotals {
+  const pkg = packages.find((item) => item.id === packageId);
   if (!pkg) {
     return { base: 0, extrasTotal: 0, total: 0 };
   }
 
+  const kidDiscount = pkg.kidDiscount ?? 0;
   const baseRaw =
-    adults * pkg.pricePerAdult +
-    kids * pkg.pricePerAdult * KID_DISCOUNT;
-  const minBase = 4 * pkg.pricePerAdult;
+    adults * pkg.pricePerAdult + kids * pkg.pricePerAdult * kidDiscount;
+  const minPeople = minPeopleForDate ?? 4;
+  const minBase = minPeople * pkg.pricePerAdult;
   const base = Math.max(baseRaw, minBase);
-  const extrasTotal = EXTRAS.reduce((sum, extra) => {
+  const extrasTotal = extrasCatalog.reduce((sum, extra) => {
     const selected = extras[extra.id] ?? false;
     return sum + (selected ? extra.price : 0);
   }, 0);

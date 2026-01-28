@@ -3,19 +3,23 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import type { ReservationState } from "@/components/reservar/ReservationWizard";
-import { TIME_SLOTS } from "@/lib/bookingData";
 import type { PackageType } from "@/lib/calcTotal";
+import type { TimeSlot } from "@/lib/supabase/catalog";
 import type React from "react";
 
 type StepTimeProps = {
   packageId: PackageType | null;
   state: ReservationState;
   dispatch: React.Dispatch<{ type: "setTimeSlot"; value: string | null }>;
+  timeSlotsByPackage: Record<string, TimeSlot[]>;
 };
 
-function buildTimeSlots(packageId: PackageType | null) {
+function buildTimeSlots(
+  packageId: PackageType | null,
+  timeSlotsByPackage: Record<string, TimeSlot[]>
+) {
   if (!packageId) return [];
-  return TIME_SLOTS[packageId] ?? [];
+  return timeSlotsByPackage[packageId] ?? [];
 }
 
 const EVENTO_PACKAGE_ID: PackageType = "EVENTO";
@@ -40,8 +44,13 @@ function getDurationHours(start: string, end: string) {
   return (endHour - startHour + HOURS_IN_DAY) % HOURS_IN_DAY;
 }
 
-export default function StepTime({ packageId, state, dispatch }: StepTimeProps) {
-  const timeSlots = buildTimeSlots(packageId);
+export default function StepTime({
+  packageId,
+  state,
+  dispatch,
+  timeSlotsByPackage,
+}: StepTimeProps) {
+  const timeSlots = buildTimeSlots(packageId, timeSlotsByPackage);
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const [customError, setCustomError] = useState<string | null>(null);

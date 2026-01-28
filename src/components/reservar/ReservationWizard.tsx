@@ -1,15 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useReducer, useRef } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { EXTRAS, PACKAGES } from "@/lib/bookingData";
 import { calcTotal, PackageType } from "@/lib/calcTotal";
 import StepDatePackage from "@/components/reservar/steps/StepDatePackage";
 import StepGuests from "@/components/reservar/steps/StepGuests";
 import StepExtras from "@/components/reservar/steps/StepExtras";
 import StepPayment from "@/components/reservar/steps/StepPayment";
 import StepSummary from "@/components/reservar/steps/StepSummary";
+import {
+  fetchCatalog,
+  type Extra,
+  type Package,
+  type TimeSlot,
+} from "@/lib/supabase/catalog";
 
 export type PaymentMethod = "YAPPY" | "PAYPAL" | "CARD" | "CASH";
 
@@ -32,6 +37,7 @@ type Action =
   | { type: "setAdults"; value: number }
   | { type: "setKids"; value: number }
   | { type: "setExtra"; id: string; value: boolean }
+  | { type: "syncExtras"; ids: string[] }
   | { type: "setCouplePackage"; value: boolean }
   | { type: "setPayment"; value: PaymentMethod | null }
   | { type: "setStep"; value: number }
@@ -41,10 +47,6 @@ type Action =
 const TOTAL_STEPS = 4;
 const DEFAULT_MIN_PEOPLE = 4;
 
-const initialExtras = Object.fromEntries(
-  EXTRAS.map((extra) => [extra.id, false])
-);
-
 const initialState: ReservationState = {
   step: 1,
   date: null,
@@ -52,7 +54,7 @@ const initialState: ReservationState = {
   timeSlot: null,
   adults: 2,
   kids: 0,
-  extras: initialExtras,
+  extras: {},
   couplePackage: false,
   paymentMethod: null,
 };
@@ -84,6 +86,13 @@ function reducer(state: ReservationState, action: Action): ReservationState {
         ...state,
         extras: { ...state.extras, [action.id]: action.value },
       };
+    case "syncExtras": {
+      const next = { ...state.extras };
+      const filtered = Object.fromEntries(
+        action.ids.map((id) => [id, next[id] ?? false])
+      );
+      return { ...state, extras: filtered };
+    }
     case "setCouplePackage":
       return {
         ...state,
@@ -128,6 +137,12 @@ export default function ReservationWizard({
   const [state, dispatch] = useReducer(reducer, initialState);
   const searchParams = useSearchParams();
   const isModal = mode === "modal";
+  const [packages, setPackages] = useState<Package[]>([]);
+  const [timeSlotsByPackage, setTimeSlotsByPackage] = useState<
+    Record<string, TimeSlot[]>
+  >({});
+  const [extrasCatalog, setExtrasCatalog] = useState<Extra[]>([]);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
 
   const scrollToSummary = () => {
     const summary = document.getElementById("reservation-summary-title");
@@ -156,25 +171,71 @@ export default function ReservationWizard({
   };
 
   useEffect(() => {
+    let active = true;
+    const load = async () => {
+      try {
+        const catalog = await fetchCatalog();
+        if (!active) return;
+        setPackages(catalog.packages);
+        setTimeSlotsByPackage(catalog.timeSlotsByPackage);
+        setExtrasCatalog(catalog.extras);
+        dispatch({
+          type: "syncExtras",
+          ids: catalog.extras.map((extra) => extra.id),
+        });
+      } catch (error) {
+        if (!active) return;
+        setCatalogError(
+          error instanceof Error
+            ? error.message
+            : "No se pudo cargar el catalogo."
+        );
+      }
+    };
+
+    load();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
     const pkg = searchParams.get("package") as PackageType | null;
     if (!pkg) return;
-    const exists = PACKAGES.some((item) => item.id === pkg);
+    const exists = packages.some((item) => item.id === pkg);
     if (exists && state.packageId !== pkg) {
       dispatch({ type: "setPackage", value: pkg });
     }
-  }, [searchParams, state.packageId]);
+  }, [searchParams, state.packageId, packages]);
 
-  const selectedPackage = PACKAGES.find((item) => item.id === state.packageId);
-  const totals = useMemo(
-    () => calcTotal(state.packageId, state.adults, state.kids, state.extras),
-    [state.packageId, state.adults, state.kids, state.extras]
-  );
   const weekend = isWeekend(state.date);
+  const selectedPackage = packages.find((item) => item.id === state.packageId);
   const minPeople = selectedPackage
     ? weekend
       ? selectedPackage.minPeopleWeekend
       : selectedPackage.minPeopleWeekday
     : 0;
+  const totals = useMemo(
+    () =>
+      calcTotal({
+        packageId: state.packageId,
+        adults: state.adults,
+        kids: state.kids,
+        extras: state.extras,
+        packages,
+        extrasCatalog,
+        minPeopleForDate: minPeople || undefined,
+      }),
+    [
+      state.packageId,
+      state.adults,
+      state.kids,
+      state.extras,
+      packages,
+      extrasCatalog,
+      minPeople,
+    ]
+  );
   const totalPeople = state.adults + state.kids;
   const showMinWarning = minPeople > 0 && totalPeople < minPeople;
 
@@ -272,6 +333,11 @@ export default function ReservationWizard({
       </div>
 
       <main className="mx-auto flex max-w-3xl flex-1 flex-col gap-8 px-6 pb-32 pt-6">
+        {catalogError && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            {catalogError}
+          </div>
+        )}
         {state.step === 1 && (
           <StepGuests
             state={state}
@@ -286,10 +352,16 @@ export default function ReservationWizard({
             state={state}
             dispatch={dispatch}
             selectedPackage={selectedPackage}
+            packages={packages}
+            timeSlotsByPackage={timeSlotsByPackage}
           />
         )}
         {state.step === 3 && (
-          <StepExtras state={state} dispatch={dispatch} />
+          <StepExtras
+            state={state}
+            dispatch={dispatch}
+            extras={extrasCatalog}
+          />
         )}
         {state.step === 4 && (
           <>
@@ -305,6 +377,7 @@ export default function ReservationWizard({
               showMinWarning={showMinWarning}
               minPeople={minPeople}
               weekend={weekend}
+              extrasCatalog={extrasCatalog}
             />
           </>
         )}
