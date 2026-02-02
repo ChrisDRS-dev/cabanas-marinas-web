@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import useReserveAction from "@/hooks/useReserveAction";
 
 type GalleryItem = {
   title: string;
@@ -23,6 +24,7 @@ export default function GalleryCarousel({ items }: GalleryCarouselProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const directionRef = useRef<1 | -1>(1);
   const indexRef = useRef(0);
+  const reserve = useReserveAction();
 
   useEffect(() => {
     const container = containerRef.current;
@@ -69,6 +71,10 @@ export default function GalleryCarousel({ items }: GalleryCarouselProps) {
           key={item.title}
           href={item.href}
           data-gallery-card
+          onClick={(event) => {
+            event.preventDefault();
+            void reserve(item.href);
+          }}
           className="group relative min-w-[78%] snap-center overflow-hidden rounded-[2rem] border border-border bg-card shadow-xl shadow-black/5 aspect-square transition hover:-translate-y-1 hover:scale-[1.02] hover:shadow-2xl sm:min-w-[48%] lg:min-w-[10%]"
         >
           <div

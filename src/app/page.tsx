@@ -4,6 +4,7 @@ import NavbarMobile from "@/components/NavbarMobile";
 import GalleryCarousel from "@/components/GalleryCarousel";
 import ReservationOverlayClient from "@/components/ReservationOverlayClient";
 import SupabaseSmokeTestClient from "@/components/SupabaseSmokeTestClient";
+import ReserveButton from "@/components/ReserveButton";
 import { siteData } from "@/lib/siteData";
 import { Suspense } from "react";
 
@@ -189,12 +190,12 @@ export default function HomePage() {
               <h2 className="font-display text-3xl font-semibold sm:text-4xl">
                 {finalCta.title}
               </h2>
-              <a
+              <ReserveButton
                 href="/?reservar=1"
                 className="inline-flex items-center justify-center rounded-full bg-background px-8 py-3 text-sm font-semibold uppercase tracking-wide text-foreground transition hover:brightness-105"
               >
                 {finalCta.button}
-              </a>
+              </ReserveButton>
             </div>
           </div>
         </section>

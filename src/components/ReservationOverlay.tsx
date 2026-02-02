@@ -1,26 +1,38 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import ReservationWizard from "@/components/reservar/ReservationWizard";
+import { useAuth } from "@/components/AuthProvider";
 
 export default function ReservationOverlay() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
+  const { session, requireAuthFor } = useAuth();
   const show =
     pathname === "/" &&
     (searchParams.get("reservar") === "1" ||
       searchParams.get("reservar") === "true");
+  const hasSession = useMemo(() => Boolean(session), [session]);
+  const pendingHref = useMemo(() => {
+    const query = searchParams.toString();
+    return query ? `/?${query}` : "/";
+  }, [searchParams]);
 
   useEffect(() => {
-    if (!show) return;
+    if (!show || hasSession) return;
+    void requireAuthFor(pendingHref);
+  }, [hasSession, pendingHref, requireAuthFor, show]);
+
+  useEffect(() => {
+    if (!show || !hasSession) return;
     const original = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = original;
     };
-  }, [show]);
+  }, [show, hasSession]);
 
   const handleClose = () => {
     const params = new URLSearchParams(searchParams.toString());
@@ -30,7 +42,7 @@ export default function ReservationOverlay() {
     router.replace(query ? `/?${query}` : "/");
   };
 
-  if (!show) return null;
+  if (!show || !hasSession) return null;
 
   return (
     <div
