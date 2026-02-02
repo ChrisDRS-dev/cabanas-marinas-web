@@ -48,6 +48,20 @@ export default function AuthProvider({
 
   const openAuth = () => setAuthOpen(true);
 
+  const handleClose = () => {
+    setAuthOpen(false);
+    if (!pendingRedirect) return;
+    sessionStorage.removeItem(PENDING_REDIRECT_KEY);
+    setPendingRedirect(null);
+    const url = new URL(window.location.href);
+    if (url.searchParams.has("reservar") || url.searchParams.has("package")) {
+      url.searchParams.delete("reservar");
+      url.searchParams.delete("package");
+      const query = url.searchParams.toString();
+      router.replace(query ? `${url.pathname}?${query}` : url.pathname);
+    }
+  };
+
   const requireAuthFor = async (redirectTo: string) => {
     const { data } = await supabase.auth.getSession();
     if (data.session) return true;
@@ -65,7 +79,7 @@ export default function AuthProvider({
   return (
     <AuthContext.Provider value={value}>
       {children}
-      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
+      <AuthModal open={authOpen} onClose={handleClose} />
     </AuthContext.Provider>
   );
 }

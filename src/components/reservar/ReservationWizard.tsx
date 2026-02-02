@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { calcTotal, PackageType } from "@/lib/calcTotal";
 import StepDatePackage from "@/components/reservar/steps/StepDatePackage";
@@ -136,6 +136,8 @@ export default function ReservationWizard({
 }) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const isModal = mode === "modal";
   const [packages, setPackages] = useState<Package[]>([]);
   const [timeSlotsByPackage, setTimeSlotsByPackage] = useState<
@@ -143,6 +145,7 @@ export default function ReservationWizard({
   >({});
   const [extrasCatalog, setExtrasCatalog] = useState<Extra[]>([]);
   const [catalogError, setCatalogError] = useState<string | null>(null);
+  const appliedPresetRef = useRef(false);
 
   const scrollToSummary = () => {
     const summary = document.getElementById("reservation-summary-title");
@@ -203,10 +206,14 @@ export default function ReservationWizard({
     const pkg = searchParams.get("package") as PackageType | null;
     if (!pkg) return;
     const exists = packages.some((item) => item.id === pkg);
-    if (exists && state.packageId !== pkg) {
-      dispatch({ type: "setPackage", value: pkg });
-    }
-  }, [searchParams, state.packageId, packages]);
+    if (!exists || appliedPresetRef.current) return;
+    appliedPresetRef.current = true;
+    dispatch({ type: "setPackage", value: pkg });
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("package");
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname);
+  }, [searchParams, packages, router, pathname, state.packageId]);
 
   const weekend = isWeekend(state.date);
   const selectedPackage = packages.find((item) => item.id === state.packageId);
