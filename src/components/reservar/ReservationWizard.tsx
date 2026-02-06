@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { calcTotal, PackageType } from "@/lib/calcTotal";
 import StepDatePackage from "@/components/reservar/steps/StepDatePackage";
@@ -9,6 +9,7 @@ import StepGuests from "@/components/reservar/steps/StepGuests";
 import StepExtras from "@/components/reservar/steps/StepExtras";
 import StepPayment from "@/components/reservar/steps/StepPayment";
 import StepSummary from "@/components/reservar/steps/StepSummary";
+import { supabase } from "@/lib/supabase/client";
 import {
   fetchCatalog,
   type Extra,
@@ -18,6 +19,7 @@ import {
 import {
   fetchFormConfig,
   type FormStepConfig,
+  type FormConfig,
 } from "@/lib/supabase/formConfig";
 
 export type PaymentMethod = "YAPPY" | "PAYPAL" | "CARD" | "CASH";
@@ -65,7 +67,7 @@ const initialState: ReservationState = {
   kids: 0,
   extras: {},
   couplePackage: false,
-  paymentMethod: null,
+  paymentMethod: "CASH",
 };
 
 function reducer(state: ReservationState, action: Action): ReservationState {
@@ -153,11 +155,68 @@ export default function ReservationWizard({
   const [extrasCatalog, setExtrasCatalog] = useState<Extra[]>([]);
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [formSteps, setFormSteps] = useState<FormStepConfig[]>(DEFAULT_STEPS);
+  const [formConfig, setFormConfig] = useState<FormConfig | null>(null);
   const [formConfigError, setFormConfigError] = useState<string | null>(null);
   const [showSummary, setShowSummary] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [confirmationId, setConfirmationId] = useState<string | null>(null);
+  const [profileName, setProfileName] = useState<string | null>(null);
+  const [reservationCabinCode, setReservationCabinCode] = useState<string | null>(null);
+  const [profilePhone, setProfilePhone] = useState<string | null>(null);
+  const [showPhonePrompt, setShowPhonePrompt] = useState(false);
+  const [phoneInput, setPhoneInput] = useState("");
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [confirmationData, setConfirmationData] = useState<{
+    id: string | null;
+    name: string | null;
+    adults: number;
+    kids: number;
+    packageLabel: string | null;
+    date: string | null;
+    timeSlot: string | null;
+    extras: string[];
+    cabinCode: string | null;
+  } | null>(null);
+  const [isRepeatConfirmation, setIsRepeatConfirmation] = useState(false);
+  const [profileUserId, setProfileUserId] = useState<string | null>(null);
+
+  const router = useRouter();
+
+  const formatTime = (value: string) =>
+    value.includes(":") ? value.slice(0, 5) : value;
+
+  const resolveTimeRange = () => {
+    if (!state.timeSlot) return null;
+    if (state.timeSlot.includes("-")) {
+      const [start, end] = state.timeSlot.split("-");
+      return {
+        start: start.replace(":00", "").trim(),
+        end: end?.replace(":00", "").trim() ?? "",
+      };
+    }
+    if (selectedPackage?.durationMinutes) {
+      const [hourText, minuteText = "0"] = state.timeSlot.split(":");
+      const startHour = Number(hourText);
+      const startMinute = Number(minuteText);
+      if (!Number.isNaN(startHour) && !Number.isNaN(startMinute)) {
+        const startDate = new Date(0, 0, 0, startHour, startMinute);
+        const endDate = new Date(
+          startDate.getTime() + selectedPackage.durationMinutes * 60 * 1000
+        );
+        const start = `${String(startDate.getHours()).padStart(2, "0")}:${String(
+          startDate.getMinutes()
+        ).padStart(2, "0")}`;
+        const end = `${String(endDate.getHours()).padStart(2, "0")}:${String(
+          endDate.getMinutes()
+        ).padStart(2, "0")}`;
+        return { start, end };
+      }
+    }
+    return { start: state.timeSlot, end: "" };
+  };
 
   const scrollToSummary = () => {
     const summary = document.getElementById("reservation-summary-title");
@@ -229,6 +288,7 @@ export default function ReservationWizard({
         if (config.show_summary === false) {
           setShowSummary(false);
         }
+        setFormConfig(config);
       } catch (error) {
         if (!active) return;
         setFormConfigError(
@@ -244,6 +304,68 @@ export default function ReservationWizard({
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    const loadProfile = async () => {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const user = sessionData.session?.user;
+        if (!user || !active) return;
+        setProfileUserId(user.id);
+        const { data } = await supabase
+          .from("profiles")
+          .select("full_name, phone")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (!active) return;
+        const nameFromProfile = data?.full_name ?? null;
+        const phoneFromProfile = data?.phone ?? null;
+        const nameFromMeta =
+          (user.user_metadata?.full_name as string | undefined) ??
+          (user.user_metadata?.name as string | undefined) ??
+          null;
+        setProfileName(nameFromProfile ?? nameFromMeta);
+        setProfilePhone(phoneFromProfile);
+      } catch {
+        if (!active) return;
+        setProfileName(null);
+        setProfilePhone(null);
+      }
+    };
+    loadProfile();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!profileUserId) return;
+    const key = `cm_last_reservation:${profileUserId}`;
+    const saved = window.localStorage.getItem(key);
+    if (!saved) return;
+    try {
+      const parsed = JSON.parse(saved) as {
+        id: string | null;
+        name: string | null;
+        adults: number;
+        kids: number;
+        packageLabel: string | null;
+        date: string | null;
+        timeSlot: string | null;
+        extras: string[];
+        cabinCode: string | null;
+      };
+      setIsRepeatConfirmation(true);
+      setConfirmationData(parsed);
+      setConfirmationId(parsed.id ?? null);
+      setReservationCabinCode(parsed.cabinCode ?? null);
+      setShowConfirmation(true);
+    } catch {
+      window.localStorage.removeItem(key);
+    }
+  }, [profileUserId]);
 
   useEffect(() => {
     const pkg = searchParams.get("package") as PackageType | null;
@@ -339,24 +461,63 @@ export default function ReservationWizard({
 
       const result = await response.json();
       if (!response.ok) {
+        const code = String(result?.error ?? "");
         const message =
-          result?.error === "not_authenticated"
+          code === "not_authenticated" || code === "CM_NOT_AUTHENTICATED"
             ? "Inicia sesion para completar la reserva."
-            : result?.error === "min_people_required"
+            : code === "missing_fields"
+            ? "Completa todos los campos obligatorios."
+            : code === "CM_INVALID_TIME_RANGE"
+            ? "El horario seleccionado no es valido."
+            : code === "CM_INVALID_PEOPLE_COUNT"
+            ? "Indica la cantidad de personas para continuar."
+            : code === "CM_MIN_PEOPLE_REQUIRED"
             ? "No cumples con el minimo de personas para esta fecha."
-            : result?.error === "no_cabin_available"
+            : code === "CM_NO_CABIN_AVAILABLE"
             ? "No hay cabañas disponibles para ese horario."
-            : result?.error === "invalid_package"
+            : code === "CM_MAX_PEOPLE_EXCEEDED"
+            ? "La capacidad maxima por reserva es de 16 personas."
+            : code === "CM_INVALID_PACKAGE" || code === "invalid_package"
             ? "Paquete invalido. Actualiza la pagina."
-            : result?.error ?? "No se pudo completar la reserva.";
+            : "No se pudo completar la reserva.";
         throw new Error(message);
       }
 
       setSubmitSuccess(
         result?.id
-          ? `Reserva creada: ${String(result.id).slice(0, 8)}`
-          : "Reserva creada. Te contactaremos pronto."
+          ? `Reserva creada: ${String(result.id).slice(0, 8)} · Pago pendiente`
+          : "Reserva creada. Pago pendiente. Te contactaremos pronto."
       );
+      const resolvedExtras = Object.entries(state.extras)
+        .filter(([, selected]) => selected)
+        .map(
+          ([id]) => extrasCatalog.find((extra) => extra.id === id)?.label ?? id
+        );
+      const payload = {
+        id: result?.id ?? null,
+        name: profileName ?? null,
+        adults: state.adults,
+        kids: state.kids,
+        packageLabel: selectedPackage?.label ?? null,
+        date: state.date,
+        timeSlot: state.timeSlot,
+        extras: resolvedExtras,
+        cabinCode: result?.cabinCode ?? null,
+      };
+      setConfirmationId(result?.id ?? null);
+      setReservationCabinCode(result?.cabinCode ?? null);
+      setConfirmationData(payload);
+      if (typeof window !== "undefined" && profileUserId) {
+        window.localStorage.setItem(
+          `cm_last_reservation:${profileUserId}`,
+          JSON.stringify(payload)
+        );
+      }
+      if (!profilePhone) {
+        setShowPhonePrompt(true);
+      } else {
+        setShowConfirmation(true);
+      }
     } catch (error) {
       setSubmitError(
         error instanceof Error ? error.message : "No se pudo completar la reserva."
@@ -368,6 +529,7 @@ export default function ReservationWizard({
 
   const handlePrimaryAction = () => {
     if (!isStepComplete()) return;
+    if (showConfirmation || showPhonePrompt || isSubmitting) return;
     if (state.step === totalSteps) {
       void submitReservation();
       return;
@@ -456,6 +618,7 @@ export default function ReservationWizard({
             minPeople={minPeople}
             showMinWarning={showMinWarning}
             packageId={state.packageId}
+            config={formConfig?.guests}
           />
         )}
         {activeStep === "date_package" && (
@@ -465,6 +628,7 @@ export default function ReservationWizard({
             selectedPackage={selectedPackage}
             packages={packages}
             timeSlotsByPackage={timeSlotsByPackage}
+            config={formConfig?.date_package}
           />
         )}
         {activeStep === "extras" && (
@@ -472,6 +636,7 @@ export default function ReservationWizard({
             state={state}
             dispatch={dispatch}
             extras={extrasCatalog}
+            config={formConfig?.extras}
           />
         )}
         {activeStep === "payment" && (
@@ -480,6 +645,7 @@ export default function ReservationWizard({
               state={state}
               dispatch={dispatch}
               onSelected={scrollToSummary}
+              config={formConfig?.payment}
             />
             <StepSummary
               state={state}
@@ -567,6 +733,214 @@ export default function ReservationWizard({
         )}
       </main>
 
+      {showPhonePrompt && (
+        <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/50 px-4 py-6">
+          <div className="w-full max-w-md rounded-3xl border border-border/70 bg-card p-6 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+                  Número de contacto
+                </p>
+                <h3 className="mt-1 text-xl font-semibold text-foreground">
+                  ¿Nos dejas tu teléfono?
+                </h3>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setShowPhonePrompt(false);
+                  setShowConfirmation(true);
+                }}
+                className="rounded-full"
+              >
+                Omitir
+              </Button>
+            </div>
+            <p className="mt-3 text-sm text-muted-foreground">
+              Así podemos coordinar tu llegada y confirmar la reserva.
+            </p>
+            <input
+              type="tel"
+              value={phoneInput}
+              onChange={(event) => setPhoneInput(event.target.value)}
+              placeholder="Ej: +507 6000-0000"
+              className="mt-4 w-full rounded-2xl border border-border/70 bg-background px-4 py-3 text-sm font-semibold text-foreground"
+            />
+            <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+              <Button
+                type="button"
+                className="w-full rounded-full"
+                onClick={async () => {
+                  const value = phoneInput.trim();
+                  setPhoneError(null);
+                  if (!value) {
+                    setShowPhonePrompt(false);
+                    setShowConfirmation(true);
+                    return;
+                  }
+                  try {
+                    const response = await fetch("/api/profile/phone", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ phone: value }),
+                    });
+                    const result = await response.json();
+                    if (!response.ok) {
+                      throw new Error(result?.error ?? "No se pudo guardar el teléfono.");
+                    }
+                    setProfilePhone(value);
+                    setShowPhonePrompt(false);
+                    setShowConfirmation(true);
+                  } catch (error) {
+                    setPhoneError(
+                      error instanceof Error
+                        ? error.message
+                        : "No se pudo guardar el teléfono."
+                    );
+                  }
+                }}
+              >
+                Guardar teléfono
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full rounded-full"
+                onClick={() => {
+                  setShowPhonePrompt(false);
+                  setShowConfirmation(true);
+                }}
+              >
+                Continuar sin teléfono
+              </Button>
+            </div>
+            {phoneError && (
+              <p className="mt-3 text-xs text-rose-600">{phoneError}</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {showConfirmation && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 px-4 py-6">
+          <div className="w-full max-w-lg rounded-3xl border border-border/70 bg-card p-6 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+                  Reserva creada
+                </p>
+                <h3 className="mt-1 text-2xl font-semibold text-foreground">
+                  {confirmationData?.name ?? profileName ?? "Reserva confirmada"}
+                </h3>
+                {confirmationId && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    ID: {String(confirmationId).slice(0, 8)}
+                  </p>
+                )}
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => router.push("/")}
+                className="rounded-full"
+              >
+                Cerrar
+              </Button>
+            </div>
+            <div className="mt-4 space-y-3 text-sm text-muted-foreground">
+              {isRepeatConfirmation && (
+                <p className="text-xs text-muted-foreground">
+                  Solo puedes tener una reserva activa. Si quieres reservar otra
+                  fecha, contáctanos por WhatsApp.
+                </p>
+              )}
+              <p>
+                Gracias por reservar con nosotros. Te contactaremos pronto para
+                coordinar detalles y confirmar el pago.
+              </p>
+              <div className="grid gap-2 rounded-2xl border border-border/70 bg-background px-4 py-3 text-sm">
+                <p>
+                  <span className="font-semibold text-foreground">Personas:</span>{" "}
+                  {(confirmationData?.adults ?? state.adults) +
+                    (confirmationData?.kids ?? state.kids)}{" "}
+                  (Adultos: {confirmationData?.adults ?? state.adults}, Niños:{" "}
+                  {confirmationData?.kids ?? state.kids})
+                </p>
+                <p>
+                  <span className="font-semibold text-foreground">Plan:</span>{" "}
+                  {confirmationData?.packageLabel ??
+                    selectedPackage?.label ??
+                    "Por confirmar"}
+                </p>
+                <p>
+                  <span className="font-semibold text-foreground">Cabaña:</span>{" "}
+                  {confirmationData?.cabinCode ??
+                    reservationCabinCode ??
+                    "Por asignar"}
+                </p>
+                <p>
+                  <span className="font-semibold text-foreground">Fecha:</span>{" "}
+                  {confirmationData?.date ?? state.date ?? "Por confirmar"}
+                </p>
+                <p>
+                  <span className="font-semibold text-foreground">
+                    Hora entrada:
+                  </span>{" "}
+                  {confirmationData?.timeSlot
+                    ? formatTime(resolveTimeRange()?.start ?? confirmationData.timeSlot)
+                    : resolveTimeRange()?.start
+                    ? formatTime(resolveTimeRange()!.start)
+                    : "Por confirmar"}
+                </p>
+                <p>
+                  <span className="font-semibold text-foreground">
+                    Hora salida:
+                  </span>{" "}
+                  {confirmationData?.timeSlot
+                    ? formatTime(resolveTimeRange()?.end ?? "")
+                    : resolveTimeRange()?.end
+                    ? formatTime(resolveTimeRange()!.end)
+                    : "Por confirmar"}
+                </p>
+                <p>
+                  <span className="font-semibold text-foreground">
+                    Equipamiento adicional:
+                  </span>{" "}
+                  {confirmationData?.extras?.length
+                    ? confirmationData.extras.join(", ")
+                    : Object.entries(state.extras)
+                        .filter(([, selected]) => selected)
+                        .map(
+                          ([id]) =>
+                            extrasCatalog.find((extra) => extra.id === id)?.label ??
+                            id
+                        )
+                        .join(", ") || "Ninguno"}
+                </p>
+              </div>
+            </div>
+            <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+              <Button
+                type="button"
+                onClick={() => router.push("/")}
+                className="w-full rounded-full"
+              >
+                Entendido
+              </Button>
+              <a
+                href="/"
+                className="w-full rounded-full border border-border/70 px-4 py-2 text-center text-sm font-semibold"
+              >
+                Volver al inicio
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div
         className={`${
           isModal ? "sticky bottom-4" : "fixed inset-x-0 bottom-4"
@@ -585,7 +959,7 @@ export default function ReservationWizard({
             className="flex-1 rounded-full text-base font-semibold sm:text-sm"
             size="lg"
             onClick={handlePrimaryAction}
-            disabled={!isStepComplete() || isSubmitting}
+            disabled={!isStepComplete() || isSubmitting || showConfirmation || showPhonePrompt}
           >
             <span className="flex w-full items-center justify-between">
               {isSubmitting ? "Enviando..." : primaryLabel}

@@ -5,6 +5,7 @@ import type {
   ReservationState,
   PaymentMethod,
 } from "@/components/reservar/ReservationWizard";
+import type { PaymentMethodConfig } from "@/lib/supabase/formConfig";
 import type React from "react";
 
 const METHODS: {
@@ -38,26 +39,41 @@ type StepPaymentProps = {
   state: ReservationState;
   dispatch: React.Dispatch<{ type: "setPayment"; value: PaymentMethod | null }>;
   onSelected?: () => void;
+  config?: {
+    title?: string;
+    subtitle?: string;
+    methods?: PaymentMethodConfig[];
+  };
 };
 
 export default function StepPayment({
   state,
   dispatch,
   onSelected,
+  config,
 }: StepPaymentProps) {
+  const title = config?.title ?? "Metodo de pago";
+  const subtitle =
+    config?.subtitle ?? "Selecciona como prefieres confirmar tu reserva.";
+  const methods =
+    config?.methods && config.methods.length > 0
+      ? config.methods.map((method) => ({
+          id: method.id,
+          label: method.label ?? method.id,
+          description: method.description ?? "",
+          enabled: method.enabled ?? false,
+        }))
+      : METHODS;
+
   return (
     <section className="space-y-4">
       <div className="space-y-2">
-        <h2 className="font-display text-2xl font-semibold">
-          Metodo de pago
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          Selecciona como prefieres confirmar tu reserva.
-        </p>
+        <h2 className="font-display text-2xl font-semibold">{title}</h2>
+        <p className="text-sm text-muted-foreground">{subtitle}</p>
       </div>
       <Card className="border-border/70 py-4">
         <CardContent className="grid gap-3">
-          {METHODS.map((method) => {
+          {methods.map((method) => {
             const selected = state.paymentMethod === method.id;
             return (
               <button

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import type { ReservationState } from "@/components/reservar/ReservationWizard";
 import type { PackageType } from "@/lib/calcTotal";
 import type { Package, TimeSlot } from "@/lib/supabase/catalog";
+import type { DatePackageStepConfig } from "@/lib/supabase/formConfig";
 import type React from "react";
 
 type StepDatePackageProps = {
@@ -19,6 +20,7 @@ type StepDatePackageProps = {
   selectedPackage?: Package;
   packages: Package[];
   timeSlotsByPackage: Record<string, TimeSlot[]>;
+  config?: DatePackageStepConfig;
 };
 
 const EVENTO_PACKAGE_ID: PackageType = "EVENTO";
@@ -81,6 +83,7 @@ export default function StepDatePackage({
   selectedPackage,
   packages,
   timeSlotsByPackage,
+  config,
 }: StepDatePackageProps) {
   const [monthOffset, setMonthOffset] = useState(0);
   const [showTimeModal, setShowTimeModal] = useState(false);
@@ -91,6 +94,8 @@ export default function StepDatePackage({
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const [customError, setCustomError] = useState<string | null>(null);
+  const [availabilityError, setAvailabilityError] = useState<string | null>(null);
+  const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
   const calendarRef = useRef<HTMLDivElement | null>(null);
   const lastPackageRef = useRef<PackageType | null>(null);
   const now = new Date();
@@ -110,6 +115,38 @@ export default function StepDatePackage({
     year: "numeric",
   });
   const activeDate = pendingDate ?? state.date;
+
+  const title = config?.title ?? "Elige tu paquete primero";
+  const packagesTitle = config?.packagesTitle ?? "Paquetes disponibles";
+  const packagesEmpty =
+    config?.packagesEmpty ?? "Cargando paquetes disponibles...";
+  const selectedLabel = config?.selectedLabel ?? "Seleccionado";
+  const calendarTitle = config?.calendarTitle ?? "Selecciona fecha y hora";
+  const calendarEmpty =
+    config?.calendarEmpty ??
+    "Primero elige un paquete para desbloquear el calendario.";
+  const calendarSelectedPrefix =
+    config?.calendarSelectedPrefix ?? "Seleccionado:";
+  const calendarHint =
+    config?.calendarHint ?? "Selecciona una fecha para elegir el horario.";
+  const changeTimeLabel = config?.changeTimeLabel ?? "Cambiar horario";
+  const modalKicker = config?.modalKicker ?? "Horarios";
+  const modalTitle = config?.modalTitle ?? "Selecciona tu hora de entrada";
+  const modalSubtitle = config?.modalSubtitle ?? "Horario seleccionado";
+  const morningLabel = config?.morningLabel ?? "Mañana";
+  const afternoonLabel = config?.afternoonLabel ?? "Tarde";
+  const noMorningLabel =
+    config?.noMorningLabel ?? "Sin horarios en la mañana.";
+  const noAfternoonLabel =
+    config?.noAfternoonLabel ?? "Sin horarios en la tarde.";
+  const modalCancelLabel = config?.modalCancelLabel ?? "Cancelar / Volver";
+  const modalConfirmLabel = config?.modalConfirmLabel ?? "Confirmar horario";
+  const customHelp =
+    config?.customHelp ?? "Hora de entrada entre 8:00 A.M. y 12:00 P.M.";
+  const customStartLabel = config?.customStartLabel ?? "Hora de entrada";
+  const customEndLabel = config?.customEndLabel ?? "Hora de salida";
+  const customErrorCopy =
+    config?.customError ?? "La salida debe ser 10, 11 o 12 horas después.";
 
   const timeSlots = useMemo(() => {
     if (!state.packageId) return [];
@@ -179,6 +216,7 @@ export default function StepDatePackage({
     if (!showTimeModal) return;
     setPendingTimeSlot(state.timeSlot);
     setPendingDate(state.date);
+    setAvailabilityError(null);
   }, [showTimeModal, state.timeSlot, state.date]);
 
   useEffect(() => {
@@ -192,6 +230,10 @@ export default function StepDatePackage({
       });
     });
   }, [state.packageId]);
+
+  useEffect(() => {
+    setAvailabilityError(null);
+  }, [pendingTimeSlot]);
 
   useEffect(() => {
     if (state.packageId !== EVENTO_PACKAGE_ID) {
@@ -214,6 +256,7 @@ export default function StepDatePackage({
     if (!customStart || !customEnd) {
       setCustomError(null);
       setPendingTimeSlot(null);
+      setAvailabilityError(null);
       return;
     }
     if (!endHourOptions.some((option) => option.value === customEnd)) {
@@ -222,12 +265,13 @@ export default function StepDatePackage({
     }
     const duration = getDurationHours(customStart, customEnd);
     if (duration === null || duration < 10 || duration > 12) {
-      setCustomError("La salida debe ser 10, 11 o 12 horas después.");
+      setCustomError(customErrorCopy);
       setPendingTimeSlot(null);
       return;
     }
     setCustomError(null);
     setPendingTimeSlot(`${customStart}:00-${customEnd}:00`);
+    setAvailabilityError(null);
   }, [
     state.packageId,
     customStart,
@@ -247,26 +291,64 @@ export default function StepDatePackage({
   const handleConfirmTime = () => {
     if (!pendingTimeSlot) return;
     if (isPastTimeSlot(pendingTimeSlot, activeDate, now)) return;
-    dispatch({ type: "setTimeSlot", value: pendingTimeSlot });
-    setShowTimeModal(false);
+    if (!activeDate || !state.packageId) return;
+    setAvailabilityError(null);
+    setIsCheckingAvailability(true);
+    void (async () => {
+      try {
+        const response = await fetch("/api/availability", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            packageId: state.packageId,
+            date: activeDate,
+            timeSlot: pendingTimeSlot,
+            adults: state.adults,
+            kids: state.kids,
+          }),
+        });
+        const result = await response.json();
+        if (!result?.available) {
+          const code = String(result?.error ?? "");
+          const message =
+            code === "CM_NO_CABIN_AVAILABLE"
+              ? "No hay cabañas disponibles para ese horario."
+              : code === "CM_MAX_PEOPLE_EXCEEDED"
+              ? "La capacidad maxima por reserva es de 16 personas."
+              : code === "CM_INVALID_PEOPLE_COUNT"
+              ? "Indica la cantidad de personas para continuar."
+              : code === "CM_INVALID_TIME_RANGE"
+              ? "El horario seleccionado no es valido."
+              : "No hay disponibilidad para ese horario.";
+          setAvailabilityError(message);
+          return;
+        }
+        dispatch({ type: "setTimeSlot", value: pendingTimeSlot });
+        setShowTimeModal(false);
+      } catch {
+        setAvailabilityError("No se pudo validar la disponibilidad.");
+      } finally {
+        setIsCheckingAvailability(false);
+      }
+    })();
   };
 
   return (
     <div className="space-y-8">
       <section className="space-y-4">
-        <h2 className="font-display text-2xl font-semibold">
-          Elige tu paquete primero
-        </h2>
+        <h2 className="font-display text-2xl font-semibold">{title}</h2>
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Paquetes disponibles</h3>
+          <h3 className="text-lg font-semibold">{packagesTitle}</h3>
           {selectedPackage && (
-            <Badge variant="secondary">{selectedPackage.label}</Badge>
+            <Badge variant="secondary">
+              {selectedLabel}: {selectedPackage.label}
+            </Badge>
           )}
         </div>
         <div className="grid gap-3">
           {packages.length === 0 && (
             <div className="rounded-2xl border border-dashed border-border/70 bg-secondary/40 px-4 py-3 text-sm text-muted-foreground">
-              Cargando paquetes disponibles...
+              {packagesEmpty}
             </div>
           )}
           {packages.map((pkg) => {
@@ -306,10 +388,10 @@ export default function StepDatePackage({
       </section>
 
       <section className="space-y-3" ref={calendarRef}>
-        <h3 className="text-lg font-semibold">Selecciona fecha y hora</h3>
+        <h3 className="text-lg font-semibold">{calendarTitle}</h3>
         {!state.packageId && (
           <div className="rounded-2xl border border-dashed border-border/70 bg-secondary/40 px-4 py-3 text-sm text-muted-foreground">
-            Primero elige un paquete para desbloquear el calendario.
+            {calendarEmpty}
           </div>
         )}
         <Card className="border-border/70 py-4">
@@ -347,7 +429,7 @@ export default function StepDatePackage({
               <p className="text-base font-semibold capitalize">{monthLabel}</p>
               {state.date && (
                 <p className="text-xs text-muted-foreground">
-                  Seleccionado: {state.date}
+                  {calendarSelectedPrefix} {state.date}
                 </p>
               )}
             </div>
@@ -406,11 +488,11 @@ export default function StepDatePackage({
                 onClick={() => setShowTimeModal(true)}
                 className="text-sm font-semibold text-primary transition hover:brightness-110"
               >
-                Cambiar horario
+                {changeTimeLabel}
               </button>
             </div>
           ) : (
-            "Selecciona una fecha para elegir el horario."
+            calendarHint
           )}
         </div>
       </section>
@@ -420,31 +502,29 @@ export default function StepDatePackage({
           <div className="flex h-full w-full flex-col rounded-none bg-background shadow-xl sm:h-auto sm:max-w-lg sm:rounded-3xl">
             <div className="border-b border-border/70 px-6 py-5">
               <p className="text-sm font-semibold uppercase tracking-[0.3em] text-muted-foreground">
-                Horarios
+                {modalKicker}
               </p>
               <h3 className="mt-2 text-xl font-semibold">
-                Selecciona tu hora de entrada
+                {modalTitle}
               </h3>
               {pendingDate && (
                 <p className="mt-1 text-sm text-muted-foreground capitalize">
-                  {formatDisplayDate(pendingDate)}
+                  {modalSubtitle}: {formatDisplayDate(pendingDate)}
                 </p>
               )}
             </div>
             <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
               {!state.packageId && (
                 <div className="rounded-2xl border border-dashed border-border/70 bg-secondary/40 px-4 py-3 text-sm text-muted-foreground">
-                  Selecciona un paquete para ver los horarios disponibles.
+                  {calendarEmpty}
                 </div>
               )}
               {state.packageId === EVENTO_PACKAGE_ID ? (
                 <div className="space-y-4">
-                  <p className="text-sm text-muted-foreground">
-                    Hora de entrada entre 8:00 A.M. y 12:00 P.M.
-                  </p>
+                  <p className="text-sm text-muted-foreground">{customHelp}</p>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <label className="space-y-2 text-sm font-semibold">
-                      Hora de entrada
+                      {customStartLabel}
                       <select
                         value={customStart}
                         onChange={(event) => setCustomStart(event.target.value)}
@@ -463,7 +543,7 @@ export default function StepDatePackage({
                       </select>
                     </label>
                     <label className="space-y-2 text-sm font-semibold">
-                      Hora de salida
+                      {customEndLabel}
                       <select
                         value={customEnd}
                         onChange={(event) => setCustomEnd(event.target.value)}
@@ -482,17 +562,20 @@ export default function StepDatePackage({
                   {customError && (
                     <p className="text-sm text-amber-600">{customError}</p>
                   )}
+                  {availabilityError && (
+                    <p className="text-sm text-rose-600">{availabilityError}</p>
+                  )}
                 </div>
               ) : (
                 <>
                   <div className="space-y-3">
                     <p className="text-sm font-semibold text-muted-foreground">
-                      Mañana
+                      {morningLabel}
                     </p>
                     <div className="flex flex-wrap gap-2">
                       {morningSlots.length === 0 && (
                         <span className="text-sm text-muted-foreground">
-                          Sin horarios en la mañana.
+                          {noMorningLabel}
                         </span>
                       )}
                       {morningSlots.map((slot) => {
@@ -524,12 +607,12 @@ export default function StepDatePackage({
                   </div>
                   <div className="space-y-3">
                     <p className="text-sm font-semibold text-muted-foreground">
-                      Tarde
+                      {afternoonLabel}
                     </p>
                     <div className="flex flex-wrap gap-2">
                       {afternoonSlots.length === 0 && (
                         <span className="text-sm text-muted-foreground">
-                          Sin horarios en la tarde.
+                          {noAfternoonLabel}
                         </span>
                       )}
                       {afternoonSlots.map((slot) => {
@@ -569,18 +652,22 @@ export default function StepDatePackage({
                 onClick={() => setShowTimeModal(false)}
                 className="rounded-full"
               >
-                Cancelar / Volver
+                {modalCancelLabel}
               </Button>
+              {availabilityError && (
+                <p className="text-sm text-rose-600">{availabilityError}</p>
+              )}
               <Button
                 type="button"
                 onClick={handleConfirmTime}
                 className="rounded-full"
                 disabled={
                   !pendingTimeSlot ||
-                  isPastTimeSlot(pendingTimeSlot, activeDate, now)
+                  isPastTimeSlot(pendingTimeSlot, activeDate, now) ||
+                  isCheckingAvailability
                 }
               >
-                Confirmar horario
+                {isCheckingAvailability ? "Verificando..." : modalConfirmLabel}
               </Button>
             </div>
           </div>

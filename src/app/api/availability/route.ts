@@ -1,15 +1,12 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 
-type ReservationPayload = {
+type AvailabilityPayload = {
   packageId: string;
   date: string;
   timeSlot: string;
   adults: number;
   kids: number;
-  extras: Array<{ id: string; quantity?: number }>;
-  paymentMethod: string;
-  specialRequest?: string | null;
 };
 
 function toNumber(value: unknown, fallback = 0) {
@@ -39,25 +36,15 @@ function extractErrorCode(error: unknown) {
   const message = String((error as { message?: unknown }).message ?? "");
   const directMatch = message.match(/CM_[A-Z_]+/);
   if (directMatch) return directMatch[0];
-  if (message.includes("not_authenticated")) return "not_authenticated";
-  if (message.includes("missing_fields")) return "missing_fields";
-  if (message.includes("invalid_package")) return "invalid_package";
+  if (message.includes("no_cabin_available")) return "CM_NO_CABIN_AVAILABLE";
+  if (message.includes("max_people_exceeded")) return "CM_MAX_PEOPLE_EXCEEDED";
   return null;
 }
 
 export async function POST(req: Request) {
-  const supabase = await supabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "not_authenticated" }, { status: 401 });
-  }
-
-  let payload: ReservationPayload;
+  let payload: AvailabilityPayload;
   try {
-    payload = (await req.json()) as ReservationPayload;
+    payload = (await req.json()) as AvailabilityPayload;
   } catch {
     return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
   }
@@ -72,6 +59,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "missing_fields" }, { status: 400 });
   }
 
+  const totalPeople = adults + kids;
+  if (totalPeople <= 0) {
+    return NextResponse.json({ error: "CM_INVALID_PEOPLE_COUNT" }, { status: 400 });
+  }
+
+  const supabase = await supabaseServer();
   const { data: pkg, error: pkgError } = await supabase
     .from("packages")
     .select("duration_minutes")
@@ -79,7 +72,7 @@ export async function POST(req: Request) {
     .maybeSingle();
 
   if (pkgError || !pkg) {
-    return NextResponse.json({ error: "invalid_package" }, { status: 400 });
+    return NextResponse.json({ error: "CM_INVALID_PACKAGE" }, { status: 400 });
   }
 
   const range = parseTimeRange(timeSlot);
@@ -94,7 +87,7 @@ export async function POST(req: Request) {
     endAt = buildDateTime(reservedDate, range.end);
   } else {
     if (!pkg.duration_minutes || Number(pkg.duration_minutes) <= 0) {
-      return NextResponse.json({ error: "invalid_package" }, { status: 400 });
+      return NextResponse.json({ error: "CM_INVALID_PACKAGE" }, { status: 400 });
     }
     const startDate = new Date(startAt);
     const endDate = new Date(
@@ -103,58 +96,29 @@ export async function POST(req: Request) {
     endAt = endDate.toISOString();
   }
 
-  const extras =
-    payload.extras?.map((extra) => ({
-      id: String(extra.id ?? "").trim(),
-      quantity: toNumber(extra.quantity, 1),
-    })) ?? [];
-
-  const paymentMethod =
-    String(payload.paymentMethod ?? "CASH").toUpperCase() === "CASH"
-      ? "CASH"
-      : "CASH";
-
-  const { data, error } = await supabase.rpc("create_reservation_public", {
-    p_package_id: packageId,
-    p_reserved_date: reservedDate,
+  const { data, error } = await supabase.rpc("assign_cabin", {
     p_start_at: startAt,
     p_end_at: endAt,
-    p_adults: adults,
-    p_kids: kids,
-    p_payment_method: paymentMethod,
-    p_extras: extras,
-    p_special_request: payload.specialRequest ?? null,
-    p_customer_id: user.id,
+    p_people: totalPeople,
   });
 
   if (error) {
     const code = extractErrorCode(error);
     return NextResponse.json(
       {
+        available: false,
         error: code ?? "unknown_error",
         detail:
           process.env.NODE_ENV === "production"
             ? undefined
             : (error as { message?: unknown }).message,
       },
-      { status: 400 }
+      { status: 200 }
     );
   }
 
-  const result = Array.isArray(data) ? data[0] : data;
-
-  const { data: cabin } = result?.cabin_id
-    ? await supabase
-        .from("cabins")
-        .select("code")
-        .eq("id", result.cabin_id)
-        .maybeSingle()
-    : { data: null };
-
   return NextResponse.json({
-    id: result?.reservation_id ?? null,
-    cabinId: result?.cabin_id ?? null,
-    cabinCode: cabin?.code ?? null,
-    total: result?.total_amount ?? null,
+    available: Boolean(data),
+    cabinId: data ?? null,
   });
 }

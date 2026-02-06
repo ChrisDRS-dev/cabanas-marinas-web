@@ -16,6 +16,26 @@ type StepGuestsProps = {
   minPeople: number;
   showMinWarning: boolean;
   packageId: PackageType | null;
+  config?: {
+    title?: string;
+    subtitle?: string;
+    adultsLabel?: string;
+    adultsDescription?: string;
+    kidsLabel?: string;
+    kidsDescription?: string;
+    totalLabel?: string;
+    totalSuffix?: string;
+    minCopy?: string;
+    couplePackage?: {
+      enabled?: boolean;
+      title?: string;
+      description?: string;
+      bullets?: string[];
+      note?: string;
+      ctaOn?: string;
+      ctaOff?: string;
+    };
+  };
 };
 
 function CounterRow({
@@ -73,28 +93,53 @@ export default function StepGuests({
   minPeople,
   showMinWarning,
   packageId,
+  config,
 }: StepGuestsProps) {
   const totalPeople = state.adults + state.kids;
   const maxReached = totalPeople >= 16;
-  const showCouplePackage = totalPeople < 4 && packageId !== "EVENTO";
+  const showCouplePackage =
+    (config?.couplePackage?.enabled ?? true) &&
+    totalPeople < 4 &&
+    packageId !== "EVENTO";
   const adultsLocked = state.couplePackage;
   const maxKids = state.couplePackage ? 1 : 16 - state.adults;
+
+  const title = config?.title ?? "Cuantas personas vienen";
+  const subtitle =
+    config?.subtitle ?? "Los niños pagan 50% del valor por adulto.";
+  const adultsLabel = config?.adultsLabel ?? "Adultos";
+  const adultsDescription = config?.adultsDescription ?? "13 años en adelante";
+  const kidsLabel = config?.kidsLabel ?? "Ninos";
+  const kidsDescription = config?.kidsDescription ?? "3 a 12 años";
+  const totalLabel = config?.totalLabel ?? "Total de personas";
+  const totalSuffix = config?.totalSuffix ?? "/ 16";
+  const minCopy =
+    config?.minCopy ?? "Cobro mínimo: 4 personas por cabaña.";
+  const coupleConfig = config?.couplePackage ?? {};
+  const coupleTitle = coupleConfig.title ?? "Paquete pareja";
+  const coupleDescription =
+    coupleConfig.description ?? "Reservar una cabaña solo para dos.";
+  const coupleBullets = coupleConfig.bullets ?? [
+    "Sofá marino incluido.",
+    "Traslado en lancha ida y vuelta.",
+    "Juegos de mesa.",
+    "Utensilios para asador.",
+  ];
+  const coupleNote = coupleConfig.note ?? "Plan exclusivo para parejas.";
+  const coupleCtaOn = coupleConfig.ctaOn ?? "Seleccionado";
+  const coupleCtaOff = coupleConfig.ctaOff ?? "Seleccionar";
 
   return (
     <section className="space-y-4">
       <div className="space-y-2">
-        <h2 className="font-display text-2xl font-semibold">
-          Cuantas personas vienen
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          Los niños pagan 50% del valor por adulto.
-        </p>
+        <h2 className="font-display text-2xl font-semibold">{title}</h2>
+        <p className="text-sm text-muted-foreground">{subtitle}</p>
       </div>
       <Card className="border-border/70 py-4">
         <CardContent className="space-y-3">
           <CounterRow
-            label="Adultos"
-            description="13 años en adelante"
+            label={adultsLabel}
+            description={adultsDescription}
             value={state.adults}
             onChange={(value) =>
               dispatch({
@@ -108,8 +153,8 @@ export default function StepGuests({
             disableSubtract={adultsLocked}
           />
           <CounterRow
-            label="Ninos"
-            description="3 a 12 años"
+            label={kidsLabel}
+            description={kidsDescription}
             value={state.kids}
             onChange={(value) =>
               dispatch({
@@ -123,28 +168,29 @@ export default function StepGuests({
         </CardContent>
       </Card>
       <div className="flex items-center justify-between rounded-2xl border border-border/70 bg-secondary/70 px-4 py-3 text-sm">
-        <span className="text-muted-foreground">Total de personas</span>
-        <span className="font-semibold">{totalPeople} / 16</span>
+        <span className="text-muted-foreground">{totalLabel}</span>
+        <span className="font-semibold">
+          {totalPeople} {totalSuffix}
+        </span>
       </div>
       <div className="rounded-2xl border border-border/70 bg-card px-4 py-3 text-sm text-muted-foreground">
-        Cobro mínimo: 4 personas por cabaña.
+        {minCopy}
       </div>
       {showCouplePackage && (
         <div className="rounded-2xl border border-border/70 bg-card px-4 py-3">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-semibold">Paquete pareja</p>
+              <p className="text-sm font-semibold">{coupleTitle}</p>
               <p className="text-xs text-muted-foreground">
-                Reservar una cabaña solo para dos.
+                {coupleDescription}
               </p>
               <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-muted-foreground">
-                <li>Sofá marino incluido.</li>
-                <li>Traslado en lancha ida y vuelta.</li>
-                <li>Juegos de mesa.</li>
-                <li>Utensilios para asador.</li>
+                {coupleBullets.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
               </ul>
               <p className="mt-2 text-xs text-muted-foreground">
-                Plan exclusivo para parejas.
+                {coupleNote}
               </p>
             </div>
             <Button
@@ -158,7 +204,7 @@ export default function StepGuests({
               }
               className="rounded-full px-5"
             >
-              {state.couplePackage ? "Seleccionado" : "Seleccionar"}
+              {state.couplePackage ? coupleCtaOn : coupleCtaOff}
             </Button>
           </div>
         </div>
