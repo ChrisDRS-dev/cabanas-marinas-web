@@ -10,6 +10,7 @@ import StepExtras from "@/components/reservar/steps/StepExtras";
 import StepPayment from "@/components/reservar/steps/StepPayment";
 import StepSummary from "@/components/reservar/steps/StepSummary";
 import { supabase } from "@/lib/supabase/client";
+import { siteData } from "@/lib/siteData";
 import {
   fetchCatalog,
   type Extra,
@@ -46,6 +47,7 @@ type Action =
   | { type: "syncExtras"; ids: string[] }
   | { type: "setCouplePackage"; value: boolean }
   | { type: "setPayment"; value: PaymentMethod | null }
+  | { type: "hydrate"; value: Partial<ReservationState> }
   | { type: "setStep"; value: number; max: number }
   | { type: "nextStep"; max: number }
   | { type: "prevStep" };
@@ -113,6 +115,12 @@ function reducer(state: ReservationState, action: Action): ReservationState {
       };
     case "setPayment":
       return { ...state, paymentMethod: action.value };
+    case "hydrate":
+      return {
+        ...state,
+        ...action.value,
+        extras: action.value.extras ?? state.extras,
+      };
     case "setStep":
       return {
         ...state,
@@ -182,6 +190,9 @@ export default function ReservationWizard({
   } | null>(null);
   const [isRepeatConfirmation, setIsRepeatConfirmation] = useState(false);
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
+  const [draftLoaded, setDraftLoaded] = useState(false);
+  const [draftHydrated, setDraftHydrated] = useState(false);
+  const [whatsAppLink, setWhatsAppLink] = useState<string | null>(null);
 
   const router = useRouter();
 
@@ -273,6 +284,79 @@ export default function ReservationWizard({
     };
   }, []);
 
+  const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!profileUserId) {
+      setDraftLoaded(true);
+      return;
+    }
+    let active = true;
+    const loadDraft = async () => {
+      try {
+        const { data } = await supabase
+          .from("reservation_drafts")
+          .select("state")
+          .eq("user_id", profileUserId)
+          .maybeSingle();
+        if (!active) return;
+        if (data?.state) {
+          dispatch({ type: "hydrate", value: data.state as Partial<ReservationState> });
+          setDraftHydrated(true);
+        }
+      } catch {
+        if (!active) return;
+      } finally {
+        if (active) setDraftLoaded(true);
+      }
+    };
+    loadDraft();
+    return () => {
+      active = false;
+    };
+  }, [profileUserId]);
+
+  useEffect(() => {
+    if (!profileUserId) return;
+    if (!draftLoaded) return;
+    if (showConfirmation || showPhonePrompt) return;
+    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    const payload: Partial<ReservationState> = {
+      step: state.step,
+      date: state.date,
+      packageId: state.packageId,
+      timeSlot: state.timeSlot,
+      adults: state.adults,
+      kids: state.kids,
+      extras: state.extras,
+      couplePackage: state.couplePackage,
+      paymentMethod: state.paymentMethod,
+    };
+    draftTimerRef.current = setTimeout(async () => {
+      await supabase.from("reservation_drafts").upsert({
+        user_id: profileUserId,
+        state: payload,
+      });
+    }, 1200);
+    return () => {
+      if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    };
+  }, [
+    state.step,
+    state.date,
+    state.packageId,
+    state.timeSlot,
+    state.adults,
+    state.kids,
+    state.extras,
+    state.couplePackage,
+    state.paymentMethod,
+    profileUserId,
+    draftLoaded,
+    showConfirmation,
+    showPhonePrompt,
+  ]);
+
   useEffect(() => {
     let active = true;
     const loadConfig = async () => {
@@ -357,6 +441,18 @@ export default function ReservationWizard({
         extras: string[];
         cabinCode: string | null;
       };
+      if (parsed.date) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const parsedDate = new Date(parsed.date);
+        if (!Number.isNaN(parsedDate.getTime())) {
+          parsedDate.setHours(0, 0, 0, 0);
+          if (parsedDate < today) {
+            window.localStorage.removeItem(key);
+            return;
+          }
+        }
+      }
       setIsRepeatConfirmation(true);
       setConfirmationData(parsed);
       setConfirmationId(parsed.id ?? null);
@@ -512,6 +608,31 @@ export default function ReservationWizard({
           `cm_last_reservation:${profileUserId}`,
           JSON.stringify(payload)
         );
+      }
+      if (profileUserId) {
+        await supabase
+          .from("reservation_drafts")
+          .delete()
+          .eq("user_id", profileUserId);
+      }
+      const whatsappBase = siteData.links.whatsapp;
+      const messageLines = [
+        "Hola, quiero coordinar el pago de mi reserva.",
+        payload.id ? `ID: ${String(payload.id).slice(0, 8)}` : null,
+        payload.name ? `Nombre: ${payload.name}` : null,
+        payload.packageLabel ? `Paquete: ${payload.packageLabel}` : null,
+        payload.date ? `Fecha: ${payload.date}` : null,
+        payload.timeSlot ? `Horario: ${payload.timeSlot}` : null,
+        `Personas: ${payload.adults + payload.kids} (Adultos: ${payload.adults}, Niños: ${payload.kids})`,
+        payload.extras.length ? `Extras: ${payload.extras.join(", ")}` : "Extras: Ninguno",
+        selectedPackage ? `Total estimado: ${formatCurrency(totals.total)}` : null,
+        "Estado: Pago pendiente (la reserva se confirma al recibir el pago).",
+      ].filter(Boolean) as string[];
+      const message = messageLines.join("\n");
+      const whatsappLink = `${whatsappBase}?text=${encodeURIComponent(message)}`;
+      setWhatsAppLink(whatsappLink);
+      if (typeof window !== "undefined") {
+        window.open(whatsappLink, "_blank");
       }
       if (!profilePhone) {
         setShowPhonePrompt(true);
@@ -829,10 +950,10 @@ export default function ReservationWizard({
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-                  Reserva creada
+                  Reserva pendiente
                 </p>
                 <h3 className="mt-1 text-2xl font-semibold text-foreground">
-                  {confirmationData?.name ?? profileName ?? "Reserva confirmada"}
+                  {confirmationData?.name ?? profileName ?? "Reserva pendiente"}
                 </h3>
                 {confirmationId && (
                   <p className="mt-1 text-xs text-muted-foreground">
@@ -857,6 +978,10 @@ export default function ReservationWizard({
                   fecha, contáctanos por WhatsApp.
                 </p>
               )}
+              <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+                Pago pendiente: la reserva se confirma cuando recibimos el pago.
+                Puedes pagar por Yappy o depósito bancario.
+              </p>
               <p>
                 Gracias por reservar con nosotros. Te contactaremos pronto para
                 coordinar detalles y confirmar el pago.
@@ -923,13 +1048,23 @@ export default function ReservationWizard({
               </div>
             </div>
             <div className="mt-5 flex flex-col gap-2 sm:flex-row">
-              <Button
-                type="button"
-                onClick={() => router.push("/")}
-                className="w-full rounded-full"
-              >
-                Entendido
-              </Button>
+              {state.paymentMethod !== "CASH" && (
+                <Button
+                  type="button"
+                  onClick={() => router.push("/")}
+                  className="w-full rounded-full"
+                >
+                  Entendido
+                </Button>
+              )}
+              {whatsAppLink && (
+                <a
+                  href={whatsAppLink}
+                  className="w-full rounded-full border border-border/70 px-4 py-2 text-center text-sm font-semibold"
+                >
+                  Enviar por WhatsApp
+                </a>
+              )}
               <a
                 href="/"
                 className="w-full rounded-full border border-border/70 px-4 py-2 text-center text-sm font-semibold"

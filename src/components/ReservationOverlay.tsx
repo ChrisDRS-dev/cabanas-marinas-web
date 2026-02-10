@@ -1,26 +1,52 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import ReservationWizard from "@/components/reservar/ReservationWizard";
+import type { Session } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase/client";
 
 export default function ReservationOverlay() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
+  const [session, setSession] = useState<Session | null>(null);
+  const [checkedSession, setCheckedSession] = useState(false);
   const show =
     pathname === "/" &&
     (searchParams.get("reservar") === "1" ||
       searchParams.get("reservar") === "true");
 
   useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setCheckedSession(true);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
+      setSession(next);
+    });
+    return () => {
+      sub.subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
     if (!show) return;
+    if (checkedSession && !session) {
+      window.dispatchEvent(new Event("cm:auth:open"));
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("reservar");
+      params.delete("package");
+      const query = params.toString();
+      router.replace(query ? `/?${query}` : "/");
+      return;
+    }
     const original = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = original;
     };
-  }, [show]);
+  }, [show, session, checkedSession, router, searchParams]);
 
   const handleClose = () => {
     const params = new URLSearchParams(searchParams.toString());
@@ -30,7 +56,7 @@ export default function ReservationOverlay() {
     router.replace(query ? `/?${query}` : "/");
   };
 
-  if (!show) return null;
+  if (!show || !session) return null;
 
   return (
     <div

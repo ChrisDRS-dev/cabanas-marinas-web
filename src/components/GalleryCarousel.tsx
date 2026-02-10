@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { Session } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase/client";
 
 type GalleryItem = {
   title: string;
@@ -23,6 +25,17 @@ export default function GalleryCarousel({ items }: GalleryCarouselProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const directionRef = useRef<1 | -1>(1);
   const indexRef = useRef(0);
+  const [session, setSession] = useState<Session | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
+      setSession(next);
+    });
+    return () => {
+      sub.subscription.unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -68,6 +81,11 @@ export default function GalleryCarousel({ items }: GalleryCarouselProps) {
         <a
           key={item.title}
           href={item.href}
+          onClick={(event) => {
+            if (session) return;
+            event.preventDefault();
+            window.dispatchEvent(new Event("cm:auth:open"));
+          }}
           data-gallery-card
           className="group relative min-w-[78%] snap-center overflow-hidden rounded-[2rem] border border-border bg-card shadow-xl shadow-black/5 aspect-square transition hover:-translate-y-1 hover:scale-[1.02] hover:shadow-2xl sm:min-w-[48%] lg:min-w-[10%]"
         >

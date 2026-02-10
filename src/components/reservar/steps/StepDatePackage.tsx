@@ -46,6 +46,46 @@ function parseTimeToMinutes(value: string) {
   return hour * 60 + minute;
 }
 
+function formatTimeLabel(hour: number, minute = 0) {
+  const normalizedHour = ((hour % HOURS_IN_DAY) + HOURS_IN_DAY) % HOURS_IN_DAY;
+  const period = normalizedHour >= 12 ? "P.M." : "A.M.";
+  const displayHour = normalizedHour % 12 === 0 ? 12 : normalizedHour % 12;
+  const displayMinute = String(minute).padStart(2, "0");
+  return `${displayHour}:${displayMinute} ${period}`;
+}
+
+function formatTimeRange12h(timeSlot: string, durationMinutes?: number | null) {
+  const [startRaw, endRaw] = timeSlot.split("-");
+  const [startHourText, startMinuteText = "0"] = startRaw.split(":");
+  const startHour = Number(startHourText);
+  const startMinute = Number(startMinuteText);
+  if (Number.isNaN(startHour) || Number.isNaN(startMinute)) return timeSlot;
+
+  if (endRaw) {
+    const [endHourText, endMinuteText = "0"] = endRaw.split(":");
+    const endHour = Number(endHourText);
+    const endMinute = Number(endMinuteText);
+    if (Number.isNaN(endHour) || Number.isNaN(endMinute)) return timeSlot;
+    return `${formatTimeLabel(startHour, startMinute)} - ${formatTimeLabel(
+      endHour,
+      endMinute
+    )}`;
+  }
+
+  if (typeof durationMinutes === "number" && durationMinutes > 0) {
+    const startTotal = startHour * 60 + startMinute;
+    const endTotal = (startTotal + durationMinutes) % (HOURS_IN_DAY * 60);
+    const endHour = Math.floor(endTotal / 60);
+    const endMinute = endTotal % 60;
+    return `${formatTimeLabel(startHour, startMinute)} - ${formatTimeLabel(
+      endHour,
+      endMinute
+    )}`;
+  }
+
+  return timeSlot;
+}
+
 function isSameDate(dateValue: string, compareDate: Date) {
   const [year, month, day] = dateValue.split("-").map(Number);
   return (
@@ -333,6 +373,11 @@ export default function StepDatePackage({
     })();
   };
 
+  const formattedTimeSlot =
+    state.timeSlot && selectedPackage
+      ? formatTimeRange12h(state.timeSlot, selectedPackage.durationMinutes)
+      : state.timeSlot;
+
   return (
     <div className="space-y-8">
       <section className="space-y-4">
@@ -480,7 +525,7 @@ export default function StepDatePackage({
               <span>
                 Horario seleccionado:{" "}
                 <span className="font-semibold text-foreground">
-                  {state.timeSlot ?? "Por definir"}
+                  {formattedTimeSlot ?? "Por definir"}
                 </span>
               </span>
               <button

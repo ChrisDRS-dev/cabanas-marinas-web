@@ -32,7 +32,12 @@ const METHODS: {
     description: "Credito o debito.",
     enabled: false,
   },
-  { id: "CASH", label: "Efectivo", description: "Paga al llegar.", enabled: true },
+  {
+    id: "CASH",
+    label: "WhatsApp",
+    description: "Ver opciones de pago por WhatsApp.",
+    enabled: true,
+  },
 ];
 
 type StepPaymentProps = {
@@ -59,9 +64,15 @@ export default function StepPayment({
     config?.methods && config.methods.length > 0
       ? config.methods.map((method) => ({
           id: method.id,
-          label: method.label ?? method.id,
-          description: method.description ?? "",
-          enabled: method.enabled ?? false,
+          label:
+            method.id === "CASH"
+              ? "WhatsApp"
+              : method.label ?? method.id,
+          description:
+            method.id === "CASH"
+              ? "Ver opciones de pago por WhatsApp."
+              : method.description ?? "",
+          enabled: method.id === "CASH" ? true : method.enabled ?? false,
         }))
       : METHODS;
 
