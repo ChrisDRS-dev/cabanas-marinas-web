@@ -44,19 +44,21 @@ export default function NavbarMobile({ brand }: NavbarMobileProps) {
     const metaPhone =
       (session.user.user_metadata?.phone as string | undefined) ?? null;
 
-    supabase
-      .from("profiles")
-      .select("full_name, phone")
-      .eq("user_id", session.user.id)
-      .maybeSingle()
-      .then(({ data }) => {
+    const loadProfile = async () => {
+      try {
+        const { data } = await supabase
+          .from("profiles")
+          .select("full_name, phone")
+          .eq("user_id", session.user.id)
+          .maybeSingle();
         setUserName(data?.full_name ?? metaName ?? session.user.email ?? null);
         setUserPhone(data?.phone ?? metaPhone ?? null);
-      })
-      .catch(() => {
+      } catch {
         setUserName(metaName ?? session.user.email ?? null);
         setUserPhone(metaPhone ?? null);
-      });
+      }
+    };
+    void loadProfile();
   }, [session]);
 
   const signOut = async () => {
