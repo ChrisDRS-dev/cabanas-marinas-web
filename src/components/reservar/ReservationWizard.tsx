@@ -7,7 +7,6 @@ import { calcTotal, PackageType } from "@/lib/calcTotal";
 import StepDatePackage from "@/components/reservar/steps/StepDatePackage";
 import StepGuests from "@/components/reservar/steps/StepGuests";
 import StepExtras from "@/components/reservar/steps/StepExtras";
-import StepPayment from "@/components/reservar/steps/StepPayment";
 import StepSummary from "@/components/reservar/steps/StepSummary";
 import { supabase } from "@/lib/supabase/client";
 import { siteData } from "@/lib/siteData";
@@ -57,7 +56,7 @@ const DEFAULT_STEPS: FormStepConfig[] = [
   { id: "guests", label: "Personas", summary: "Personas" },
   { id: "date_package", label: "Fecha y hora", summary: "Fecha y hora" },
   { id: "extras", label: "Extras", summary: "Extras" },
-  { id: "payment", label: "Pago", summary: "Pago" },
+  { id: "payment", label: "Resumen", summary: "Resumen" },
 ];
 
 const initialState: ReservationState = {
@@ -69,7 +68,7 @@ const initialState: ReservationState = {
   kids: 0,
   extras: {},
   couplePackage: false,
-  paymentMethod: "CASH",
+  paymentMethod: null,
 };
 
 function reducer(state: ReservationState, action: Action): ReservationState {
@@ -150,8 +149,12 @@ function isWeekend(dateValue: string | null) {
 
 export default function ReservationWizard({
   mode = "page",
+  prefill,
+  startStepId,
 }: {
   mode?: "page" | "modal";
+  prefill?: Partial<ReservationState>;
+  startStepId?: string;
 }) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const searchParams = useSearchParams();
@@ -193,6 +196,8 @@ export default function ReservationWizard({
   const [draftLoaded, setDraftLoaded] = useState(false);
   const [draftHydrated, setDraftHydrated] = useState(false);
   const [whatsAppLink, setWhatsAppLink] = useState<string | null>(null);
+  const stepOverrideRef = useRef(false);
+  const prefillRef = useRef(false);
 
   const router = useRouter();
 
@@ -333,10 +338,13 @@ export default function ReservationWizard({
       paymentMethod: state.paymentMethod,
     };
     draftTimerRef.current = setTimeout(async () => {
-      await supabase.from("reservation_drafts").upsert({
-        user_id: profileUserId,
-        state: payload,
-      });
+      await supabase.from("reservation_drafts").upsert(
+        {
+          user_id: profileUserId,
+          state: payload,
+        },
+        { onConflict: "user_id" }
+      );
     }, 1200);
     return () => {
       if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
@@ -409,8 +417,10 @@ export default function ReservationWizard({
           (user.user_metadata?.full_name as string | undefined) ??
           (user.user_metadata?.name as string | undefined) ??
           null;
+        const phoneFromMeta =
+          (user.user_metadata?.phone as string | undefined) ?? null;
         setProfileName(nameFromProfile ?? nameFromMeta);
-        setProfilePhone(phoneFromProfile);
+        setProfilePhone(phoneFromProfile ?? phoneFromMeta);
       } catch {
         if (!active) return;
         setProfileName(null);
@@ -472,6 +482,23 @@ export default function ReservationWizard({
     }
   }, [searchParams, state.packageId, packages]);
 
+  useEffect(() => {
+    if (!prefill || prefillRef.current) return;
+    dispatch({ type: "hydrate", value: prefill });
+    prefillRef.current = true;
+  }, [prefill]);
+
+  useEffect(() => {
+    if (formSteps.length === 0) return;
+    const targetStep = startStepId ?? searchParams.get("step");
+    if (!targetStep || stepOverrideRef.current) return;
+    const index = formSteps.findIndex((step) => step.id === targetStep);
+    if (index === -1) return;
+    const stepsCount = formSteps.length || DEFAULT_STEPS.length;
+    stepOverrideRef.current = true;
+    dispatch({ type: "setStep", value: index + 1, max: stepsCount });
+  }, [searchParams, formSteps, startStepId]);
+
   const weekend = isWeekend(state.date);
   const selectedPackage = packages.find((item) => item.id === state.packageId);
   const minPeople = selectedPackage
@@ -524,13 +551,14 @@ export default function ReservationWizard({
       case "extras":
         return true;
       case "payment":
-        return Boolean(state.paymentMethod);
+        return true;
       default:
         return false;
     }
   };
 
-  const primaryLabel = state.step === totalSteps ? "Finalizar" : "Continuar";
+  const primaryLabel =
+    state.step === totalSteps ? "Solicitar reserva" : "Continuar";
 
   const submitReservation = async () => {
     setIsSubmitting(true);
@@ -551,7 +579,7 @@ export default function ReservationWizard({
           adults: state.adults,
           kids: state.kids,
           extras: selectedExtras,
-          paymentMethod: state.paymentMethod,
+          paymentMethod: "CASH",
         }),
       });
 
@@ -579,11 +607,7 @@ export default function ReservationWizard({
         throw new Error(message);
       }
 
-      setSubmitSuccess(
-        result?.id
-          ? `Reserva creada: ${String(result.id).slice(0, 8)} · Pago pendiente`
-          : "Reserva creada. Pago pendiente. Te contactaremos pronto."
-      );
+      setSubmitSuccess("Reserva solicitada. Completa el pago para confirmar.");
       const resolvedExtras = Object.entries(state.extras)
         .filter(([, selected]) => selected)
         .map(
@@ -635,9 +659,12 @@ export default function ReservationWizard({
         window.open(whatsappLink, "_blank");
       }
       if (!profilePhone) {
-        setShowPhonePrompt(true);
+        setShowPhonePrompt(false);
+        setShowConfirmation(false);
+        router.push("/reservar/pago");
       } else {
-        setShowConfirmation(true);
+        setShowConfirmation(false);
+        router.push("/reservar/pago");
       }
     } catch (error) {
       setSubmitError(
@@ -761,23 +788,15 @@ export default function ReservationWizard({
           />
         )}
         {activeStep === "payment" && (
-          <>
-            <StepPayment
-              state={state}
-              dispatch={dispatch}
-              onSelected={scrollToSummary}
-              config={formConfig?.payment}
-            />
-            <StepSummary
-              state={state}
-              selectedPackage={selectedPackage}
-              totals={totals}
-              showMinWarning={showMinWarning}
-              minPeople={minPeople}
-              weekend={weekend}
-              extrasCatalog={extrasCatalog}
-            />
-          </>
+          <StepSummary
+            state={state}
+            selectedPackage={selectedPackage}
+            totals={totals}
+            showMinWarning={showMinWarning}
+            minPeople={minPeople}
+            weekend={weekend}
+            extrasCatalog={extrasCatalog}
+          />
         )}
         {(submitError || submitSuccess) && (
           <div
@@ -909,7 +928,12 @@ export default function ReservationWizard({
                     });
                     const result = await response.json();
                     if (!response.ok) {
-                      throw new Error(result?.error ?? "No se pudo guardar el teléfono.");
+                      if (result?.error === "rls_denied") {
+                        setShowPhonePrompt(false);
+                        setShowConfirmation(true);
+                        return;
+                      }
+                      throw new Error("No se pudo guardar el teléfono.");
                     }
                     setProfilePhone(value);
                     setShowPhonePrompt(false);
@@ -955,11 +979,6 @@ export default function ReservationWizard({
                 <h3 className="mt-1 text-2xl font-semibold text-foreground">
                   {confirmationData?.name ?? profileName ?? "Reserva pendiente"}
                 </h3>
-                {confirmationId && (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    ID: {String(confirmationId).slice(0, 8)}
-                  </p>
-                )}
               </div>
               <Button
                 type="button"

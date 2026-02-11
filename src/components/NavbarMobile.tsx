@@ -13,6 +13,10 @@ type NavbarMobileProps = {
 export default function NavbarMobile({ brand }: NavbarMobileProps) {
   const [session, setSession] = useState<Session | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
+  const [userOpen, setUserOpen] = useState(false);
+  const [userName, setUserName] = useState<string | null>(null);
+  const [userPhone, setUserPhone] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -23,6 +27,37 @@ export default function NavbarMobile({ brand }: NavbarMobileProps) {
       sub.subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    if (!session?.user?.id) {
+      setUserName(null);
+      setUserPhone(null);
+      setUserEmail(null);
+      return;
+    }
+
+    setUserEmail(session.user.email ?? null);
+    const metaName =
+      (session.user.user_metadata?.full_name as string | undefined) ??
+      (session.user.user_metadata?.name as string | undefined) ??
+      null;
+    const metaPhone =
+      (session.user.user_metadata?.phone as string | undefined) ?? null;
+
+    supabase
+      .from("profiles")
+      .select("full_name, phone")
+      .eq("user_id", session.user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        setUserName(data?.full_name ?? metaName ?? session.user.email ?? null);
+        setUserPhone(data?.phone ?? metaPhone ?? null);
+      })
+      .catch(() => {
+        setUserName(metaName ?? session.user.email ?? null);
+        setUserPhone(metaPhone ?? null);
+      });
+  }, [session]);
 
   const signOut = async () => {
     await supabase.auth.signOut();
@@ -43,10 +78,10 @@ export default function NavbarMobile({ brand }: NavbarMobileProps) {
             {session ? (
               <button
                 type="button"
-                onClick={signOut}
+                onClick={() => setUserOpen(true)}
                 className="rounded-full border border-border bg-background px-4 py-2 text-xs font-semibold"
               >
-                Cerrar sesion
+                {userName ?? "Usuario"}
               </button>
             ) : (
               <button
@@ -61,6 +96,52 @@ export default function NavbarMobile({ brand }: NavbarMobileProps) {
         </div>
       </header>
       <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
+      {userOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-3xl bg-background p-5 shadow-xl">
+            <p className="text-sm font-semibold">Cuenta</p>
+            <div className="mt-3 space-y-2 text-xs text-muted-foreground">
+              <p>
+                <span className="text-muted-foreground/70">Nombre:</span>{" "}
+                <span className="font-semibold text-foreground">
+                  {userName ?? "Usuario"}
+                </span>
+              </p>
+              <p>
+                <span className="text-muted-foreground/70">Email:</span>{" "}
+                <span className="font-semibold text-foreground">
+                  {userEmail ?? "-"}
+                </span>
+              </p>
+              <p>
+                <span className="text-muted-foreground/70">Teléfono:</span>{" "}
+                <span className="font-semibold text-foreground">
+                  {userPhone ?? "-"}
+                </span>
+              </p>
+            </div>
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setUserOpen(false)}
+                className="flex-1 rounded-full border border-border px-4 py-2 text-xs font-semibold"
+              >
+                Cerrar
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  await signOut();
+                  setUserOpen(false);
+                }}
+                className="flex-1 rounded-full bg-foreground px-4 py-2 text-xs font-semibold text-background"
+              >
+                Cerrar sesión
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

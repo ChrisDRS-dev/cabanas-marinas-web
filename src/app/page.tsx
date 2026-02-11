@@ -4,7 +4,6 @@ import NavbarMobile from "@/components/NavbarMobile";
 import GalleryCarousel from "@/components/GalleryCarousel";
 import ReservationOverlayClient from "@/components/ReservationOverlayClient";
 import SupabaseSmokeTestClient from "@/components/SupabaseSmokeTestClient";
-import HomeReservationNotice from "@/components/HomeReservationNotice";
 import { siteData } from "@/lib/siteData";
 import { supabaseServer } from "@/lib/supabase/server";
 import { Suspense } from "react";
@@ -25,27 +24,6 @@ export default async function HomePage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const { data: reservations } = user
-    ? await (() => {
-        const base = supabase
-          .from("reservations")
-          .select(
-            "id,reserved_date,start_at,end_at,status,total_amount,cabin_code,adults_count,kids_count,packages(label)"
-          );
-        const email = user.email?.trim();
-        const query = email
-          ? base.or(`customer_id.eq.${user.id},customer_email.ilike.${email}`)
-          : base.eq("customer_id", user.id);
-        return query.order("reserved_date", { ascending: false }).limit(3);
-      })()
-    : { data: [] };
-  const { data: draft } = user
-    ? await supabase
-        .from("reservation_drafts")
-        .select("id, updated_at")
-        .eq("user_id", user.id)
-        .maybeSingle()
-    : { data: null };
   const {
     brand,
     about,
@@ -85,10 +63,6 @@ export default async function HomePage() {
           <div className="absolute -right-24 top-20 h-72 w-72 rounded-full bg-[radial-gradient(circle,rgba(255,200,120,0.35),transparent_65%)] blur-2xl" />
           <div className="absolute bottom-0 left-0 h-48 w-48 -translate-x-1/3 translate-y-1/3 rounded-full bg-[radial-gradient(circle,rgba(0,133,161,0.25),transparent_60%)]" />
           <div className="relative mx-auto flex max-w-6xl flex-col gap-10 px-6 py-14">
-            <HomeReservationNotice
-              reservations={reservations ?? []}
-              hasDraft={Boolean(draft?.id)}
-            />
             <div className="flex max-w-2xl flex-col gap-5">
               <h1 className="font-display text-3xl font-semibold sm:text-4xl lg:text-5xl">
                 Planes de reserva

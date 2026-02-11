@@ -28,9 +28,18 @@ export async function POST(req: Request) {
     .upsert({ user_id: user.id, phone }, { onConflict: "user_id" });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    const message = String(error.message ?? "");
+    if (message.includes("row-level security")) {
+      const { error: authError } = await supabase.auth.updateUser({
+        data: { phone },
+      });
+      if (authError) {
+        return NextResponse.json({ error: "rls_denied" }, { status: 403 });
+      }
+      return NextResponse.json({ ok: true, fallback: "auth_metadata" });
+    }
+    return NextResponse.json({ error: "update_failed" }, { status: 400 });
   }
 
   return NextResponse.json({ ok: true });
 }
-

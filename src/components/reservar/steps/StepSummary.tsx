@@ -21,18 +21,46 @@ function formatCurrency(value: number) {
   return `$${rounded}`;
 }
 
-function formatHourRange(value: string) {
-  const [start, end] = value.split("-");
-  if (!start || !end) return value;
-  const format = (time: string) => {
-    const [hourText] = time.split(":");
-    const hour = Number(hourText);
-    if (Number.isNaN(hour)) return time;
-    const period = hour >= 12 ? "P.M." : "A.M.";
-    const display = hour % 12 === 0 ? 12 : hour % 12;
-    return `${display}:00 ${period}`;
-  };
-  return `${format(start)} - ${format(end)}`;
+const HOURS_IN_DAY = 24;
+
+function formatTimeLabel(hour: number, minute = 0) {
+  const normalizedHour = ((hour % HOURS_IN_DAY) + HOURS_IN_DAY) % HOURS_IN_DAY;
+  const period = normalizedHour >= 12 ? "P.M." : "A.M.";
+  const displayHour = normalizedHour % 12 === 0 ? 12 : normalizedHour % 12;
+  const displayMinute = String(minute).padStart(2, "0");
+  return `${displayHour}:${displayMinute} ${period}`;
+}
+
+function formatTimeRange12h(timeSlot: string, durationMinutes?: number | null) {
+  const [startRaw, endRaw] = timeSlot.split("-");
+  const [startHourText, startMinuteText = "0"] = startRaw.split(":");
+  const startHour = Number(startHourText);
+  const startMinute = Number(startMinuteText);
+  if (Number.isNaN(startHour) || Number.isNaN(startMinute)) return timeSlot;
+
+  if (endRaw) {
+    const [endHourText, endMinuteText = "0"] = endRaw.split(":");
+    const endHour = Number(endHourText);
+    const endMinute = Number(endMinuteText);
+    if (Number.isNaN(endHour) || Number.isNaN(endMinute)) return timeSlot;
+    return `${formatTimeLabel(startHour, startMinute)} - ${formatTimeLabel(
+      endHour,
+      endMinute
+    )}`;
+  }
+
+  if (typeof durationMinutes === "number" && durationMinutes > 0) {
+    const startTotal = startHour * 60 + startMinute;
+    const endTotal = (startTotal + durationMinutes) % (HOURS_IN_DAY * 60);
+    const endHour = Math.floor(endTotal / 60);
+    const endMinute = endTotal % 60;
+    return `${formatTimeLabel(startHour, startMinute)} - ${formatTimeLabel(
+      endHour,
+      endMinute
+    )}`;
+  }
+
+  return timeSlot;
 }
 
 export default function StepSummary({
@@ -83,9 +111,10 @@ export default function StepSummary({
             <span className="text-muted-foreground">Horario</span>
             <span className="font-semibold">
               {state.timeSlot
-                ? state.packageId === "EVENTO"
-                  ? formatHourRange(state.timeSlot)
-                  : state.timeSlot
+                ? formatTimeRange12h(
+                    state.timeSlot,
+                    selectedPackage?.durationMinutes ?? null
+                  )
                 : "Por definir"}
             </span>
           </div>
@@ -104,12 +133,6 @@ export default function StepSummary({
             </span>
           </div>
           <Separator />
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">Método de pago</span>
-            <span className="font-semibold">
-              {state.paymentMethod ?? "Por definir"}
-            </span>
-          </div>
         </CardContent>
       </Card>
 
