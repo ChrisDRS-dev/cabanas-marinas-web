@@ -68,7 +68,7 @@ const initialState: ReservationState = {
   kids: 0,
   extras: {},
   couplePackage: false,
-  paymentMethod: null,
+  paymentMethod: "CASH",
 };
 
 function reducer(state: ReservationState, action: Action): ReservationState {
@@ -175,7 +175,6 @@ export default function ReservationWizard({
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [confirmationId, setConfirmationId] = useState<string | null>(null);
   const [profileName, setProfileName] = useState<string | null>(null);
-  const [reservationCabinCode, setReservationCabinCode] = useState<string | null>(null);
   const [profilePhone, setProfilePhone] = useState<string | null>(null);
   const [showPhonePrompt, setShowPhonePrompt] = useState(false);
   const [phoneInput, setPhoneInput] = useState("");
@@ -189,13 +188,14 @@ export default function ReservationWizard({
     date: string | null;
     timeSlot: string | null;
     extras: string[];
-    cabinCode: string | null;
+    totalAmount?: number | null;
   } | null>(null);
   const [isRepeatConfirmation, setIsRepeatConfirmation] = useState(false);
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
   const [draftLoaded, setDraftLoaded] = useState(false);
   const [draftHydrated, setDraftHydrated] = useState(false);
   const [whatsAppLink, setWhatsAppLink] = useState<string | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
   const stepOverrideRef = useRef(false);
   const prefillRef = useRef(false);
 
@@ -203,6 +203,18 @@ export default function ReservationWizard({
 
   const formatTime = (value: string) =>
     value.includes(":") ? value.slice(0, 5) : value;
+
+  const formatTime12h = (value: string | null) => {
+    if (!value) return "Por confirmar";
+    const [hourText, minuteText = "0"] = value.split(":");
+    const hour = Number(hourText);
+    const minute = Number(minuteText);
+    if (Number.isNaN(hour) || Number.isNaN(minute)) return value;
+    const period = hour >= 12 ? "P.M." : "A.M.";
+    const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+    const displayMinute = String(minute).padStart(2, "0");
+    return `${displayHour}:${displayMinute} ${period}`;
+  };
 
   const resolveTimeRange = () => {
     if (!state.timeSlot) return null;
@@ -449,7 +461,7 @@ export default function ReservationWizard({
         date: string | null;
         timeSlot: string | null;
         extras: string[];
-        cabinCode: string | null;
+        totalAmount?: number | null;
       };
       if (parsed.date) {
         const today = new Date();
@@ -466,7 +478,6 @@ export default function ReservationWizard({
       setIsRepeatConfirmation(true);
       setConfirmationData(parsed);
       setConfirmationId(parsed.id ?? null);
-      setReservationCabinCode(parsed.cabinCode ?? null);
       setShowConfirmation(true);
     } catch {
       window.localStorage.removeItem(key);
@@ -579,7 +590,7 @@ export default function ReservationWizard({
           adults: state.adults,
           kids: state.kids,
           extras: selectedExtras,
-          paymentMethod: "CASH",
+          paymentMethod: state.paymentMethod ?? "CASH",
         }),
       });
 
@@ -622,10 +633,10 @@ export default function ReservationWizard({
         date: state.date,
         timeSlot: state.timeSlot,
         extras: resolvedExtras,
-        cabinCode: result?.cabinCode ?? null,
+        totalAmount:
+          typeof result?.total === "number" ? result.total : totals.total,
       };
       setConfirmationId(result?.id ?? null);
-      setReservationCabinCode(result?.cabinCode ?? null);
       setConfirmationData(payload);
       if (typeof window !== "undefined" && profileUserId) {
         window.localStorage.setItem(
@@ -649,22 +660,18 @@ export default function ReservationWizard({
         payload.timeSlot ? `Horario: ${payload.timeSlot}` : null,
         `Personas: ${payload.adults + payload.kids} (Adultos: ${payload.adults}, Niños: ${payload.kids})`,
         payload.extras.length ? `Extras: ${payload.extras.join(", ")}` : "Extras: Ninguno",
-        selectedPackage ? `Total estimado: ${formatCurrency(totals.total)}` : null,
+        payload.totalAmount != null
+          ? `Total estimado: ${formatCurrency(payload.totalAmount)}`
+          : null,
         "Estado: Pago pendiente (la reserva se confirma al recibir el pago).",
       ].filter(Boolean) as string[];
       const message = messageLines.join("\n");
       const whatsappLink = `${whatsappBase}?text=${encodeURIComponent(message)}`;
       setWhatsAppLink(whatsappLink);
-      if (typeof window !== "undefined") {
-        window.open(whatsappLink, "_blank");
-      }
       if (!profilePhone) {
-        setShowPhonePrompt(false);
-        setShowConfirmation(false);
-        router.push("/reservar/pago");
+        setShowPhonePrompt(true);
       } else {
-        setShowConfirmation(false);
-        router.push("/reservar/pago");
+        setShowConfirmation(true);
       }
     } catch (error) {
       setSubmitError(
@@ -683,6 +690,28 @@ export default function ReservationWizard({
       return;
     }
     dispatch({ type: "nextStep", max: totalSteps });
+  };
+
+  const handleCancelReservation = async () => {
+    if (isCancelling) return;
+    setIsCancelling(true);
+    try {
+      const reservationId = confirmationId ?? confirmationData?.id ?? null;
+      if (reservationId) {
+        await fetch("/api/reservations/cancel", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reservationId }),
+        });
+      }
+      if (typeof window !== "undefined" && profileUserId) {
+        window.localStorage.removeItem(`cm_last_reservation:${profileUserId}`);
+      }
+      setShowConfirmation(false);
+      router.push("/");
+    } finally {
+      setIsCancelling(false);
+    }
   };
 
   return (
@@ -826,6 +855,8 @@ export default function ReservationWizard({
                     : "Por definir"
                   : stepId === "extras"
                   ? `${Object.values(state.extras).filter(Boolean).length} extras`
+                  : state.paymentMethod === "CASH"
+                  ? "WhatsApp"
                   : state.paymentMethod ?? "Por definir";
               const stepComplete =
                 stepId === "guests"
@@ -999,7 +1030,7 @@ export default function ReservationWizard({
               )}
               <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
                 Pago pendiente: la reserva se confirma cuando recibimos el pago.
-                Puedes pagar por Yappy o depósito bancario.
+                Puedes pagar aqui o acordar pago por WhatsApp.
               </p>
               <p>
                 Gracias por reservar con nosotros. Te contactaremos pronto para
@@ -1020,12 +1051,6 @@ export default function ReservationWizard({
                     "Por confirmar"}
                 </p>
                 <p>
-                  <span className="font-semibold text-foreground">Cabaña:</span>{" "}
-                  {confirmationData?.cabinCode ??
-                    reservationCabinCode ??
-                    "Por asignar"}
-                </p>
-                <p>
                   <span className="font-semibold text-foreground">Fecha:</span>{" "}
                   {confirmationData?.date ?? state.date ?? "Por confirmar"}
                 </p>
@@ -1034,9 +1059,9 @@ export default function ReservationWizard({
                     Hora entrada:
                   </span>{" "}
                   {confirmationData?.timeSlot
-                    ? formatTime(resolveTimeRange()?.start ?? confirmationData.timeSlot)
+                    ? formatTime12h(resolveTimeRange()?.start ?? confirmationData.timeSlot)
                     : resolveTimeRange()?.start
-                    ? formatTime(resolveTimeRange()!.start)
+                    ? formatTime12h(resolveTimeRange()!.start)
                     : "Por confirmar"}
                 </p>
                 <p>
@@ -1044,10 +1069,16 @@ export default function ReservationWizard({
                     Hora salida:
                   </span>{" "}
                   {confirmationData?.timeSlot
-                    ? formatTime(resolveTimeRange()?.end ?? "")
+                    ? formatTime12h(resolveTimeRange()?.end ?? "")
                     : resolveTimeRange()?.end
-                    ? formatTime(resolveTimeRange()!.end)
+                    ? formatTime12h(resolveTimeRange()!.end)
                     : "Por confirmar"}
+                </p>
+                <p>
+                  <span className="font-semibold text-foreground">Total:</span>{" "}
+                  {formatCurrency(
+                    confirmationData?.totalAmount ?? totals.total
+                  )}
                 </p>
                 <p>
                   <span className="font-semibold text-foreground">
@@ -1067,29 +1098,28 @@ export default function ReservationWizard({
               </div>
             </div>
             <div className="mt-5 flex flex-col gap-2 sm:flex-row">
-              {state.paymentMethod !== "CASH" && (
-                <Button
-                  type="button"
-                  onClick={() => router.push("/")}
-                  className="w-full rounded-full"
-                >
-                  Entendido
-                </Button>
-              )}
+              <a
+                href="/reservar/pago"
+                className="w-full rounded-full border border-border/70 px-4 py-2 text-center text-sm font-semibold"
+              >
+                Pagar aqui
+              </a>
               {whatsAppLink && (
                 <a
                   href={whatsAppLink}
-                  className="w-full rounded-full border border-border/70 px-4 py-2 text-center text-sm font-semibold"
+                  className="w-full rounded-full bg-[#25D366] px-4 py-2 text-center text-sm font-semibold text-white"
                 >
                   Enviar por WhatsApp
                 </a>
               )}
-              <a
-                href="/"
-                className="w-full rounded-full border border-border/70 px-4 py-2 text-center text-sm font-semibold"
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCancelReservation}
+                className="w-full rounded-full"
               >
-                Volver al inicio
-              </a>
+                {isCancelling ? "Cancelando..." : "Cancelar"}
+              </Button>
             </div>
           </div>
         </div>

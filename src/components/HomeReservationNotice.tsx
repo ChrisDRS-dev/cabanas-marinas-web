@@ -13,7 +13,6 @@ type ReservationItem = {
   end_at: string;
   status: string;
   total_amount: number | string | null;
-  cabin_code: string | null;
   adults_count?: number | null;
   kids_count?: number | null;
   packages?: { label?: string | null } | { label?: string | null }[] | null;
@@ -49,13 +48,19 @@ function formatDate(value: string) {
     day: "numeric",
     month: "short",
     year: "numeric",
+    timeZone: "America/Panama",
   });
 }
 
 function formatTime(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleTimeString("es-PA", { hour: "2-digit", minute: "2-digit" });
+  return date.toLocaleTimeString("es-PA", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "America/Panama",
+  });
 }
 
 function formatCurrency(value: number | string | null) {

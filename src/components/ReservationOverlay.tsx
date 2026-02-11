@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import ReservationWizard from "@/components/reservar/ReservationWizard";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase/client";
+import { siteData } from "@/lib/siteData";
 
 type ReservationItem = {
   id: string;
@@ -13,7 +14,6 @@ type ReservationItem = {
   end_at: string;
   status: string;
   total_amount: number | string | null;
-  cabin_code: string | null;
   package_id?: string | null;
   adults_count?: number | null;
   kids_count?: number | null;
@@ -29,13 +29,19 @@ function formatDate(value: string) {
     day: "numeric",
     month: "short",
     year: "numeric",
+    timeZone: "America/Panama",
   });
 }
 
 function formatTime(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleTimeString("es-PA", { hour: "2-digit", minute: "2-digit" });
+  return date.toLocaleTimeString("es-PA", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "America/Panama",
+  });
 }
 
 function formatCurrency(value: number | string | null) {
@@ -48,8 +54,14 @@ function formatCurrency(value: number | string | null) {
 function toTime(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
-  const hour = String(date.getHours()).padStart(2, "0");
-  const minute = String(date.getMinutes()).padStart(2, "0");
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "America/Panama",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+  const hour = parts.find((part) => part.type === "hour")?.value ?? "00";
+  const minute = parts.find((part) => part.type === "minute")?.value ?? "00";
   return `${hour}:${minute}`;
 }
 
@@ -132,14 +144,19 @@ export default function ReservationOverlay() {
         const response = await fetch("/api/my-reservations");
         const result = await response.json();
         if (!active) return;
-        if (response.ok && Array.isArray(result?.reservations)) {
-          const current = result.reservations.find((item: ReservationItem) =>
-            ACTIVE_STATUS.has(item.status)
-          );
-          setActiveReservation(current ?? null);
-        } else {
-          setActiveReservation(null);
-        }
+    if (response.ok && Array.isArray(result?.reservations)) {
+      const current = result.reservations.find((item: ReservationItem) =>
+        ACTIVE_STATUS.has(item.status)
+      );
+      setActiveReservation(current ?? null);
+      if (!current && session?.user?.id && typeof window !== "undefined") {
+        window.localStorage.removeItem(
+          `cm_last_reservation:${session.user.id}`
+        );
+      }
+    } else {
+      setActiveReservation(null);
+    }
       } catch {
         if (!active) return;
         setActiveReservation(null);
@@ -220,9 +237,6 @@ export default function ReservationOverlay() {
                     <p className="text-sm font-semibold">
                       {formatCurrency(activeReservation.total_amount)}
                     </p>
-                    <p className="text-xs text-muted-foreground">
-                      Cabaña: {activeReservation.cabin_code ?? "Por asignar"}
-                    </p>
                   </div>
                 </div>
               </div>
@@ -243,7 +257,7 @@ export default function ReservationOverlay() {
                   </a>
                 )}
                 <a
-                  href="/?whatsapp=1"
+                  href={buildWhatsAppLink(activeReservation)}
                   className="w-full rounded-full bg-[#25D366] px-4 py-2 text-center text-sm font-semibold text-white"
                 >
                   Contactar por WhatsApp
@@ -263,7 +277,7 @@ export default function ReservationOverlay() {
   );
 }
 function buildWhatsAppLink(reservation: ReservationItem) {
-  const base = "https://wa.me/50766012413";
+  const base = siteData.links.whatsapp;
   const packageLabel = resolvePackageLabel(reservation);
   const messageLines = [
     "Hola, tengo una reserva pendiente de pago.",

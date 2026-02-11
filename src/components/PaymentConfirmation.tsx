@@ -38,6 +38,7 @@ function formatDate(value: string | null) {
     day: "numeric",
     month: "short",
     year: "numeric",
+    timeZone: "America/Panama",
   });
 }
 
@@ -56,6 +57,7 @@ function formatTime(value: string | null) {
     hour: "2-digit",
     minute: "2-digit",
     hour12: true,
+    timeZone: "America/Panama",
   });
 }
 
@@ -65,6 +67,20 @@ function formatTimeRange12h(value: string | null) {
   const start = startRaw ? formatTime(`1970-01-01T${startRaw}:00`) : "Por confirmar";
   const end = endRaw ? formatTime(`1970-01-01T${endRaw}:00`) : "Por confirmar";
   return `${start} - ${end}`;
+}
+
+function toPanamaTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "America/Panama",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+  const hour = parts.find((part) => part.type === "hour")?.value ?? "00";
+  const minute = parts.find((part) => part.type === "minute")?.value ?? "00";
+  return `${hour}:${minute}`;
 }
 
 function buildWhatsAppLink(data: ConfirmationData | null) {
@@ -115,17 +131,16 @@ export default function PaymentConfirmation() {
         if (!active) return;
         if (response.ok && Array.isArray(result?.reservations)) {
           const list = result.reservations as ReservationApiItem[];
-          const activeReservation =
-            list.find((item) => item.status === "PENDING_PAYMENT") ?? list[0];
+          const activeReservation = list.find(
+            (item) => item.status === "PENDING_PAYMENT"
+          );
           if (activeReservation) {
             const packageLabel = Array.isArray(activeReservation.packages)
               ? activeReservation.packages[0]?.label ?? null
               : activeReservation.packages?.label ?? null;
-            const timeSlot = `${new Date(activeReservation.start_at)
-              .toISOString()
-              .slice(11, 16)}-${new Date(activeReservation.end_at)
-              .toISOString()
-              .slice(11, 16)}`;
+            const start = toPanamaTime(activeReservation.start_at);
+            const end = toPanamaTime(activeReservation.end_at);
+            const timeSlot = start && end ? `${start}-${end}` : "";
             setData({
               id: activeReservation.id ?? null,
               name: null,
@@ -133,12 +148,15 @@ export default function PaymentConfirmation() {
               kids: Number(activeReservation.kids_count ?? 0),
               packageLabel,
               date: activeReservation.reserved_date ?? null,
-              timeSlot,
+              timeSlot: timeSlot || null,
               extras: [],
               cabinCode: null,
               totalAmount: activeReservation.total_amount ?? null,
             });
             return;
+          }
+          if (userId && typeof window !== "undefined") {
+            window.localStorage.removeItem(`cm_last_reservation:${userId}`);
           }
         }
       } catch {

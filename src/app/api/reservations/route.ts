@@ -109,10 +109,8 @@ export async function POST(req: Request) {
       quantity: toNumber(extra.quantity, 1),
     })) ?? [];
 
-  const paymentMethod =
-    String(payload.paymentMethod ?? "CASH").toUpperCase() === "CASH"
-      ? "CASH"
-      : "CASH";
+  const rawPayment = String(payload.paymentMethod ?? "CASH").toUpperCase();
+  const paymentMethod = rawPayment === "WHATSAPP" ? "CASH" : "CASH";
 
   const { data, error } = await supabase.rpc("create_reservation_public", {
     p_package_id: packageId,
@@ -143,18 +141,8 @@ export async function POST(req: Request) {
 
   const result = Array.isArray(data) ? data[0] : data;
 
-  const { data: cabin } = result?.cabin_id
-    ? await supabase
-        .from("cabins")
-        .select("code")
-        .eq("id", result.cabin_id)
-        .maybeSingle()
-    : { data: null };
-
   return NextResponse.json({
     id: result?.reservation_id ?? null,
-    cabinId: result?.cabin_id ?? null,
-    cabinCode: cabin?.code ?? null,
     total: result?.total_amount ?? null,
   });
 }

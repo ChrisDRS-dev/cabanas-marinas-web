@@ -24,7 +24,7 @@ export async function GET() {
   const base = supabase
     .from("reservations")
     .select(
-      "id,reserved_date,start_at,end_at,status,total_amount,cabin_code,package_id,adults_count,kids_count,cabins(name),packages(label)"
+      "id,reserved_date,start_at,end_at,status,total_amount,package_id,adults_count,kids_count,packages(label)"
     );
   const { data, error } = await base
     .eq("customer_id", user.id)

@@ -45,7 +45,7 @@ export default function RootLayout({
         {children}
         <StickyCTA
           primaryHref="/?reservar=1"
-          primaryLabel="Reservar"
+          primaryLabel="Mi reserva"
           secondaryHref="https://wa.me/50762811651"
           secondaryLabel="WhatsApp"
         />
