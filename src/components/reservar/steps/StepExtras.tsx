@@ -4,12 +4,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import type { ReservationState } from "@/components/reservar/ReservationWizard";
 import type { Extra } from "@/lib/supabase/catalog";
+import type { ExtrasStepConfig } from "@/lib/supabase/formConfig";
 import type React from "react";
 
 type StepExtrasProps = {
   state: ReservationState;
   dispatch: React.Dispatch<{ type: "setExtra"; id: string; value: boolean }>;
   extras: Extra[];
+  config?: ExtrasStepConfig;
 };
 
 function formatExtraUnit(value: Extra["pricingUnit"]) {
@@ -27,22 +29,27 @@ export default function StepExtras({
   state,
   dispatch,
   extras,
+  config,
 }: StepExtrasProps) {
+  const title = config?.title ?? "Extras para el plan";
+  const subtitle =
+    config?.subtitle ??
+    "Suma equipamiento si quieres una experiencia más completa.";
+  const emptyLabel = config?.emptyLabel ?? "Cargando extras disponibles...";
+  const addLabel = config?.addLabel ?? "Agregar";
+  const addedLabel = config?.addedLabel ?? "Agregado";
+
   return (
     <section className="space-y-4">
       <div className="space-y-2">
-        <h2 className="font-display text-2xl font-semibold">
-          Extras para el plan
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          Suma equipamiento si quieres una experiencia más completa.
-        </p>
+        <h2 className="font-display text-2xl font-semibold">{title}</h2>
+        <p className="text-sm text-muted-foreground">{subtitle}</p>
       </div>
       <Card className="border-border/70 py-4">
         <CardContent className="space-y-3">
           {extras.length === 0 && (
             <div className="rounded-2xl border border-dashed border-border/70 bg-secondary/40 px-4 py-3 text-sm text-muted-foreground">
-              Cargando extras disponibles...
+              {emptyLabel}
             </div>
           )}
           {extras.map((extra) => {
@@ -75,7 +82,7 @@ export default function StepExtras({
                   }
                   className="rounded-full px-5"
                 >
-                  {selected ? "Agregado" : "Agregar"}
+                  {selected ? addedLabel : addLabel}
                 </Button>
               </div>
             );

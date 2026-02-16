@@ -6,11 +6,25 @@ import ReservationOverlayClient from "@/components/ReservationOverlayClient";
 import SupabaseSmokeTestClient from "@/components/SupabaseSmokeTestClient";
 import ReserveButton from "@/components/ReserveButton";
 import { siteData } from "@/lib/siteData";
+import { supabaseServer } from "@/lib/supabase/server";
 import { Suspense } from "react";
 
 export const dynamic = "force-dynamic";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const supabase = await supabaseServer();
+  const { data: contentRow } = await supabase
+    .from("site_content")
+    .select("content")
+    .eq("key", "home")
+    .eq("is_active", true)
+    .maybeSingle();
+
+  const homeContent =
+    (contentRow?.content as typeof siteData) ?? siteData;
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   const {
     brand,
     about,
@@ -22,7 +36,7 @@ export default function HomePage() {
     location,
     faq,
     finalCta,
-  } = siteData;
+  } = homeContent;
   const planGallery = plans.map((plan, index) => ({
     title: plan.name,
     price: plan.price,

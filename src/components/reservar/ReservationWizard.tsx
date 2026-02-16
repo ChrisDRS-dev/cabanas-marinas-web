@@ -1,20 +1,26 @@
 "use client";
 
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { calcTotal, PackageType } from "@/lib/calcTotal";
 import StepDatePackage from "@/components/reservar/steps/StepDatePackage";
 import StepGuests from "@/components/reservar/steps/StepGuests";
 import StepExtras from "@/components/reservar/steps/StepExtras";
-import StepPayment from "@/components/reservar/steps/StepPayment";
 import StepSummary from "@/components/reservar/steps/StepSummary";
+import { supabase } from "@/lib/supabase/client";
+import { siteData } from "@/lib/siteData";
 import {
   fetchCatalog,
   type Extra,
   type Package,
   type TimeSlot,
 } from "@/lib/supabase/catalog";
+import {
+  fetchFormConfig,
+  type FormStepConfig,
+  type FormConfig,
+} from "@/lib/supabase/formConfig";
 
 export type PaymentMethod = "YAPPY" | "PAYPAL" | "CARD" | "CASH";
 
@@ -40,12 +46,18 @@ type Action =
   | { type: "syncExtras"; ids: string[] }
   | { type: "setCouplePackage"; value: boolean }
   | { type: "setPayment"; value: PaymentMethod | null }
-  | { type: "setStep"; value: number }
-  | { type: "nextStep" }
+  | { type: "hydrate"; value: Partial<ReservationState> }
+  | { type: "setStep"; value: number; max: number }
+  | { type: "nextStep"; max: number }
   | { type: "prevStep" };
 
-const TOTAL_STEPS = 4;
 const DEFAULT_MIN_PEOPLE = 4;
+const DEFAULT_STEPS: FormStepConfig[] = [
+  { id: "guests", label: "Personas", summary: "Personas" },
+  { id: "date_package", label: "Fecha y hora", summary: "Fecha y hora" },
+  { id: "extras", label: "Extras", summary: "Extras" },
+  { id: "payment", label: "Resumen", summary: "Resumen" },
+];
 
 const initialState: ReservationState = {
   step: 1,
@@ -56,7 +68,7 @@ const initialState: ReservationState = {
   kids: 0,
   extras: {},
   couplePackage: false,
-  paymentMethod: null,
+  paymentMethod: "CASH",
 };
 
 function reducer(state: ReservationState, action: Action): ReservationState {
@@ -102,13 +114,19 @@ function reducer(state: ReservationState, action: Action): ReservationState {
       };
     case "setPayment":
       return { ...state, paymentMethod: action.value };
+    case "hydrate":
+      return {
+        ...state,
+        ...action.value,
+        extras: action.value.extras ?? state.extras,
+      };
     case "setStep":
       return {
         ...state,
-        step: Math.max(1, Math.min(TOTAL_STEPS, action.value)),
+        step: Math.max(1, Math.min(action.max, action.value)),
       };
     case "nextStep":
-      return { ...state, step: Math.min(TOTAL_STEPS, state.step + 1) };
+      return { ...state, step: Math.min(action.max, state.step + 1) };
     case "prevStep":
       return { ...state, step: Math.max(1, state.step - 1) };
     default:
@@ -131,13 +149,15 @@ function isWeekend(dateValue: string | null) {
 
 export default function ReservationWizard({
   mode = "page",
+  prefill,
+  startStepId,
 }: {
   mode?: "page" | "modal";
+  prefill?: Partial<ReservationState>;
+  startStepId?: string;
 }) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const searchParams = useSearchParams();
-  const router = useRouter();
-  const pathname = usePathname();
   const isModal = mode === "modal";
   const [packages, setPackages] = useState<Package[]>([]);
   const [timeSlotsByPackage, setTimeSlotsByPackage] = useState<
@@ -145,7 +165,86 @@ export default function ReservationWizard({
   >({});
   const [extrasCatalog, setExtrasCatalog] = useState<Extra[]>([]);
   const [catalogError, setCatalogError] = useState<string | null>(null);
-  const appliedPresetRef = useRef(false);
+  const [formSteps, setFormSteps] = useState<FormStepConfig[]>(DEFAULT_STEPS);
+  const [formConfig, setFormConfig] = useState<FormConfig | null>(null);
+  const [formConfigError, setFormConfigError] = useState<string | null>(null);
+  const [showSummary, setShowSummary] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [confirmationId, setConfirmationId] = useState<string | null>(null);
+  const [profileName, setProfileName] = useState<string | null>(null);
+  const [profilePhone, setProfilePhone] = useState<string | null>(null);
+  const [showPhonePrompt, setShowPhonePrompt] = useState(false);
+  const [phoneInput, setPhoneInput] = useState("");
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [confirmationData, setConfirmationData] = useState<{
+    id: string | null;
+    name: string | null;
+    adults: number;
+    kids: number;
+    packageLabel: string | null;
+    date: string | null;
+    timeSlot: string | null;
+    extras: string[];
+    totalAmount?: number | null;
+  } | null>(null);
+  const [isRepeatConfirmation, setIsRepeatConfirmation] = useState(false);
+  const [profileUserId, setProfileUserId] = useState<string | null>(null);
+  const [draftLoaded, setDraftLoaded] = useState(false);
+  const [draftHydrated, setDraftHydrated] = useState(false);
+  const [whatsAppLink, setWhatsAppLink] = useState<string | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const stepOverrideRef = useRef(false);
+  const prefillRef = useRef(false);
+
+  const router = useRouter();
+
+  const formatTime = (value: string) =>
+    value.includes(":") ? value.slice(0, 5) : value;
+
+  const formatTime12h = (value: string | null) => {
+    if (!value) return "Por confirmar";
+    const [hourText, minuteText = "0"] = value.split(":");
+    const hour = Number(hourText);
+    const minute = Number(minuteText);
+    if (Number.isNaN(hour) || Number.isNaN(minute)) return value;
+    const period = hour >= 12 ? "P.M." : "A.M.";
+    const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+    const displayMinute = String(minute).padStart(2, "0");
+    return `${displayHour}:${displayMinute} ${period}`;
+  };
+
+  const resolveTimeRange = () => {
+    if (!state.timeSlot) return null;
+    if (state.timeSlot.includes("-")) {
+      const [start, end] = state.timeSlot.split("-");
+      return {
+        start: start.replace(":00", "").trim(),
+        end: end?.replace(":00", "").trim() ?? "",
+      };
+    }
+    if (selectedPackage?.durationMinutes) {
+      const [hourText, minuteText = "0"] = state.timeSlot.split(":");
+      const startHour = Number(hourText);
+      const startMinute = Number(minuteText);
+      if (!Number.isNaN(startHour) && !Number.isNaN(startMinute)) {
+        const startDate = new Date(0, 0, 0, startHour, startMinute);
+        const endDate = new Date(
+          startDate.getTime() + selectedPackage.durationMinutes * 60 * 1000
+        );
+        const start = `${String(startDate.getHours()).padStart(2, "0")}:${String(
+          startDate.getMinutes()
+        ).padStart(2, "0")}`;
+        const end = `${String(endDate.getHours()).padStart(2, "0")}:${String(
+          endDate.getMinutes()
+        ).padStart(2, "0")}`;
+        return { start, end };
+      }
+    }
+    return { start: state.timeSlot, end: "" };
+  };
 
   const scrollToSummary = () => {
     const summary = document.getElementById("reservation-summary-title");
@@ -202,18 +301,214 @@ export default function ReservationWizard({
     };
   }, []);
 
+  const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!profileUserId) {
+      setDraftLoaded(true);
+      return;
+    }
+    let active = true;
+    const loadDraft = async () => {
+      try {
+        const { data } = await supabase
+          .from("reservation_drafts")
+          .select("state")
+          .eq("user_id", profileUserId)
+          .maybeSingle();
+        if (!active) return;
+        if (data?.state) {
+          dispatch({ type: "hydrate", value: data.state as Partial<ReservationState> });
+          setDraftHydrated(true);
+        }
+      } catch {
+        if (!active) return;
+      } finally {
+        if (active) setDraftLoaded(true);
+      }
+    };
+    loadDraft();
+    return () => {
+      active = false;
+    };
+  }, [profileUserId]);
+
+  useEffect(() => {
+    if (!profileUserId) return;
+    if (!draftLoaded) return;
+    if (showConfirmation || showPhonePrompt) return;
+    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    const payload: Partial<ReservationState> = {
+      step: state.step,
+      date: state.date,
+      packageId: state.packageId,
+      timeSlot: state.timeSlot,
+      adults: state.adults,
+      kids: state.kids,
+      extras: state.extras,
+      couplePackage: state.couplePackage,
+      paymentMethod: state.paymentMethod,
+    };
+    draftTimerRef.current = setTimeout(async () => {
+      await supabase.from("reservation_drafts").upsert(
+        {
+          user_id: profileUserId,
+          state: payload,
+        },
+        { onConflict: "user_id" }
+      );
+    }, 1200);
+    return () => {
+      if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    };
+  }, [
+    state.step,
+    state.date,
+    state.packageId,
+    state.timeSlot,
+    state.adults,
+    state.kids,
+    state.extras,
+    state.couplePackage,
+    state.paymentMethod,
+    profileUserId,
+    draftLoaded,
+    showConfirmation,
+    showPhonePrompt,
+  ]);
+
+  useEffect(() => {
+    let active = true;
+    const loadConfig = async () => {
+      try {
+        const config = await fetchFormConfig();
+        if (!active || !config?.steps?.length) return;
+        const filtered = config.steps.filter(
+          (step) => step.enabled !== false
+        );
+        if (filtered.length > 0) {
+          setFormSteps(filtered);
+        }
+        if (config.show_summary === false) {
+          setShowSummary(false);
+        }
+        setFormConfig(config);
+      } catch (error) {
+        if (!active) return;
+        setFormConfigError(
+          error instanceof Error
+            ? error.message
+            : "No se pudo cargar el formulario."
+        );
+      }
+    };
+
+    loadConfig();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const loadProfile = async () => {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const user = sessionData.session?.user;
+        if (!user || !active) return;
+        setProfileUserId(user.id);
+        const { data } = await supabase
+          .from("profiles")
+          .select("full_name, phone")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (!active) return;
+        const nameFromProfile = data?.full_name ?? null;
+        const phoneFromProfile = data?.phone ?? null;
+        const nameFromMeta =
+          (user.user_metadata?.full_name as string | undefined) ??
+          (user.user_metadata?.name as string | undefined) ??
+          null;
+        const phoneFromMeta =
+          (user.user_metadata?.phone as string | undefined) ?? null;
+        setProfileName(nameFromProfile ?? nameFromMeta);
+        setProfilePhone(phoneFromProfile ?? phoneFromMeta);
+      } catch {
+        if (!active) return;
+        setProfileName(null);
+        setProfilePhone(null);
+      }
+    };
+    loadProfile();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!profileUserId) return;
+    const key = `cm_last_reservation:${profileUserId}`;
+    const saved = window.localStorage.getItem(key);
+    if (!saved) return;
+    try {
+      const parsed = JSON.parse(saved) as {
+        id: string | null;
+        name: string | null;
+        adults: number;
+        kids: number;
+        packageLabel: string | null;
+        date: string | null;
+        timeSlot: string | null;
+        extras: string[];
+        totalAmount?: number | null;
+      };
+      if (parsed.date) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const parsedDate = new Date(parsed.date);
+        if (!Number.isNaN(parsedDate.getTime())) {
+          parsedDate.setHours(0, 0, 0, 0);
+          if (parsedDate < today) {
+            window.localStorage.removeItem(key);
+            return;
+          }
+        }
+      }
+      setIsRepeatConfirmation(true);
+      setConfirmationData(parsed);
+      setConfirmationId(parsed.id ?? null);
+      setShowConfirmation(true);
+    } catch {
+      window.localStorage.removeItem(key);
+    }
+  }, [profileUserId]);
+
   useEffect(() => {
     const pkg = searchParams.get("package") as PackageType | null;
     if (!pkg) return;
     const exists = packages.some((item) => item.id === pkg);
-    if (!exists || appliedPresetRef.current) return;
-    appliedPresetRef.current = true;
-    dispatch({ type: "setPackage", value: pkg });
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete("package");
-    const query = params.toString();
-    router.replace(query ? `${pathname}?${query}` : pathname);
-  }, [searchParams, packages, router, pathname, state.packageId]);
+    if (exists && state.packageId !== pkg) {
+      dispatch({ type: "setPackage", value: pkg });
+    }
+  }, [searchParams, state.packageId, packages]);
+
+  useEffect(() => {
+    if (!prefill || prefillRef.current) return;
+    dispatch({ type: "hydrate", value: prefill });
+    prefillRef.current = true;
+  }, [prefill]);
+
+  useEffect(() => {
+    if (formSteps.length === 0) return;
+    const targetStep = startStepId ?? searchParams.get("step");
+    if (!targetStep || stepOverrideRef.current) return;
+    const index = formSteps.findIndex((step) => step.id === targetStep);
+    if (index === -1) return;
+    const stepsCount = formSteps.length || DEFAULT_STEPS.length;
+    stepOverrideRef.current = true;
+    dispatch({ type: "setStep", value: index + 1, max: stepsCount });
+  }, [searchParams, formSteps, startStepId]);
 
   const weekend = isWeekend(state.date);
   const selectedPackage = packages.find((item) => item.id === state.packageId);
@@ -245,35 +540,178 @@ export default function ReservationWizard({
   );
   const totalPeople = state.adults + state.kids;
   const showMinWarning = minPeople > 0 && totalPeople < minPeople;
+  const totalSteps = formSteps.length || DEFAULT_STEPS.length;
+  const activeStep = formSteps[state.step - 1]?.id ?? "guests";
+
+  useEffect(() => {
+    if (state.step > totalSteps) {
+      dispatch({ type: "setStep", value: totalSteps, max: totalSteps });
+    }
+  }, [state.step, totalSteps]);
 
   const isStepComplete = () => {
-    switch (state.step) {
-      case 1:
+    switch (activeStep) {
+      case "guests":
         return totalPeople >= DEFAULT_MIN_PEOPLE || state.couplePackage;
-      case 2:
+      case "date_package":
         if (!state.date || !state.packageId || !state.timeSlot) return false;
         if (state.packageId === "EVENTO") {
           return totalPeople >= 6;
         }
         return totalPeople >= 4 || state.couplePackage;
-      case 3:
+      case "extras":
         return true;
-      case 4:
-        return Boolean(state.paymentMethod);
+      case "payment":
+        return true;
       default:
         return false;
     }
   };
 
-  const primaryLabel = state.step === TOTAL_STEPS ? "Finalizar" : "Continuar";
+  const primaryLabel =
+    state.step === totalSteps ? "Solicitar reserva" : "Continuar";
+
+  const submitReservation = async () => {
+    setIsSubmitting(true);
+    setSubmitError(null);
+    setSubmitSuccess(null);
+    try {
+      const selectedExtras = Object.entries(state.extras)
+        .filter(([, selected]) => selected)
+        .map(([id]) => ({ id, quantity: 1 }));
+
+      const response = await fetch("/api/reservations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          packageId: state.packageId,
+          date: state.date,
+          timeSlot: state.timeSlot,
+          adults: state.adults,
+          kids: state.kids,
+          extras: selectedExtras,
+          paymentMethod: state.paymentMethod ?? "CASH",
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        const code = String(result?.error ?? "");
+        const message =
+          code === "not_authenticated" || code === "CM_NOT_AUTHENTICATED"
+            ? "Inicia sesion para completar la reserva."
+            : code === "missing_fields"
+            ? "Completa todos los campos obligatorios."
+            : code === "CM_INVALID_TIME_RANGE"
+            ? "El horario seleccionado no es valido."
+            : code === "CM_INVALID_PEOPLE_COUNT"
+            ? "Indica la cantidad de personas para continuar."
+            : code === "CM_MIN_PEOPLE_REQUIRED"
+            ? "No cumples con el minimo de personas para esta fecha."
+            : code === "CM_NO_CABIN_AVAILABLE"
+            ? "No hay cabañas disponibles para ese horario."
+            : code === "CM_MAX_PEOPLE_EXCEEDED"
+            ? "La capacidad maxima por reserva es de 16 personas."
+            : code === "CM_INVALID_PACKAGE" || code === "invalid_package"
+            ? "Paquete invalido. Actualiza la pagina."
+            : "No se pudo completar la reserva.";
+        throw new Error(message);
+      }
+
+      setSubmitSuccess("Reserva solicitada. Completa el pago para confirmar.");
+      const resolvedExtras = Object.entries(state.extras)
+        .filter(([, selected]) => selected)
+        .map(
+          ([id]) => extrasCatalog.find((extra) => extra.id === id)?.label ?? id
+        );
+      const payload = {
+        id: result?.id ?? null,
+        name: profileName ?? null,
+        adults: state.adults,
+        kids: state.kids,
+        packageLabel: selectedPackage?.label ?? null,
+        date: state.date,
+        timeSlot: state.timeSlot,
+        extras: resolvedExtras,
+        totalAmount:
+          typeof result?.total === "number" ? result.total : totals.total,
+      };
+      setConfirmationId(result?.id ?? null);
+      setConfirmationData(payload);
+      if (typeof window !== "undefined" && profileUserId) {
+        window.localStorage.setItem(
+          `cm_last_reservation:${profileUserId}`,
+          JSON.stringify(payload)
+        );
+      }
+      if (profileUserId) {
+        await supabase
+          .from("reservation_drafts")
+          .delete()
+          .eq("user_id", profileUserId);
+      }
+      const whatsappBase = siteData.links.whatsapp;
+      const messageLines = [
+        "Hola, quiero coordinar el pago de mi reserva.",
+        payload.id ? `ID: ${String(payload.id).slice(0, 8)}` : null,
+        payload.name ? `Nombre: ${payload.name}` : null,
+        payload.packageLabel ? `Paquete: ${payload.packageLabel}` : null,
+        payload.date ? `Fecha: ${payload.date}` : null,
+        payload.timeSlot ? `Horario: ${payload.timeSlot}` : null,
+        `Personas: ${payload.adults + payload.kids} (Adultos: ${payload.adults}, Niños: ${payload.kids})`,
+        payload.extras.length ? `Extras: ${payload.extras.join(", ")}` : "Extras: Ninguno",
+        payload.totalAmount != null
+          ? `Total estimado: ${formatCurrency(payload.totalAmount)}`
+          : null,
+        "Estado: Pago pendiente (la reserva se confirma al recibir el pago).",
+      ].filter(Boolean) as string[];
+      const message = messageLines.join("\n");
+      const whatsappLink = `${whatsappBase}?text=${encodeURIComponent(message)}`;
+      setWhatsAppLink(whatsappLink);
+      if (!profilePhone) {
+        setShowPhonePrompt(true);
+      } else {
+        setShowConfirmation(true);
+      }
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error ? error.message : "No se pudo completar la reserva."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handlePrimaryAction = () => {
     if (!isStepComplete()) return;
-    if (state.step === TOTAL_STEPS) {
-      window.alert("Solicitud enviada. Te contactaremos pronto.");
+    if (showConfirmation || showPhonePrompt || isSubmitting) return;
+    if (state.step === totalSteps) {
+      void submitReservation();
       return;
     }
-    dispatch({ type: "nextStep" });
+    dispatch({ type: "nextStep", max: totalSteps });
+  };
+
+  const handleCancelReservation = async () => {
+    if (isCancelling) return;
+    setIsCancelling(true);
+    try {
+      const reservationId = confirmationId ?? confirmationData?.id ?? null;
+      if (reservationId) {
+        await fetch("/api/reservations/cancel", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reservationId }),
+        });
+      }
+      if (typeof window !== "undefined" && profileUserId) {
+        window.localStorage.removeItem(`cm_last_reservation:${profileUserId}`);
+      }
+      setShowConfirmation(false);
+      router.push("/");
+    } finally {
+      setIsCancelling(false);
+    }
   };
 
   return (
@@ -294,7 +732,7 @@ export default function ReservationWizard({
               variant="ghost"
               size="icon"
               onClick={() =>
-                dispatch({ type: "setStep", value: state.step - 1 })
+                dispatch({ type: "setStep", value: state.step - 1, max: totalSteps })
               }
               aria-label="Volver"
               className="rounded-full"
@@ -322,7 +760,7 @@ export default function ReservationWizard({
         </div>
         <div className="mx-auto max-w-3xl px-6 pb-4">
           <div className="flex items-center gap-2">
-            {Array.from({ length: TOTAL_STEPS }).map((_, index) => {
+            {Array.from({ length: totalSteps }).map((_, index) => {
               const stepIndex = index + 1;
               const isActive = state.step === stepIndex;
               const isDone = state.step > stepIndex;
@@ -345,118 +783,347 @@ export default function ReservationWizard({
             {catalogError}
           </div>
         )}
-        {state.step === 1 && (
+        {formConfigError && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            {formConfigError}
+          </div>
+        )}
+        {activeStep === "guests" && (
           <StepGuests
             state={state}
             dispatch={dispatch}
             minPeople={minPeople}
             showMinWarning={showMinWarning}
             packageId={state.packageId}
+            config={formConfig?.guests}
           />
         )}
-        {state.step === 2 && (
+        {activeStep === "date_package" && (
           <StepDatePackage
             state={state}
             dispatch={dispatch}
             selectedPackage={selectedPackage}
             packages={packages}
             timeSlotsByPackage={timeSlotsByPackage}
+            config={formConfig?.date_package}
           />
         )}
-        {state.step === 3 && (
+        {activeStep === "extras" && (
           <StepExtras
             state={state}
             dispatch={dispatch}
             extras={extrasCatalog}
+            config={formConfig?.extras}
           />
         )}
-        {state.step === 4 && (
-          <>
-            <StepPayment
-              state={state}
-              dispatch={dispatch}
-              onSelected={scrollToSummary}
-            />
-            <StepSummary
-              state={state}
-              selectedPackage={selectedPackage}
-              totals={totals}
-              showMinWarning={showMinWarning}
-              minPeople={minPeople}
-              weekend={weekend}
-              extrasCatalog={extrasCatalog}
-            />
-          </>
+        {activeStep === "payment" && (
+          <StepSummary
+            state={state}
+            selectedPackage={selectedPackage}
+            totals={totals}
+            showMinWarning={showMinWarning}
+            minPeople={minPeople}
+            weekend={weekend}
+            extrasCatalog={extrasCatalog}
+          />
         )}
-        <section className="mt-2 flex flex-col gap-2">
-          {[
-            {
-              id: 1,
-              title: "Personas",
-              value: `${state.adults} adultos, ${state.kids} niños${
-                state.couplePackage ? " · Pareja" : ""
-              }`,
-              complete:
-                totalPeople >= DEFAULT_MIN_PEOPLE || state.couplePackage,
-            },
-            {
-              id: 2,
-              title: "Fecha y hora",
-              value: state.date
-                ? `${state.date} · ${state.timeSlot ?? "Por definir"}`
-                : "Por definir",
-              complete:
-                Boolean(state.date && state.packageId && state.timeSlot),
-            },
-            {
-              id: 3,
-              title: "Extras",
-              value: `${
-                Object.values(state.extras).filter(Boolean).length
-              } extras`,
-              complete: true,
-            },
-            {
-              id: 4,
-              title: "Pago",
-              value: state.paymentMethod ?? "Por definir",
-              complete: Boolean(state.paymentMethod),
-            },
-          ].map((item) => {
-            const isActive = state.step === item.id;
-            const isFuture = state.step < item.id;
-            const canJump = item.id < state.step;
-            if (isFuture) return null;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() =>
-                  canJump && dispatch({ type: "setStep", value: item.id })
-                }
-                className={`glass-panel flex items-center justify-between gap-3 rounded-2xl px-4 py-2 text-left text-xs transition-all duration-300 ${
-                  isActive
-                    ? "scale-100 opacity-100"
-                    : "scale-[0.98] opacity-80"
-                } ${canJump ? "hover:brightness-105" : "cursor-default"}`}
-                disabled={!canJump}
-              >
-                <span className="font-semibold">{item.title}</span>
-                <span className="text-muted-foreground">{item.value}</span>
-                <span
-                  className={`ml-auto rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-                    item.complete
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-secondary text-muted-foreground"
-                  }`}
+        {(submitError || submitSuccess) && (
+          <div
+            className={`rounded-2xl border px-4 py-3 text-sm ${
+              submitError
+                ? "border-rose-200 bg-rose-50 text-rose-700"
+                : "border-emerald-200 bg-emerald-50 text-emerald-700"
+            }`}
+          >
+            {submitError ?? submitSuccess}
+          </div>
+        )}
+        {showSummary && (
+          <section className="mt-2 flex flex-col gap-2">
+            {formSteps.map((step, index) => {
+              const stepIndex = index + 1;
+              const stepId = step.id;
+              const summaryTitle = step.summary ?? step.label ?? "Paso";
+              const stepValue =
+                stepId === "guests"
+                  ? `${state.adults} adultos, ${state.kids} niños${
+                      state.couplePackage ? " · Pareja" : ""
+                    }`
+                  : stepId === "date_package"
+                  ? state.date
+                    ? `${state.date} · ${state.timeSlot ?? "Por definir"}`
+                    : "Por definir"
+                  : stepId === "extras"
+                  ? `${Object.values(state.extras).filter(Boolean).length} extras`
+                  : state.paymentMethod === "CASH"
+                  ? "WhatsApp"
+                  : state.paymentMethod ?? "Por definir";
+              const stepComplete =
+                stepId === "guests"
+                  ? totalPeople >= DEFAULT_MIN_PEOPLE || state.couplePackage
+                  : stepId === "date_package"
+                  ? Boolean(state.date && state.packageId && state.timeSlot)
+                  : stepId === "payment"
+                  ? Boolean(state.paymentMethod)
+                  : true;
+
+              const isActive = state.step === stepIndex;
+              const isFuture = state.step < stepIndex;
+              const canJump = stepIndex < state.step;
+              if (isFuture) return null;
+              return (
+                <button
+                  key={step.id}
+                  type="button"
+                  onClick={() =>
+                    canJump &&
+                    dispatch({ type: "setStep", value: stepIndex, max: totalSteps })
+                  }
+                  className={`glass-panel flex items-center justify-between gap-3 rounded-2xl px-4 py-2 text-left text-xs transition-all duration-300 ${
+                    isActive
+                      ? "scale-100 opacity-100"
+                      : "scale-[0.98] opacity-80"
+                  } ${canJump ? "hover:brightness-105" : "cursor-default"}`}
+                  disabled={!canJump}
                 >
-                  {item.complete ? "OK" : "..."}
-                </span>
-              </button>
-            );
-          })}
-        </section>
+                  <span className="font-semibold">{summaryTitle}</span>
+                  <span className="text-muted-foreground">{stepValue}</span>
+                  <span
+                    className={`ml-auto rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                      stepComplete
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-secondary text-muted-foreground"
+                    }`}
+                  >
+                    {stepComplete ? "OK" : "..."}
+                  </span>
+                </button>
+              );
+            })}
+          </section>
+        )}
       </main>
+
+      {showPhonePrompt && (
+        <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/50 px-4 py-6">
+          <div className="w-full max-w-md rounded-3xl border border-border/70 bg-card p-6 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+                  Número de contacto
+                </p>
+                <h3 className="mt-1 text-xl font-semibold text-foreground">
+                  ¿Nos dejas tu teléfono?
+                </h3>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setShowPhonePrompt(false);
+                  setShowConfirmation(true);
+                }}
+                className="rounded-full"
+              >
+                Omitir
+              </Button>
+            </div>
+            <p className="mt-3 text-sm text-muted-foreground">
+              Así podemos coordinar tu llegada y confirmar la reserva.
+            </p>
+            <input
+              type="tel"
+              value={phoneInput}
+              onChange={(event) => setPhoneInput(event.target.value)}
+              placeholder="Ej: +507 6000-0000"
+              className="mt-4 w-full rounded-2xl border border-border/70 bg-background px-4 py-3 text-sm font-semibold text-foreground"
+            />
+            <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+              <Button
+                type="button"
+                className="w-full rounded-full"
+                onClick={async () => {
+                  const value = phoneInput.trim();
+                  setPhoneError(null);
+                  if (!value) {
+                    setShowPhonePrompt(false);
+                    setShowConfirmation(true);
+                    return;
+                  }
+                  try {
+                    const response = await fetch("/api/profile/phone", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ phone: value }),
+                    });
+                    const result = await response.json();
+                    if (!response.ok) {
+                      if (result?.error === "rls_denied") {
+                        setShowPhonePrompt(false);
+                        setShowConfirmation(true);
+                        return;
+                      }
+                      throw new Error("No se pudo guardar el teléfono.");
+                    }
+                    setProfilePhone(value);
+                    setShowPhonePrompt(false);
+                    setShowConfirmation(true);
+                  } catch (error) {
+                    setPhoneError(
+                      error instanceof Error
+                        ? error.message
+                        : "No se pudo guardar el teléfono."
+                    );
+                  }
+                }}
+              >
+                Guardar teléfono
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full rounded-full"
+                onClick={() => {
+                  setShowPhonePrompt(false);
+                  setShowConfirmation(true);
+                }}
+              >
+                Continuar sin teléfono
+              </Button>
+            </div>
+            {phoneError && (
+              <p className="mt-3 text-xs text-rose-600">{phoneError}</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {showConfirmation && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 px-4 py-6">
+          <div className="w-full max-w-lg rounded-3xl border border-border/70 bg-card p-6 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+                  Reserva pendiente
+                </p>
+                <h3 className="mt-1 text-2xl font-semibold text-foreground">
+                  {confirmationData?.name ?? profileName ?? "Reserva pendiente"}
+                </h3>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => router.push("/")}
+                className="rounded-full"
+              >
+                Cerrar
+              </Button>
+            </div>
+            <div className="mt-4 space-y-3 text-sm text-muted-foreground">
+              {isRepeatConfirmation && (
+                <p className="text-xs text-muted-foreground">
+                  Solo puedes tener una reserva activa. Si quieres reservar otra
+                  fecha, contáctanos por WhatsApp.
+                </p>
+              )}
+              <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+                Pago pendiente: la reserva se confirma cuando recibimos el pago.
+                Puedes pagar aqui o acordar pago por WhatsApp.
+              </p>
+              <p>
+                Gracias por reservar con nosotros. Te contactaremos pronto para
+                coordinar detalles y confirmar el pago.
+              </p>
+              <div className="grid gap-2 rounded-2xl border border-border/70 bg-background px-4 py-3 text-sm">
+                <p>
+                  <span className="font-semibold text-foreground">Personas:</span>{" "}
+                  {(confirmationData?.adults ?? state.adults) +
+                    (confirmationData?.kids ?? state.kids)}{" "}
+                  (Adultos: {confirmationData?.adults ?? state.adults}, Niños:{" "}
+                  {confirmationData?.kids ?? state.kids})
+                </p>
+                <p>
+                  <span className="font-semibold text-foreground">Plan:</span>{" "}
+                  {confirmationData?.packageLabel ??
+                    selectedPackage?.label ??
+                    "Por confirmar"}
+                </p>
+                <p>
+                  <span className="font-semibold text-foreground">Fecha:</span>{" "}
+                  {confirmationData?.date ?? state.date ?? "Por confirmar"}
+                </p>
+                <p>
+                  <span className="font-semibold text-foreground">
+                    Hora entrada:
+                  </span>{" "}
+                  {confirmationData?.timeSlot
+                    ? formatTime12h(resolveTimeRange()?.start ?? confirmationData.timeSlot)
+                    : resolveTimeRange()?.start
+                    ? formatTime12h(resolveTimeRange()!.start)
+                    : "Por confirmar"}
+                </p>
+                <p>
+                  <span className="font-semibold text-foreground">
+                    Hora salida:
+                  </span>{" "}
+                  {confirmationData?.timeSlot
+                    ? formatTime12h(resolveTimeRange()?.end ?? "")
+                    : resolveTimeRange()?.end
+                    ? formatTime12h(resolveTimeRange()!.end)
+                    : "Por confirmar"}
+                </p>
+                <p>
+                  <span className="font-semibold text-foreground">Total:</span>{" "}
+                  {formatCurrency(
+                    confirmationData?.totalAmount ?? totals.total
+                  )}
+                </p>
+                <p>
+                  <span className="font-semibold text-foreground">
+                    Equipamiento adicional:
+                  </span>{" "}
+                  {confirmationData?.extras?.length
+                    ? confirmationData.extras.join(", ")
+                    : Object.entries(state.extras)
+                        .filter(([, selected]) => selected)
+                        .map(
+                          ([id]) =>
+                            extrasCatalog.find((extra) => extra.id === id)?.label ??
+                            id
+                        )
+                        .join(", ") || "Ninguno"}
+                </p>
+              </div>
+            </div>
+            <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+              <a
+                href="/reservar/pago"
+                className="w-full rounded-full border border-border/70 px-4 py-2 text-center text-sm font-semibold"
+              >
+                Pagar aqui
+              </a>
+              {whatsAppLink && (
+                <a
+                  href={whatsAppLink}
+                  className="w-full rounded-full bg-[#25D366] px-4 py-2 text-center text-sm font-semibold text-white"
+                >
+                  Enviar por WhatsApp
+                </a>
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCancelReservation}
+                className="w-full rounded-full"
+              >
+                {isCancelling ? "Cancelando..." : "Cancelar"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div
         className={`${
@@ -476,10 +1143,10 @@ export default function ReservationWizard({
             className="flex-1 rounded-full text-base font-semibold sm:text-sm"
             size="lg"
             onClick={handlePrimaryAction}
-            disabled={!isStepComplete()}
+            disabled={!isStepComplete() || isSubmitting || showConfirmation || showPhonePrompt}
           >
             <span className="flex w-full items-center justify-between">
-              {primaryLabel}
+              {isSubmitting ? "Enviando..." : primaryLabel}
               {state.packageId && (
                 <span className="text-sm font-medium opacity-80 sm:hidden">
                   {formatCurrency(totals.total)}

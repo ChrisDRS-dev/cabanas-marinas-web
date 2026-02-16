@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Fraunces, Manrope } from "next/font/google";
 import "./globals.css";
 import StickyCTA from "@/components/StickyCTA";
-import AuthProvider from "@/components/AuthProvider";
+import AuthGate from "@/components/AuthGate";
 
 const bodyFont = Manrope({
   variable: "--font-body",
@@ -42,15 +42,14 @@ export default function RootLayout({
 })();`,
           }}
         />
-        <AuthProvider>
-          {children}
-          <StickyCTA
-            primaryHref="/?reservar=1"
-            primaryLabel="Reservar"
-            secondaryHref="https://wa.me/50762811651"
-            secondaryLabel="WhatsApp"
-          />
-        </AuthProvider>
+        {children}
+        <StickyCTA
+          primaryHref="/?reservar=1"
+          primaryLabel="Mi reserva"
+          secondaryHref="https://wa.me/50762811651"
+          secondaryLabel="WhatsApp"
+        />
+        <AuthGate />
       </body>
     </html>
   );
