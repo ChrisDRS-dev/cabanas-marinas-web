@@ -7,6 +7,7 @@ import { siteData } from "@/lib/siteData";
 type ConfirmationData = {
   id: string | null;
   name: string | null;
+  status: string | null;
   adults: number;
   kids: number;
   packageLabel: string | null;
@@ -28,6 +29,14 @@ type ReservationApiItem = {
   adults_count?: number | null;
   kids_count?: number | null;
   packages?: { label?: string | null } | { label?: string | null }[] | null;
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  PENDING_PAYMENT: "Pago pendiente",
+  CONFIRMED: "Confirmada",
+  CANCELLED: "Cancelada",
+  COMPLETED: "Completada",
+  NO_SHOW: "No show",
 };
 
 function parsePanamaDate(value: string) {
@@ -112,6 +121,7 @@ function buildWhatsAppLink(data: ConfirmationData | null) {
     data.date ? `Fecha: ${formatDate(data.date)}` : null,
     data.timeSlot ? `Horario: ${formatTimeRange12h(data.timeSlot)}` : null,
     data.packageLabel ? `Paquete: ${data.packageLabel}` : null,
+    data.status ? `Estado: ${STATUS_LABEL[data.status] ?? data.status}` : null,
     `Personas: ${(data.adults ?? 0) + (data.kids ?? 0)} (Adultos: ${
       data.adults ?? 0
     }, Niños: ${data.kids ?? 0})`,
@@ -137,7 +147,10 @@ export default function PaymentConfirmation() {
         if (raw) {
           try {
             const parsed = JSON.parse(raw) as ConfirmationData;
-            setData(parsed);
+            setData({
+              ...parsed,
+              status: parsed.status ?? "PENDING_PAYMENT",
+            });
             return;
           } catch {
             setData(null);
@@ -164,6 +177,7 @@ export default function PaymentConfirmation() {
             setData({
               id: activeReservation.id ?? null,
               name: null,
+              status: activeReservation.status ?? null,
               adults: Number(activeReservation.adults_count ?? 0),
               kids: Number(activeReservation.kids_count ?? 0),
               packageLabel,
@@ -216,6 +230,10 @@ export default function PaymentConfirmation() {
           <p>
             <span className="font-semibold text-foreground">Paquete:</span>{" "}
             {data?.packageLabel ?? "Por confirmar"}
+          </p>
+          <p>
+            <span className="font-semibold text-foreground">Estado:</span>{" "}
+            {data?.status ? STATUS_LABEL[data.status] ?? data.status : "Por confirmar"}
           </p>
           <p>
             <span className="font-semibold text-foreground">Fecha:</span>{" "}

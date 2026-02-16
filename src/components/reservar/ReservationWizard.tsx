@@ -183,6 +183,7 @@ export default function ReservationWizard({
   const [confirmationData, setConfirmationData] = useState<{
     id: string | null;
     name: string | null;
+    status: string | null;
     adults: number;
     kids: number;
     packageLabel: string | null;
@@ -202,6 +203,23 @@ export default function ReservationWizard({
   const packagePrefillRef = useRef(false);
 
   const router = useRouter();
+
+  const formatStatus = (value: string | null | undefined) => {
+    switch (value) {
+      case "PENDING_PAYMENT":
+        return "Pago pendiente";
+      case "CONFIRMED":
+        return "Confirmada";
+      case "CANCELLED":
+        return "Cancelada";
+      case "COMPLETED":
+        return "Completada";
+      case "NO_SHOW":
+        return "No show";
+      default:
+        return value ?? "Por confirmar";
+    }
+  };
 
   const formatTime = (value: string) =>
     value.includes(":") ? value.slice(0, 5) : value;
@@ -465,6 +483,7 @@ export default function ReservationWizard({
       const parsed = JSON.parse(saved) as {
         id: string | null;
         name: string | null;
+        status?: string | null;
         adults: number;
         kids: number;
         packageLabel: string | null;
@@ -486,7 +505,10 @@ export default function ReservationWizard({
         }
       }
       setIsRepeatConfirmation(true);
-      setConfirmationData(parsed);
+      setConfirmationData({
+        ...parsed,
+        status: parsed.status ?? "PENDING_PAYMENT",
+      });
       setConfirmationId(parsed.id ?? null);
       setShowConfirmation(true);
     } catch {
@@ -658,6 +680,7 @@ export default function ReservationWizard({
       const payload = {
         id: result?.id ?? null,
         name: profileName ?? null,
+        status: "PENDING_PAYMENT",
         adults: state.adults,
         kids: state.kids,
         packageLabel: selectedPackage?.label ?? null,
@@ -1093,6 +1116,10 @@ export default function ReservationWizard({
                   {confirmationData?.packageLabel ??
                     selectedPackage?.label ??
                     "Por confirmar"}
+                </p>
+                <p>
+                  <span className="font-semibold text-foreground">Estado:</span>{" "}
+                  {formatStatus(confirmationData?.status)}
                 </p>
                 <p>
                   <span className="font-semibold text-foreground">Fecha:</span>{" "}
