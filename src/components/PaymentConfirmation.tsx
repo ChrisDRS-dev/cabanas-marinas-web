@@ -30,9 +30,17 @@ type ReservationApiItem = {
   packages?: { label?: string | null } | { label?: string | null }[] | null;
 };
 
+function parsePanamaDate(value: string) {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [year, month, day] = value.split("-").map(Number);
+    return new Date(Date.UTC(year, month - 1, day, 12));
+  }
+  return new Date(value);
+}
+
 function formatDate(value: string | null) {
   if (!value) return "Por confirmar";
-  const date = new Date(value);
+  const date = parsePanamaDate(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleDateString("es-PA", {
     day: "numeric",
@@ -61,11 +69,23 @@ function formatTime(value: string | null) {
   });
 }
 
+function formatTimeOfDay(value: string | null) {
+  if (!value) return "Por confirmar";
+  const [hourText, minuteText = "0"] = value.split(":");
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  if (Number.isNaN(hour) || Number.isNaN(minute)) return value;
+  const period = hour >= 12 ? "P.M." : "A.M.";
+  const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+  const displayMinute = String(minute).padStart(2, "0");
+  return `${displayHour}:${displayMinute} ${period}`;
+}
+
 function formatTimeRange12h(value: string | null) {
   if (!value) return "Por confirmar";
   const [startRaw, endRaw] = value.split("-");
-  const start = startRaw ? formatTime(`1970-01-01T${startRaw}:00`) : "Por confirmar";
-  const end = endRaw ? formatTime(`1970-01-01T${endRaw}:00`) : "Por confirmar";
+  const start = formatTimeOfDay(startRaw ?? null);
+  const end = formatTimeOfDay(endRaw ?? null);
   return `${start} - ${end}`;
 }
 

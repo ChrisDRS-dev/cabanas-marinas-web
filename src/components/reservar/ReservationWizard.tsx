@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { calcTotal, PackageType } from "@/lib/calcTotal";
 import StepDatePackage from "@/components/reservar/steps/StepDatePackage";
@@ -158,6 +158,7 @@ export default function ReservationWizard({
 }) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const isModal = mode === "modal";
   const [packages, setPackages] = useState<Package[]>([]);
   const [timeSlotsByPackage, setTimeSlotsByPackage] = useState<
@@ -198,6 +199,7 @@ export default function ReservationWizard({
   const [isCancelling, setIsCancelling] = useState(false);
   const stepOverrideRef = useRef(false);
   const prefillRef = useRef(false);
+  const packagePrefillRef = useRef(false);
 
   const router = useRouter();
 
@@ -216,23 +218,26 @@ export default function ReservationWizard({
     return `${displayHour}:${displayMinute} ${period}`;
   };
 
-  const resolveTimeRange = () => {
-    if (!state.timeSlot) return null;
-    if (state.timeSlot.includes("-")) {
-      const [start, end] = state.timeSlot.split("-");
+  const resolveTimeRange = (
+    timeSlot: string | null,
+    durationMinutes?: number | null
+  ) => {
+    if (!timeSlot) return null;
+    if (timeSlot.includes("-")) {
+      const [start, end] = timeSlot.split("-");
       return {
         start: start.replace(":00", "").trim(),
         end: end?.replace(":00", "").trim() ?? "",
       };
     }
-    if (selectedPackage?.durationMinutes) {
-      const [hourText, minuteText = "0"] = state.timeSlot.split(":");
+    if (durationMinutes) {
+      const [hourText, minuteText = "0"] = timeSlot.split(":");
       const startHour = Number(hourText);
       const startMinute = Number(minuteText);
       if (!Number.isNaN(startHour) && !Number.isNaN(startMinute)) {
         const startDate = new Date(0, 0, 0, startHour, startMinute);
         const endDate = new Date(
-          startDate.getTime() + selectedPackage.durationMinutes * 60 * 1000
+          startDate.getTime() + durationMinutes * 60 * 1000
         );
         const start = `${String(startDate.getHours()).padStart(2, "0")}:${String(
           startDate.getMinutes()
@@ -243,7 +248,7 @@ export default function ReservationWizard({
         return { start, end };
       }
     }
-    return { start: state.timeSlot, end: "" };
+    return { start: timeSlot, end: "" };
   };
 
   const scrollToSummary = () => {
@@ -308,6 +313,11 @@ export default function ReservationWizard({
       setDraftLoaded(true);
       return;
     }
+    const wantsDraft = searchParams.get("draft") === "1";
+    if (!wantsDraft) {
+      setDraftLoaded(true);
+      return;
+    }
     let active = true;
     const loadDraft = async () => {
       try {
@@ -331,7 +341,7 @@ export default function ReservationWizard({
     return () => {
       active = false;
     };
-  }, [profileUserId]);
+  }, [profileUserId, searchParams]);
 
   useEffect(() => {
     if (!profileUserId) return;
@@ -482,16 +492,37 @@ export default function ReservationWizard({
     } catch {
       window.localStorage.removeItem(key);
     }
-  }, [profileUserId]);
+  }, [profileUserId, searchParams]);
 
   useEffect(() => {
     const pkg = searchParams.get("package") as PackageType | null;
-    if (!pkg) return;
+    const wantsDraft = searchParams.get("draft") === "1";
+    if (wantsDraft || prefill) return;
+    if (!pkg || packagePrefillRef.current) return;
     const exists = packages.some((item) => item.id === pkg);
-    if (exists && state.packageId !== pkg) {
-      dispatch({ type: "setPackage", value: pkg });
-    }
-  }, [searchParams, state.packageId, packages]);
+    if (!exists) return;
+
+    dispatch({
+      type: "hydrate",
+      value: {
+        step: 1,
+        date: null,
+        packageId: pkg,
+        timeSlot: null,
+        adults: initialState.adults,
+        kids: initialState.kids,
+        extras: {},
+        couplePackage: false,
+        paymentMethod: initialState.paymentMethod,
+      },
+    });
+
+    packagePrefillRef.current = true;
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("package");
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname);
+  }, [searchParams, packages, router, pathname, prefill]);
 
   useEffect(() => {
     if (!prefill || prefillRef.current) return;
@@ -651,13 +682,21 @@ export default function ReservationWizard({
           .eq("user_id", profileUserId);
       }
       const whatsappBase = siteData.links.whatsapp;
+      const messageTimeRange = resolveTimeRange(
+        payload.timeSlot,
+        selectedPackage?.durationMinutes
+      );
       const messageLines = [
         "Hola, quiero coordinar el pago de mi reserva.",
         payload.id ? `ID: ${String(payload.id).slice(0, 8)}` : null,
         payload.name ? `Nombre: ${payload.name}` : null,
         payload.packageLabel ? `Paquete: ${payload.packageLabel}` : null,
         payload.date ? `Fecha: ${payload.date}` : null,
-        payload.timeSlot ? `Horario: ${payload.timeSlot}` : null,
+        messageTimeRange
+          ? `Horario: ${formatTime12h(messageTimeRange.start)} - ${formatTime12h(
+              messageTimeRange.end
+            )}`
+          : null,
         `Personas: ${payload.adults + payload.kids} (Adultos: ${payload.adults}, Niños: ${payload.kids})`,
         payload.extras.length ? `Extras: ${payload.extras.join(", ")}` : "Extras: Ninguno",
         payload.totalAmount != null
@@ -681,6 +720,11 @@ export default function ReservationWizard({
       setIsSubmitting(false);
     }
   };
+
+  const confirmationRange = resolveTimeRange(
+    confirmationData?.timeSlot ?? state.timeSlot,
+    selectedPackage?.durationMinutes
+  );
 
   const handlePrimaryAction = () => {
     if (!isStepComplete()) return;
@@ -1058,20 +1102,16 @@ export default function ReservationWizard({
                   <span className="font-semibold text-foreground">
                     Hora entrada:
                   </span>{" "}
-                  {confirmationData?.timeSlot
-                    ? formatTime12h(resolveTimeRange()?.start ?? confirmationData.timeSlot)
-                    : resolveTimeRange()?.start
-                    ? formatTime12h(resolveTimeRange()!.start)
+                  {confirmationRange?.start
+                    ? formatTime12h(confirmationRange.start)
                     : "Por confirmar"}
                 </p>
                 <p>
                   <span className="font-semibold text-foreground">
                     Hora salida:
                   </span>{" "}
-                  {confirmationData?.timeSlot
-                    ? formatTime12h(resolveTimeRange()?.end ?? "")
-                    : resolveTimeRange()?.end
-                    ? formatTime12h(resolveTimeRange()!.end)
+                  {confirmationRange?.end
+                    ? formatTime12h(confirmationRange.end)
                     : "Por confirmar"}
                 </p>
                 <p>

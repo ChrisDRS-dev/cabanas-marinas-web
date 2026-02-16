@@ -17,8 +17,10 @@ function toNumber(value: unknown, fallback = 0) {
   return Number.isNaN(parsed) ? fallback : parsed;
 }
 
+const PANAMA_OFFSET = "-05:00";
+
 function buildDateTime(date: string, time: string) {
-  return new Date(`${date}T${time}:00`).toISOString();
+  return new Date(`${date}T${time}:00${PANAMA_OFFSET}`).toISOString();
 }
 
 function parseTimeRange(value: string) {

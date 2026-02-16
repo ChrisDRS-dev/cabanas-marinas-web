@@ -41,8 +41,16 @@ const STATUS_LABEL: Record<string, string> = {
 
 const EDITABLE_STATUS = new Set(["PENDING_PAYMENT", "CONFIRMED"]);
 
+function parsePanamaDate(value: string) {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [year, month, day] = value.split("-").map(Number);
+    return new Date(Date.UTC(year, month - 1, day, 12));
+  }
+  return new Date(value);
+}
+
 function formatDate(value: string) {
-  const date = new Date(value);
+  const date = parsePanamaDate(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleDateString("es-PA", {
     day: "numeric",
@@ -308,7 +316,7 @@ export default function HomeReservationNotice({
           <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             <span>Hay una reserva en progreso. Continúa donde la dejaste.</span>
             <a
-              href="/?reservar=1"
+              href="/?reservar=1&draft=1"
               className="rounded-full bg-primary px-4 py-2 text-xs font-semibold uppercase tracking-wide text-primary-foreground"
             >
               Continuar reserva
