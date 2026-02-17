@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import AuthModal from "@/components/AuthModal";
@@ -70,7 +71,16 @@ export default function NavbarMobile({ brand }: NavbarMobileProps) {
       <header className="sticky top-0 z-40 border-b border-border/60 bg-background/90 backdrop-blur">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-2xl bg-[conic-gradient(from_180deg_at_50%_50%,#0085a1,#ffb347,#0085a1)]" />
+            <div className="flex h-10 w-10 min-h-10 min-w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white shadow-sm">
+              <Image
+                src="/logo/navbar-logo.png"
+                alt="Logo Cabañas Marinas"
+                width={56}
+                height={56}
+                className="h-14 w-14 max-w-none object-cover object-center"
+                priority
+              />
+            </div>
             <div>
               <p className="font-display text-lg font-semibold">{brand}</p>
             </div>

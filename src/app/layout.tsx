@@ -19,6 +19,11 @@ export const metadata: Metadata = {
   title: "Cabañas Marinas | Cabañas frente al mar",
   description:
     "Cabañas frente al mar para desconectarte de verdad. Reservas por horas o día completo.",
+  icons: {
+    icon: "/logo/favicon-logo.png",
+    shortcut: "/logo/favicon-logo.png",
+    apple: "/logo/favicon-logo.png",
+  },
 };
 
 export default function RootLayout({
