@@ -1,3 +1,7 @@
+"use client";
+
+import { useState } from "react";
+
 type MapCardProps = {
   title: string;
   description: string;
@@ -9,6 +13,8 @@ export default function MapCard({
   description,
   mapsUrl,
 }: MapCardProps) {
+  const [mapLoaded, setMapLoaded] = useState(false);
+
   return (
     <div className="grid gap-6 rounded-3xl border border-border bg-card p-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
       <div className="space-y-3">
@@ -27,13 +33,26 @@ export default function MapCard({
         </a>
       </div>
       <div className="relative h-56 overflow-hidden rounded-2xl border border-border bg-muted sm:h-64">
-        <iframe
-          title="Mapa de ubicacion"
-          src={mapsUrl}
-          className="h-full w-full"
-          loading="lazy"
-          referrerPolicy="no-referrer-when-downgrade"
-        />
+        {mapLoaded ? (
+          <iframe
+            title="Mapa de ubicacion"
+            src={mapsUrl}
+            className="h-full w-full"
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+            allowFullScreen
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center px-4 text-center">
+            <button
+              type="button"
+              onClick={() => setMapLoaded(true)}
+              className="rounded-full border border-border bg-background/90 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-foreground transition hover:bg-secondary"
+            >
+              Cargar mapa
+            </button>
+          </div>
+        )}
         <div className="absolute bottom-4 left-4 rounded-full bg-background/80 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-foreground">
           Mapa
         </div>

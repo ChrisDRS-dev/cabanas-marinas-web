@@ -78,7 +78,6 @@ export default function NavbarMobile({ brand }: NavbarMobileProps) {
                 width={56}
                 height={56}
                 className="h-14 w-14 max-w-none object-cover object-center"
-                priority
               />
             </div>
             <div>
