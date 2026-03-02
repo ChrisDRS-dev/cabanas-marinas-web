@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { siteData } from "@/lib/siteData";
 import { fetchCatalog, type Extra } from "@/lib/supabase/catalog";
-import { supabase } from "@/lib/supabase/client";
+import { getSessionSafe, supabase } from "@/lib/supabase/client";
 
 type ReservationItem = {
   id: string;
@@ -190,9 +190,9 @@ export default function HomeReservationNotice({
         ? (window as { __cmAuthDismissed?: boolean }).__cmAuthDismissed
         : false;
     setDismissed(Boolean(initial));
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      if (data.session) {
+    void getSessionSafe().then((session) => {
+      setSession(session);
+      if (session) {
         setDismissed(false);
       }
     });

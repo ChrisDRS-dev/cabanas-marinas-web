@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import AuthModal from "@/components/AuthModal";
 import ThemeToggle from "@/components/ThemeToggle";
-import { supabase } from "@/lib/supabase/client";
+import { getSessionSafe, supabase } from "@/lib/supabase/client";
 
 type NavbarMobileProps = {
   brand: string;
@@ -20,7 +20,7 @@ export default function NavbarMobile({ brand }: NavbarMobileProps) {
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    void getSessionSafe().then((session) => setSession(session));
     const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
       setSession(next);
     });

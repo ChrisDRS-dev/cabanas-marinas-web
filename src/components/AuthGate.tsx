@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import AuthModal from "@/components/AuthModal";
-import { supabase } from "@/lib/supabase/client";
+import { getSessionSafe, supabase } from "@/lib/supabase/client";
 
 const setDismissed = (value: boolean) => {
   if (typeof window === "undefined") return;
@@ -16,9 +16,9 @@ export default function AuthGate() {
   const [authOpen, setAuthOpen] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      if (!data.session) {
+    void getSessionSafe().then((session) => {
+      setSession(session);
+      if (!session) {
         setAuthOpen(true);
       } else {
         setDismissed(false);

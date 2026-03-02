@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
 import AuthModal from "@/components/AuthModal";
-import { supabase } from "@/lib/supabase/client";
+import { getSessionSafe, supabase } from "@/lib/supabase/client";
 
 type AuthContextValue = {
   session: Session | null;
@@ -30,7 +30,7 @@ export default function AuthProvider({
     if (storedPending) {
       setPendingRedirect(storedPending);
     }
-    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    void getSessionSafe().then((session) => setSession(session));
     const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
       setSession(next);
     });
@@ -63,8 +63,8 @@ export default function AuthProvider({
   };
 
   const requireAuthFor = async (redirectTo: string) => {
-    const { data } = await supabase.auth.getSession();
-    if (data.session) return true;
+    const session = await getSessionSafe();
+    if (session) return true;
     sessionStorage.setItem(PENDING_REDIRECT_KEY, redirectTo);
     setPendingRedirect(redirectTo);
     setAuthOpen(true);

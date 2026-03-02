@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import ReservationWizard from "@/components/reservar/ReservationWizard";
 import type { Session } from "@supabase/supabase-js";
-import { supabase } from "@/lib/supabase/client";
+import { getSessionSafe, supabase } from "@/lib/supabase/client";
 import { siteData } from "@/lib/siteData";
 
 type ReservationItem = {
@@ -86,35 +86,48 @@ export default function ReservationOverlay() {
   const [session, setSession] = useState<Session | null>(null);
   const [checkedSession, setCheckedSession] = useState(false);
   const [loadingReservation, setLoadingReservation] = useState(false);
-  const [activeReservation, setActiveReservation] =
-    useState<ReservationItem | null>(null);
+  const [activeReservations, setActiveReservations] = useState<ReservationItem[]>([]);
+  const [selectedReservation, setSelectedReservation] = useState<ReservationItem | null>(null);
+  const [showWizard, setShowWizard] = useState(false);
+
   const stepParam = searchParams.get("step");
   const forceWizard = stepParam === "payment";
 
+  const firstActive = activeReservations[0] ?? null;
+
   const prefillState = useMemo(() => {
-    if (!activeReservation || !forceWizard) return null;
-    const start = toTime(activeReservation.start_at);
-    const end = toTime(activeReservation.end_at);
+    if (!firstActive || !forceWizard) return null;
+    const start = toTime(firstActive.start_at);
+    const end = toTime(firstActive.end_at);
     const timeSlot = start && end ? `${start}-${end}` : null;
     return {
-      date: activeReservation.reserved_date ?? null,
-      packageId: (activeReservation.package_id as string | null) ?? null,
+      date: firstActive.reserved_date ?? null,
+      packageId: (firstActive.package_id as string | null) ?? null,
       timeSlot,
-      adults: Number(activeReservation.adults_count ?? 0),
-      kids: Number(activeReservation.kids_count ?? 0),
+      adults: Number(firstActive.adults_count ?? 0),
+      kids: Number(firstActive.kids_count ?? 0),
       extras: {},
       couplePackage: false,
       paymentMethod: null,
     };
-  }, [activeReservation, forceWizard]);
+  }, [firstActive, forceWizard]);
+
   const show =
     pathname === "/" &&
     (searchParams.get("reservar") === "1" ||
       searchParams.get("reservar") === "true");
 
+  // Reset local state when overlay closes
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
+    if (!show) {
+      setShowWizard(false);
+      setSelectedReservation(null);
+    }
+  }, [show]);
+
+  useEffect(() => {
+    void getSessionSafe().then((s) => {
+      setSession(s);
       setCheckedSession(true);
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
@@ -152,22 +165,20 @@ export default function ReservationOverlay() {
         const response = await fetch("/api/my-reservations");
         const result = await response.json();
         if (!active) return;
-    if (response.ok && Array.isArray(result?.reservations)) {
-      const current = result.reservations.find((item: ReservationItem) =>
-        ACTIVE_STATUS.has(item.status)
-      );
-      setActiveReservation(current ?? null);
-      if (!current && session?.user?.id && typeof window !== "undefined") {
-        window.localStorage.removeItem(
-          `cm_last_reservation:${session.user.id}`
-        );
-      }
-    } else {
-      setActiveReservation(null);
-    }
+        if (response.ok && Array.isArray(result?.reservations)) {
+          const actives = result.reservations.filter((item: ReservationItem) =>
+            ACTIVE_STATUS.has(item.status)
+          );
+          setActiveReservations(actives);
+          if (actives.length === 0 && session?.user?.id && typeof window !== "undefined") {
+            window.localStorage.removeItem(`cm_last_reservation:${session.user.id}`);
+          }
+        } else {
+          setActiveReservations([]);
+        }
       } catch {
         if (!active) return;
-        setActiveReservation(null);
+        setActiveReservations([]);
       } finally {
         if (active) setLoadingReservation(false);
       }
@@ -189,6 +200,9 @@ export default function ReservationOverlay() {
 
   if (!show || !session) return null;
 
+  const hasActive = activeReservations.length > 0;
+  const renderWizard = showWizard || forceWizard || !hasActive;
+
   return (
     <div
       className="fixed inset-0 z-[70] flex items-stretch justify-center bg-black/40 backdrop-blur-sm sm:items-center sm:p-6"
@@ -206,84 +220,196 @@ export default function ReservationOverlay() {
         >
           ×
         </button>
+
         <div className="h-full overflow-y-auto">
           {loadingReservation ? (
             <div className="flex h-full items-center justify-center px-6 py-10 text-sm text-muted-foreground">
-              Cargando reserva...
+              Cargando...
             </div>
-          ) : activeReservation && !forceWizard ? (
-            <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-6 py-10">
-              <div>
-                <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-                  Reserva activa
-                </p>
-                <h2 className="mt-2 text-2xl font-semibold text-foreground">
-                  {resolvePackageLabel(activeReservation) ?? "Paquete"}
-                </h2>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Ya tienes una reserva activa. Para crear otra, primero
-                  finaliza la actual o contáctanos por WhatsApp.
-                </p>
-              </div>
-              <div className="rounded-3xl border border-border/70 bg-background px-6 py-5 text-sm">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
-                      {activeReservation.status === "PENDING_PAYMENT"
-                        ? "Pago pendiente"
-                        : "Confirmada"}
-                    </p>
-                    <p className="mt-1 text-base font-semibold">
-                      {formatDate(activeReservation.reserved_date)}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatTime(activeReservation.start_at)} -{" "}
-                      {formatTime(activeReservation.end_at)}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-semibold">
-                      {formatCurrency(activeReservation.total_amount)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <button
-                  type="button"
-                  onClick={handleClose}
-                  className="w-full rounded-full border border-border/70 px-4 py-2 text-sm font-semibold"
-                >
-                  Volver al inicio
-                </button>
-                {activeReservation.status === "PENDING_PAYMENT" && (
-                  <a
-                    href="/reservar/pago"
-                    className="w-full rounded-full bg-primary px-4 py-2 text-center text-sm font-semibold text-primary-foreground"
-                  >
-                    Pagar reserva
-                  </a>
-                )}
-                <a
-                  href={buildWhatsAppLink(activeReservation)}
-                  className="w-full rounded-full bg-[#25D366] px-4 py-2 text-center text-sm font-semibold text-white"
-                >
-                  Contactar por WhatsApp
-                </a>
-              </div>
-            </div>
-          ) : (
+          ) : renderWizard ? (
             <ReservationWizard
               mode="modal"
               prefill={prefillState ?? undefined}
               startStepId={forceWizard ? "payment" : undefined}
             />
+          ) : (
+            /* ── Active reservations list ── */
+            <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-6 py-10">
+              <div>
+                <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+                  Tus reservas
+                </p>
+                <h2 className="mt-2 text-2xl font-semibold text-foreground">
+                  {activeReservations.length === 1
+                    ? "Tienes una reserva activa"
+                    : `Tienes ${activeReservations.length} reservas activas`}
+                </h2>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Toca una reserva para ver sus detalles o realiza una nueva.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                {activeReservations.map((reservation) => {
+                  const isPending = reservation.status === "PENDING_PAYMENT";
+                  const packageLabel = resolvePackageLabel(reservation);
+                  return (
+                    <button
+                      key={reservation.id}
+                      type="button"
+                      onClick={() => setSelectedReservation(reservation)}
+                      className="w-full rounded-3xl border border-border/70 bg-background px-6 py-5 text-left text-sm transition hover:border-primary/40 hover:shadow-sm active:scale-[0.99]"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <p
+                            className={`text-xs uppercase tracking-[0.25em] ${
+                              isPending ? "text-amber-600" : "text-muted-foreground"
+                            }`}
+                          >
+                            {isPending ? "Pago pendiente" : "Confirmada"}
+                          </p>
+                          <p className="mt-1 text-base font-semibold">
+                            {packageLabel ?? "Paquete"}
+                          </p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            {formatDate(reservation.reserved_date)} ·{" "}
+                            {formatTime(reservation.start_at)} –{" "}
+                            {formatTime(reservation.end_at)}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 text-right">
+                          <div>
+                            <p className="text-sm font-semibold">
+                              {formatCurrency(reservation.total_amount)}
+                            </p>
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              Ver detalles →
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="w-full rounded-full border border-border/70 px-4 py-2.5 text-sm font-semibold"
+                >
+                  Volver al inicio
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowWizard(true)}
+                  className="w-full rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
+                >
+                  Hacer otra reserva
+                </button>
+              </div>
+            </div>
           )}
         </div>
       </div>
+
+      {/* ── Reservation detail popup ── */}
+      {selectedReservation && (
+        <div
+          className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 sm:items-center sm:p-6"
+          onClick={() => setSelectedReservation(null)}
+        >
+          <div
+            className="w-full max-w-lg rounded-t-[2rem] border border-border/70 bg-card px-6 pb-8 pt-6 shadow-2xl sm:rounded-[2rem]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {/* Drag handle — mobile only */}
+            <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-border sm:hidden" />
+
+            <p
+              className={`text-xs uppercase tracking-[0.3em] ${
+                selectedReservation.status === "PENDING_PAYMENT"
+                  ? "text-amber-600"
+                  : "text-muted-foreground"
+              }`}
+            >
+              {selectedReservation.status === "PENDING_PAYMENT"
+                ? "Pago pendiente"
+                : "Confirmada"}
+            </p>
+            <h3 className="mt-1 text-xl font-semibold text-foreground">
+              {resolvePackageLabel(selectedReservation) ?? "Paquete"}
+            </h3>
+
+            {/* Details grid */}
+            <div className="mt-4 divide-y divide-border/50 rounded-2xl border border-border/60 bg-background px-4 text-sm">
+              <div className="flex items-center justify-between py-3">
+                <span className="text-muted-foreground">Fecha</span>
+                <span className="font-medium">
+                  {formatDate(selectedReservation.reserved_date)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between py-3">
+                <span className="text-muted-foreground">Horario</span>
+                <span className="font-medium">
+                  {formatTime(selectedReservation.start_at)} –{" "}
+                  {formatTime(selectedReservation.end_at)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between py-3">
+                <span className="text-muted-foreground">Personas</span>
+                <span className="font-medium">
+                  {selectedReservation.adults_count ?? 0} adultos
+                  {(selectedReservation.kids_count ?? 0) > 0
+                    ? `, ${selectedReservation.kids_count} niños`
+                    : ""}
+                </span>
+              </div>
+              <div className="flex items-center justify-between py-3">
+                <span className="font-semibold">Total</span>
+                <span className="font-semibold">
+                  {formatCurrency(selectedReservation.total_amount)}
+                </span>
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="mt-5 flex flex-col gap-2">
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="flex-1 rounded-full border border-border/70 px-4 py-2.5 text-sm font-semibold"
+                >
+                  Volver a inicio
+                </button>
+                <a
+                  href={buildWhatsAppLink(selectedReservation)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 rounded-full border border-[#25D366] px-4 py-2.5 text-center text-sm font-semibold text-[#25D366]"
+                >
+                  WhatsApp
+                </a>
+              </div>
+              {selectedReservation.status === "PENDING_PAYMENT" && (
+                <a
+                  href="/reservar/pago"
+                  className="w-full rounded-full bg-primary px-4 py-2.5 text-center text-sm font-semibold text-primary-foreground"
+                >
+                  Realizar pago
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
 function buildWhatsAppLink(reservation: ReservationItem) {
   const base = siteData.links.whatsapp;
   const packageLabel = resolvePackageLabel(reservation);

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
-import { supabase } from "@/lib/supabase/client";
+import { getSessionSafe, supabase } from "@/lib/supabase/client";
 
 type StickyCTAProps = {
   primaryHref: string;
@@ -28,7 +28,7 @@ export default function StickyCTA({
         ? (window as { __cmAuthDismissed?: boolean }).__cmAuthDismissed
         : false;
     setDismissed(Boolean(initial));
-    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    void getSessionSafe().then((session) => setSession(session));
     const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
       setSession(next);
     });

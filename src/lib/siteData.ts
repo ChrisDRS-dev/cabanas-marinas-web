@@ -71,8 +71,9 @@ export const siteData = {
     },
   ],
   planNotes: [
-    "Mínimo 4 personas por reserva.",
-    "Fines de semana y días festivos: mínimo 6 personas o pago equivalente.",
+    "Reserva disponible desde 2 personas.",
+    "Cobro mínimo equivalente a 4 personas entre semana.",
+    "Domingos y días festivos: cobro mínimo equivalente a 6 personas.",
   ],
   fullPackage: {
     title: "Paquete completo",
@@ -147,12 +148,12 @@ export const siteData = {
   faq: [
     {
       question: "¿Cuál es el mínimo de personas?",
-      answer: "El mínimo general es de 4 personas por reserva.",
+      answer: "Puedes reservar desde 2 personas.",
     },
     {
-      question: "¿Qué aplica en fines de semana y festivos?",
+      question: "¿Cómo funciona el cobro mínimo?",
       answer:
-        "El mínimo es de 6 personas o el pago equivalente para esas fechas.",
+        "Se cobra un mínimo equivalente a 4 personas entre semana y 6 en domingos o festivos.",
     },
     {
       question: "¿Hay horarios especiales para amanecer?",

@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect } from "react";
-import { supabase } from "@/lib/supabase/client";
+import { getSessionSafe } from "@/lib/supabase/client";
 
 export default function SupabaseSmokeTestClient() {
   useEffect(() => {
     const run = async () => {
       try {
-        const { data, error } = await supabase.auth.getSession();
-        console.log("session", { data, error });
+        const session = await getSessionSafe();
+        console.log("session", { session });
       } catch (err) {
         console.error("supabase smoke test failed", err);
       }

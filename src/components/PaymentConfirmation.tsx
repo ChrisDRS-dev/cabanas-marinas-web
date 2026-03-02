@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase/client";
+import { getSessionSafe } from "@/lib/supabase/client";
 import { siteData } from "@/lib/siteData";
 
 type ConfirmationData = {
@@ -139,9 +139,9 @@ export default function PaymentConfirmation() {
   useEffect(() => {
     let active = true;
     const load = async () => {
-      const sessionResult = await supabase.auth.getSession();
+      const session = await getSessionSafe();
       if (!active) return;
-      const userId = sessionResult.data.session?.user?.id ?? null;
+      const userId = session?.user?.id ?? null;
       if (userId && typeof window !== "undefined") {
         const raw = window.localStorage.getItem(`cm_last_reservation:${userId}`);
         if (raw) {

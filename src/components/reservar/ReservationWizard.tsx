@@ -8,7 +8,7 @@ import StepDatePackage from "@/components/reservar/steps/StepDatePackage";
 import StepGuests from "@/components/reservar/steps/StepGuests";
 import StepExtras from "@/components/reservar/steps/StepExtras";
 import StepSummary from "@/components/reservar/steps/StepSummary";
-import { supabase } from "@/lib/supabase/client";
+import { getSessionSafe, supabase } from "@/lib/supabase/client";
 import { siteData } from "@/lib/siteData";
 import {
   fetchCatalog,
@@ -51,7 +51,7 @@ type Action =
   | { type: "nextStep"; max: number }
   | { type: "prevStep" };
 
-const DEFAULT_MIN_PEOPLE = 4;
+const DEFAULT_MIN_PEOPLE = 2;
 const DEFAULT_STEPS: FormStepConfig[] = [
   { id: "guests", label: "Personas", summary: "Personas" },
   { id: "date_package", label: "Fecha y hora", summary: "Fecha y hora" },
@@ -84,14 +84,8 @@ function reducer(state: ReservationState, action: Action): ReservationState {
     case "setTimeSlot":
       return { ...state, timeSlot: action.value };
     case "setAdults":
-      if (state.couplePackage) {
-        return { ...state, adults: 2 };
-      }
       return { ...state, adults: Math.max(0, action.value) };
     case "setKids":
-      if (state.couplePackage) {
-        return { ...state, kids: Math.min(1, Math.max(0, action.value)) };
-      }
       return { ...state, kids: Math.max(0, action.value) };
     case "setExtra":
       return {
@@ -109,8 +103,6 @@ function reducer(state: ReservationState, action: Action): ReservationState {
       return {
         ...state,
         couplePackage: action.value,
-        adults: action.value ? 2 : state.adults,
-        kids: action.value ? Math.min(state.kids, 1) : state.kids,
       };
     case "setPayment":
       return { ...state, paymentMethod: action.value };
@@ -441,8 +433,7 @@ export default function ReservationWizard({
     let active = true;
     const loadProfile = async () => {
       try {
-        const { data: sessionData } = await supabase.auth.getSession();
-        const user = sessionData.session?.user;
+        const user = (await getSessionSafe())?.user;
         if (!user || !active) return;
         setProfileUserId(user.id);
         const { data } = await supabase
@@ -605,13 +596,13 @@ export default function ReservationWizard({
   const isStepComplete = () => {
     switch (activeStep) {
       case "guests":
-        return totalPeople >= DEFAULT_MIN_PEOPLE || state.couplePackage;
+        return totalPeople >= DEFAULT_MIN_PEOPLE;
       case "date_package":
         if (!state.date || !state.packageId || !state.timeSlot) return false;
         if (state.packageId === "EVENTO") {
           return totalPeople >= 6;
         }
-        return totalPeople >= 4 || state.couplePackage;
+        return totalPeople >= DEFAULT_MIN_PEOPLE;
       case "extras":
         return true;
       case "payment":
@@ -861,7 +852,6 @@ export default function ReservationWizard({
             dispatch={dispatch}
             minPeople={minPeople}
             showMinWarning={showMinWarning}
-            packageId={state.packageId}
             config={formConfig?.guests}
           />
         )}
@@ -913,9 +903,7 @@ export default function ReservationWizard({
               const summaryTitle = step.summary ?? step.label ?? "Paso";
               const stepValue =
                 stepId === "guests"
-                  ? `${state.adults} adultos, ${state.kids} niños${
-                      state.couplePackage ? " · Pareja" : ""
-                    }`
+                  ? `${state.adults} adultos, ${state.kids} niños`
                   : stepId === "date_package"
                   ? state.date
                     ? `${state.date} · ${state.timeSlot ?? "Por definir"}`
@@ -927,7 +915,7 @@ export default function ReservationWizard({
                   : state.paymentMethod ?? "Por definir";
               const stepComplete =
                 stepId === "guests"
-                  ? totalPeople >= DEFAULT_MIN_PEOPLE || state.couplePackage
+                  ? totalPeople >= DEFAULT_MIN_PEOPLE
                   : stepId === "date_package"
                   ? Boolean(state.date && state.packageId && state.timeSlot)
                   : stepId === "payment"
@@ -1067,126 +1055,146 @@ export default function ReservationWizard({
       )}
 
       {showConfirmation && (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 px-4 py-6">
-          <div className="w-full max-w-lg rounded-3xl border border-border/70 bg-card p-6 shadow-xl">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-                  Reserva pendiente
-                </p>
-                <h3 className="mt-1 text-2xl font-semibold text-foreground">
-                  {confirmationData?.name ?? profileName ?? "Reserva pendiente"}
-                </h3>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => router.push("/")}
-                className="rounded-full"
-              >
-                Cerrar
-              </Button>
-            </div>
-            <div className="mt-4 space-y-3 text-sm text-muted-foreground">
-              {isRepeatConfirmation && (
-                <p className="text-xs text-muted-foreground">
-                  Solo puedes tener una reserva activa. Si quieres reservar otra
-                  fecha, contáctanos por WhatsApp.
-                </p>
-              )}
-              <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
-                Pago pendiente: la reserva se confirma cuando recibimos el pago.
-                Puedes pagar aqui o acordar pago por WhatsApp.
-              </p>
-              <p>
-                Gracias por reservar con nosotros. Te contactaremos pronto para
-                coordinar detalles y confirmar el pago.
-              </p>
-              <div className="grid gap-2 rounded-2xl border border-border/70 bg-background px-4 py-3 text-sm">
-                <p>
-                  <span className="font-semibold text-foreground">Personas:</span>{" "}
-                  {(confirmationData?.adults ?? state.adults) +
-                    (confirmationData?.kids ?? state.kids)}{" "}
-                  (Adultos: {confirmationData?.adults ?? state.adults}, Niños:{" "}
-                  {confirmationData?.kids ?? state.kids})
-                </p>
-                <p>
-                  <span className="font-semibold text-foreground">Plan:</span>{" "}
-                  {confirmationData?.packageLabel ??
-                    selectedPackage?.label ??
-                    "Por confirmar"}
-                </p>
-                <p>
-                  <span className="font-semibold text-foreground">Estado:</span>{" "}
-                  {formatStatus(confirmationData?.status)}
-                </p>
-                <p>
-                  <span className="font-semibold text-foreground">Fecha:</span>{" "}
-                  {confirmationData?.date ?? state.date ?? "Por confirmar"}
-                </p>
-                <p>
-                  <span className="font-semibold text-foreground">
-                    Hora entrada:
-                  </span>{" "}
-                  {confirmationRange?.start
-                    ? formatTime12h(confirmationRange.start)
-                    : "Por confirmar"}
-                </p>
-                <p>
-                  <span className="font-semibold text-foreground">
-                    Hora salida:
-                  </span>{" "}
-                  {confirmationRange?.end
-                    ? formatTime12h(confirmationRange.end)
-                    : "Por confirmar"}
-                </p>
-                <p>
-                  <span className="font-semibold text-foreground">Total:</span>{" "}
-                  {formatCurrency(
-                    confirmationData?.totalAmount ?? totals.total
-                  )}
-                </p>
-                <p>
-                  <span className="font-semibold text-foreground">
-                    Equipamiento adicional:
-                  </span>{" "}
-                  {confirmationData?.extras?.length
-                    ? confirmationData.extras.join(", ")
-                    : Object.entries(state.extras)
-                        .filter(([, selected]) => selected)
-                        .map(
-                          ([id]) =>
-                            extrasCatalog.find((extra) => extra.id === id)?.label ??
-                            id
-                        )
-                        .join(", ") || "Ninguno"}
-                </p>
-              </div>
-            </div>
-            <div className="mt-5 flex flex-col gap-2 sm:flex-row">
-              <a
-                href="/reservar/pago"
-                className="w-full rounded-full border border-border/70 px-4 py-2 text-center text-sm font-semibold"
-              >
-                Pagar aqui
-              </a>
-              {whatsAppLink && (
-                <a
-                  href={whatsAppLink}
-                  className="w-full rounded-full bg-[#25D366] px-4 py-2 text-center text-sm font-semibold text-white"
+        <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/50 sm:items-center sm:p-6">
+          <div className="w-full max-w-lg overflow-hidden rounded-t-[2rem] border border-border/70 bg-card shadow-2xl sm:rounded-[2rem]">
+            {/* Drag handle — mobile only */}
+            <div className="mx-auto mt-4 mb-1 h-1 w-10 rounded-full bg-border sm:hidden" />
+
+            {/* Scrollable body */}
+            <div className="max-h-[88vh] overflow-y-auto px-6 pb-8 pt-4 sm:max-h-[82vh] sm:pt-6">
+              {/* Header */}
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.3em] text-amber-600">
+                    Reserva pendiente
+                  </p>
+                  <h3 className="mt-1 text-xl font-semibold text-foreground">
+                    {confirmationData?.name ?? profileName ?? "Reserva pendiente"}
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => router.push("/")}
+                  aria-label="Cerrar"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border/70 bg-background/80 text-base font-semibold text-foreground shadow-sm transition hover:brightness-105"
                 >
-                  Enviar por WhatsApp
+                  ×
+                </button>
+              </div>
+
+              {/* Notices */}
+              <div className="mt-4 space-y-2">
+                {isRepeatConfirmation && (
+                  <p className="rounded-xl border border-border/60 bg-muted/50 px-4 py-3 text-xs text-muted-foreground">
+                    Solo puedes tener una reserva activa. Si quieres reservar
+                    otra fecha, contáctanos por WhatsApp.
+                  </p>
+                )}
+                <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+                  Pago pendiente: la reserva se confirma cuando recibimos el
+                  pago. Puedes pagar aquí o acordar el pago por WhatsApp.
+                </p>
+              </div>
+
+              {/* Details grid */}
+              <div className="mt-4 divide-y divide-border/50 rounded-2xl border border-border/60 bg-background px-4 text-sm">
+                <div className="flex items-center justify-between py-3">
+                  <span className="text-muted-foreground">Plan</span>
+                  <span className="max-w-[55%] text-right font-medium text-foreground">
+                    {confirmationData?.packageLabel ??
+                      selectedPackage?.label ??
+                      "Por confirmar"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between py-3">
+                  <span className="text-muted-foreground">Estado</span>
+                  <span className="font-medium text-foreground">
+                    {formatStatus(confirmationData?.status)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between py-3">
+                  <span className="text-muted-foreground">Fecha</span>
+                  <span className="font-medium text-foreground">
+                    {confirmationData?.date ?? state.date ?? "Por confirmar"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between py-3">
+                  <span className="text-muted-foreground">Horario</span>
+                  <span className="font-medium text-foreground">
+                    {confirmationRange?.start
+                      ? formatTime12h(confirmationRange.start)
+                      : "Por confirmar"}
+                    {confirmationRange?.end
+                      ? ` – ${formatTime12h(confirmationRange.end)}`
+                      : ""}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between py-3">
+                  <span className="text-muted-foreground">Personas</span>
+                  <span className="font-medium text-foreground">
+                    {(confirmationData?.adults ?? state.adults) +
+                      (confirmationData?.kids ?? state.kids)}{" "}
+                    ({confirmationData?.adults ?? state.adults} adultos
+                    {(confirmationData?.kids ?? state.kids) > 0
+                      ? `, ${confirmationData?.kids ?? state.kids} niños`
+                      : ""}
+                    )
+                  </span>
+                </div>
+                <div className="flex items-start justify-between gap-4 py-3">
+                  <span className="shrink-0 text-muted-foreground">Extras</span>
+                  <span className="text-right font-medium text-foreground">
+                    {confirmationData?.extras?.length
+                      ? confirmationData.extras.join(", ")
+                      : Object.entries(state.extras)
+                          .filter(([, selected]) => selected)
+                          .map(
+                            ([id]) =>
+                              extrasCatalog.find((extra) => extra.id === id)
+                                ?.label ?? id
+                          )
+                          .join(", ") || "Ninguno"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between py-3">
+                  <span className="font-semibold text-foreground">Total</span>
+                  <span className="font-semibold text-foreground">
+                    {formatCurrency(
+                      confirmationData?.totalAmount ?? totals.total
+                    )}
+                  </span>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="mt-5 flex flex-col gap-2">
+                <a
+                  href="/reservar/pago"
+                  className="w-full rounded-full bg-primary px-4 py-2.5 text-center text-sm font-semibold text-primary-foreground transition hover:opacity-90"
+                >
+                  Pagar aquí
                 </a>
-              )}
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleCancelReservation}
-                className="w-full rounded-full"
-              >
-                {isCancelling ? "Cancelando..." : "Cancelar"}
-              </Button>
+                <div className="flex gap-2">
+                  {whatsAppLink && (
+                    <a
+                      href={whatsAppLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 rounded-full border border-[#25D366] px-4 py-2.5 text-center text-sm font-semibold text-[#25D366] transition hover:bg-[#25D366]/5"
+                    >
+                      WhatsApp
+                    </a>
+                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleCancelReservation}
+                    className={`rounded-full text-sm font-semibold ${whatsAppLink ? "flex-1" : "w-full"}`}
+                  >
+                    {isCancelling ? "Cancelando..." : "Cancelar reserva"}
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
         </div>

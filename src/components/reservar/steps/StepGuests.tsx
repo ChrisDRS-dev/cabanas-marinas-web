@@ -3,7 +3,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import type { ReservationState } from "@/components/reservar/ReservationWizard";
-import type { PackageType } from "@/lib/calcTotal";
 import type React from "react";
 
 type StepGuestsProps = {
@@ -15,7 +14,6 @@ type StepGuestsProps = {
   >;
   minPeople: number;
   showMinWarning: boolean;
-  packageId: PackageType | null;
   config?: {
     title?: string;
     subtitle?: string;
@@ -92,17 +90,11 @@ export default function StepGuests({
   dispatch,
   minPeople,
   showMinWarning,
-  packageId,
   config,
 }: StepGuestsProps) {
   const totalPeople = state.adults + state.kids;
   const maxReached = totalPeople >= 16;
-  const showCouplePackage =
-    (config?.couplePackage?.enabled ?? true) &&
-    totalPeople < 4 &&
-    packageId !== "EVENTO";
-  const adultsLocked = state.couplePackage;
-  const maxKids = state.couplePackage ? 1 : 16 - state.adults;
+  const maxKids = 16 - state.adults;
 
   const title = config?.title ?? "Cuantas personas vienen";
   const subtitle =
@@ -114,20 +106,8 @@ export default function StepGuests({
   const totalLabel = config?.totalLabel ?? "Total de personas";
   const totalSuffix = config?.totalSuffix ?? "/ 16";
   const minCopy =
-    config?.minCopy ?? "Cobro mínimo: 4 personas por cabaña.";
-  const coupleConfig = config?.couplePackage ?? {};
-  const coupleTitle = coupleConfig.title ?? "Paquete pareja";
-  const coupleDescription =
-    coupleConfig.description ?? "Reservar una cabaña solo para dos.";
-  const coupleBullets = coupleConfig.bullets ?? [
-    "Sofá marino incluido.",
-    "Traslado en lancha ida y vuelta.",
-    "Juegos de mesa.",
-    "Utensilios para asador.",
-  ];
-  const coupleNote = coupleConfig.note ?? "Plan exclusivo para parejas.";
-  const coupleCtaOn = coupleConfig.ctaOn ?? "Seleccionado";
-  const coupleCtaOff = coupleConfig.ctaOff ?? "Seleccionar";
+    config?.minCopy ??
+    "Reserva desde 2 personas. El cobro mínimo es 4 entre semana y 6 en domingos o festivos.";
 
   return (
     <section className="space-y-4">
@@ -144,13 +124,11 @@ export default function StepGuests({
             onChange={(value) =>
               dispatch({
                 type: "setAdults",
-                value: adultsLocked
-                  ? 2
-                  : Math.min(16 - state.kids, Math.max(0, value)),
+                value: Math.min(16 - state.kids, Math.max(0, value)),
               })
             }
-            disableAdd={maxReached || adultsLocked}
-            disableSubtract={adultsLocked}
+            disableAdd={maxReached}
+            disableSubtract={false}
           />
           <CounterRow
             label={kidsLabel}
@@ -162,7 +140,7 @@ export default function StepGuests({
                 value: Math.min(maxKids, Math.max(0, value)),
               })
             }
-            disableAdd={maxReached || (state.couplePackage && state.kids >= 1)}
+            disableAdd={maxReached}
             disableSubtract={false}
           />
         </CardContent>
@@ -176,39 +154,6 @@ export default function StepGuests({
       <div className="rounded-2xl border border-border/70 bg-card px-4 py-3 text-sm text-muted-foreground">
         {minCopy}
       </div>
-      {showCouplePackage && (
-        <div className="rounded-2xl border border-border/70 bg-card px-4 py-3">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold">{coupleTitle}</p>
-              <p className="text-xs text-muted-foreground">
-                {coupleDescription}
-              </p>
-              <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-muted-foreground">
-                {coupleBullets.map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
-              <p className="mt-2 text-xs text-muted-foreground">
-                {coupleNote}
-              </p>
-            </div>
-            <Button
-              type="button"
-              variant={state.couplePackage ? "default" : "outline"}
-              onClick={() =>
-                dispatch({
-                  type: "setCouplePackage",
-                  value: !state.couplePackage,
-                })
-              }
-              className="rounded-full px-5"
-            >
-              {state.couplePackage ? coupleCtaOn : coupleCtaOff}
-            </Button>
-          </div>
-        </div>
-      )}
       {showMinWarning && (
         <div className="space-y-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           <p>Minimo: {minPeople} personas en esta fecha.</p>

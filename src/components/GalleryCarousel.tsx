@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { supabase } from "@/lib/supabase/client";
+import { getSessionSafe, supabase } from "@/lib/supabase/client";
 
 type GalleryItem = {
   title: string;
@@ -28,7 +28,7 @@ export default function GalleryCarousel({ items }: GalleryCarouselProps) {
   const [session, setSession] = useState<Session | null>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    void getSessionSafe().then((session) => setSession(session));
     const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
       setSession(next);
     });
@@ -87,7 +87,7 @@ export default function GalleryCarousel({ items }: GalleryCarouselProps) {
             window.dispatchEvent(new Event("cm:auth:open"));
           }}
           data-gallery-card
-          className="group relative min-w-[78%] snap-center overflow-hidden rounded-[2rem] border border-border bg-card shadow-xl shadow-black/5 aspect-square transition hover:-translate-y-1 hover:scale-[1.02] hover:shadow-2xl sm:min-w-[48%] lg:min-w-[10%]"
+          className="group relative min-w-[78%] snap-center overflow-hidden rounded-[2rem] border border-border bg-card shadow-xl shadow-black/5 aspect-[4/5] transition hover:-translate-y-1 hover:scale-[1.02] hover:shadow-2xl sm:aspect-square sm:min-w-[48%] lg:min-w-[10%]"
         >
           <div
             className="absolute inset-0 bg-cover bg-center brightness-50 transition duration-500 group-hover:scale-105"
@@ -116,7 +116,19 @@ export default function GalleryCarousel({ items }: GalleryCarouselProps) {
                 </span>
               </div>
             </div>
-            <p className="text-xs font-medium text-white/85">{item.note}</p>
+            <div className="space-y-3">
+              <p className="text-xs font-medium text-white/75">{item.note}</p>
+              {/* Liquid-glass "Seleccionar" button */}
+              <span
+                className="block w-full rounded-[1.1rem] border border-white/25 bg-white/[0.11] px-5 py-2.5 text-center text-sm font-semibold text-white backdrop-blur-md transition-colors duration-200 group-hover:bg-white/[0.2] group-hover:border-white/35"
+                style={{
+                  boxShadow:
+                    "inset 0 1px 0 rgba(255,255,255,0.18), 0 2px 8px rgba(0,0,0,0.15)",
+                }}
+              >
+                Seleccionar
+              </span>
+            </div>
           </div>
         </a>
       ))}

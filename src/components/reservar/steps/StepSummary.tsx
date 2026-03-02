@@ -103,7 +103,6 @@ export default function StepSummary({
             <span className="text-muted-foreground">Paquete</span>
             <span className="font-semibold">
               {selectedPackage?.label ?? "Sin paquete"}
-              {state.couplePackage ? " + Pareja" : ""}
             </span>
           </div>
           <Separator />
