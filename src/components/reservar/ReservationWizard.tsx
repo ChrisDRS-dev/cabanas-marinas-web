@@ -8,7 +8,6 @@ import StepDatePackage from "@/components/reservar/steps/StepDatePackage";
 import StepGuests from "@/components/reservar/steps/StepGuests";
 import StepExtras from "@/components/reservar/steps/StepExtras";
 import StepSummary from "@/components/reservar/steps/StepSummary";
-import StepPayment from "@/components/reservar/steps/StepPayment";
 import { getSessionSafe, supabase } from "@/lib/supabase/client";
 import { siteData } from "@/lib/siteData";
 import {
@@ -643,7 +642,7 @@ export default function ReservationWizard({
           adults: state.adults,
           kids: state.kids,
           extras: selectedExtras,
-          paymentMethod: state.paymentMethod ?? "CASH",
+          paymentMethod: state.paymentMethod ?? "YAPPY",
         }),
       });
 
@@ -695,7 +694,7 @@ export default function ReservationWizard({
         extras: resolvedExtras,
         totalAmount,
         depositAmount,
-        paymentMethod: state.paymentMethod ?? "CASH",
+        paymentMethod: state.paymentMethod ?? "YAPPY",
       };
       setConfirmationId(result?.id ?? null);
       setConfirmationData(payload);
@@ -903,23 +902,15 @@ export default function ReservationWizard({
           />
         )}
         {activeStep === "payment" && (
-          <>
-            <StepSummary
-              state={state}
-              selectedPackage={selectedPackage}
-              totals={totals}
-              showMinWarning={showMinWarning}
-              minPeople={minPeople}
-              weekend={weekend}
-              extrasCatalog={extrasCatalog}
-            />
-            <StepPayment
-              state={state}
-              dispatch={dispatch}
-              depositAmount={Math.round(totals.total * 0.5 * 100) / 100}
-              config={formConfig?.payment}
-            />
-          </>
+          <StepSummary
+            state={state}
+            selectedPackage={selectedPackage}
+            totals={totals}
+            showMinWarning={showMinWarning}
+            minPeople={minPeople}
+            weekend={weekend}
+            extrasCatalog={extrasCatalog}
+          />
         )}
         {(submitError || submitSuccess) && (
           <div
@@ -947,16 +938,12 @@ export default function ReservationWizard({
                     : "Por definir"
                   : stepId === "extras"
                   ? `${Object.values(state.extras).filter(Boolean).length} extras`
-                  : state.paymentMethod === "CASH"
-                  ? "WhatsApp"
-                  : state.paymentMethod ?? "Por definir";
+                  : "Revisar y solicitar";
               const stepComplete =
                 stepId === "guests"
                   ? totalPeople >= DEFAULT_MIN_PEOPLE
                   : stepId === "date_package"
                   ? Boolean(state.date && state.packageId && state.timeSlot)
-                  : stepId === "payment"
-                  ? Boolean(state.paymentMethod)
                   : true;
 
               const isActive = state.step === stepIndex;
