@@ -1,14 +1,15 @@
 import { redirect } from "next/navigation";
 
-export default function ReservarPage({
+export default async function ReservarPage({
   searchParams,
 }: {
-  searchParams?: { package?: string };
+  searchParams?: Promise<{ package?: string }>;
 }) {
+  const resolved = await searchParams;
   const params = new URLSearchParams();
   params.set("reservar", "1");
-  if (searchParams?.package) {
-    params.set("package", searchParams.package);
+  if (resolved?.package) {
+    params.set("package", resolved.package);
   }
   redirect(`/?${params.toString()}`);
 }

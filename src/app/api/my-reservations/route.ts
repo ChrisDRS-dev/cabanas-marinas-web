@@ -37,7 +37,7 @@ export async function GET() {
   const base = supabase
     .from("reservations")
     .select(
-      "id,reserved_date,start_at,end_at,status,total_amount,package_id,adults_count,kids_count,packages(label)"
+      "id,reserved_date,start_at,end_at,status,total_amount,deposit_amount,payment_method,package_id,adults_count,kids_count,packages(label),invoices(status,payments(id,provider,status,provider_ref,amount,paid_at,created_at))"
     );
   const { data, error } = await base
     .eq("customer_id", user.id)
@@ -48,5 +48,28 @@ export async function GET() {
     return NextResponse.json({ reservations: [] }, { status: 200 });
   }
 
-  return NextResponse.json({ reservations: data ?? [] });
+  const reservations = (data ?? []).map((reservation) => {
+    const invoices = Array.isArray(reservation.invoices)
+      ? reservation.invoices
+      : reservation.invoices
+      ? [reservation.invoices]
+      : [];
+    const invoice = invoices[0] ?? null;
+    const payments = Array.isArray(invoice?.payments)
+      ? [...invoice.payments].sort((a, b) =>
+          String(b.created_at ?? "").localeCompare(String(a.created_at ?? ""))
+        )
+      : [];
+    const payment = payments[0] ?? null;
+
+    return {
+      ...reservation,
+      invoice_status: invoice?.status ?? null,
+      payment_status: payment?.status ?? null,
+      payment_provider_ref: payment?.provider_ref ?? null,
+      payment_amount: payment?.amount ?? null,
+    };
+  });
+
+  return NextResponse.json({ reservations });
 }

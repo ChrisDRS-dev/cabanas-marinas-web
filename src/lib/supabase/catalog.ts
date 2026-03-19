@@ -28,6 +28,7 @@ export type Extra = {
   description?: string | null;
   price: number;
   pricingUnit: "PER_HOUR" | "PER_PERSON" | "PER_RESERVATION";
+  stock?: number | null;
 };
 
 type Catalog = {
@@ -77,7 +78,7 @@ export async function fetchCatalog(): Promise<Catalog> {
       .eq("is_active", true),
     supabase
       .from("extras")
-      .select("id,label,description,price,pricing_unit,is_active")
+      .select("id,label,description,price,pricing_unit,stock,is_active")
       .eq("is_active", true)
       .order("price", { ascending: true }),
   ]);
@@ -129,6 +130,7 @@ export async function fetchCatalog(): Promise<Catalog> {
     description: row.description,
     price: toNumber(row.price),
     pricingUnit: row.pricing_unit,
+    stock: typeof row.stock === "number" ? row.stock : null,
   }));
 
   return { packages, timeSlotsByPackage, extras };

@@ -8,6 +8,7 @@ import StepDatePackage from "@/components/reservar/steps/StepDatePackage";
 import StepGuests from "@/components/reservar/steps/StepGuests";
 import StepExtras from "@/components/reservar/steps/StepExtras";
 import StepSummary from "@/components/reservar/steps/StepSummary";
+import StepPayment from "@/components/reservar/steps/StepPayment";
 import { getSessionSafe, supabase } from "@/lib/supabase/client";
 import { siteData } from "@/lib/siteData";
 import {
@@ -68,7 +69,7 @@ const initialState: ReservationState = {
   kids: 0,
   extras: {},
   couplePackage: false,
-  paymentMethod: "CASH",
+  paymentMethod: "YAPPY",
 };
 
 function reducer(state: ReservationState, action: Action): ReservationState {
@@ -172,6 +173,7 @@ export default function ReservationWizard({
   const [showPhonePrompt, setShowPhonePrompt] = useState(false);
   const [phoneInput, setPhoneInput] = useState("");
   const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [isSavingPhone, setIsSavingPhone] = useState(false);
   const [confirmationData, setConfirmationData] = useState<{
     id: string | null;
     name: string | null;
@@ -183,6 +185,8 @@ export default function ReservationWizard({
     timeSlot: string | null;
     extras: string[];
     totalAmount?: number | null;
+    depositAmount?: number | null;
+    paymentMethod?: string | null;
   } | null>(null);
   const [isRepeatConfirmation, setIsRepeatConfirmation] = useState(false);
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
@@ -556,6 +560,9 @@ export default function ReservationWizard({
 
   const weekend = isWeekend(state.date);
   const selectedPackage = packages.find((item) => item.id === state.packageId);
+  const durationHours = selectedPackage
+    ? Math.round(selectedPackage.durationMinutes / 60)
+    : undefined;
   const minPeople = selectedPackage
     ? weekend
       ? selectedPackage.minPeopleWeekend
@@ -571,6 +578,7 @@ export default function ReservationWizard({
         packages,
         extrasCatalog,
         minPeopleForDate: minPeople || undefined,
+        durationHours,
       }),
     [
       state.packageId,
@@ -580,6 +588,7 @@ export default function ReservationWizard({
       packages,
       extrasCatalog,
       minPeople,
+      durationHours,
     ]
   );
   const totalPeople = state.adults + state.kids;
@@ -596,7 +605,7 @@ export default function ReservationWizard({
   const isStepComplete = () => {
     switch (activeStep) {
       case "guests":
-        return totalPeople >= DEFAULT_MIN_PEOPLE;
+        return totalPeople >= 1;
       case "date_package":
         if (!state.date || !state.packageId || !state.timeSlot) return false;
         if (state.packageId === "EVENTO") {
@@ -668,6 +677,12 @@ export default function ReservationWizard({
         .map(
           ([id]) => extrasCatalog.find((extra) => extra.id === id)?.label ?? id
         );
+      const totalAmount =
+        typeof result?.total === "number" ? result.total : totals.total;
+      const depositAmount =
+        typeof result?.deposit === "number"
+          ? result.deposit
+          : Math.round(totalAmount * 0.5 * 100) / 100;
       const payload = {
         id: result?.id ?? null,
         name: profileName ?? null,
@@ -678,8 +693,9 @@ export default function ReservationWizard({
         date: state.date,
         timeSlot: state.timeSlot,
         extras: resolvedExtras,
-        totalAmount:
-          typeof result?.total === "number" ? result.total : totals.total,
+        totalAmount,
+        depositAmount,
+        paymentMethod: state.paymentMethod ?? "CASH",
       };
       setConfirmationId(result?.id ?? null);
       setConfirmationData(payload);
@@ -700,6 +716,14 @@ export default function ReservationWizard({
         payload.timeSlot,
         selectedPackage?.durationMinutes
       );
+      const paymentMethodLabel =
+        payload.paymentMethod === "YAPPY"
+          ? "Yappy"
+          : payload.paymentMethod === "PAYPAL"
+          ? "PayPal"
+          : payload.paymentMethod === "CARD"
+          ? "Tarjeta"
+          : "WhatsApp";
       const messageLines = [
         "Hola, quiero coordinar el pago de mi reserva.",
         payload.id ? `ID: ${String(payload.id).slice(0, 8)}` : null,
@@ -716,7 +740,11 @@ export default function ReservationWizard({
         payload.totalAmount != null
           ? `Total estimado: ${formatCurrency(payload.totalAmount)}`
           : null,
-        "Estado: Pago pendiente (la reserva se confirma al recibir el pago).",
+        payload.depositAmount != null
+          ? `Pago inicial (50%): ${formatCurrency(payload.depositAmount)}`
+          : null,
+        `Método de pago: ${paymentMethodLabel}`,
+        "Para confirmar tu reserva, realiza el pago del 50% por el método indicado.",
       ].filter(Boolean) as string[];
       const message = messageLines.join("\n");
       const whatsappLink = `${whatsappBase}?text=${encodeURIComponent(message)}`;
@@ -871,18 +899,27 @@ export default function ReservationWizard({
             dispatch={dispatch}
             extras={extrasCatalog}
             config={formConfig?.extras}
+            durationHours={durationHours}
           />
         )}
         {activeStep === "payment" && (
-          <StepSummary
-            state={state}
-            selectedPackage={selectedPackage}
-            totals={totals}
-            showMinWarning={showMinWarning}
-            minPeople={minPeople}
-            weekend={weekend}
-            extrasCatalog={extrasCatalog}
-          />
+          <>
+            <StepSummary
+              state={state}
+              selectedPackage={selectedPackage}
+              totals={totals}
+              showMinWarning={showMinWarning}
+              minPeople={minPeople}
+              weekend={weekend}
+              extrasCatalog={extrasCatalog}
+            />
+            <StepPayment
+              state={state}
+              dispatch={dispatch}
+              depositAmount={Math.round(totals.total * 0.5 * 100) / 100}
+              config={formConfig?.payment}
+            />
+          </>
         )}
         {(submitError || submitSuccess) && (
           <div
@@ -971,18 +1008,6 @@ export default function ReservationWizard({
                   ¿Nos dejas tu teléfono?
                 </h3>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setShowPhonePrompt(false);
-                  setShowConfirmation(true);
-                }}
-                className="rounded-full"
-              >
-                Omitir
-              </Button>
             </div>
             <p className="mt-3 text-sm text-muted-foreground">
               Así podemos coordinar tu llegada y confirmar la reserva.
@@ -992,6 +1017,7 @@ export default function ReservationWizard({
               value={phoneInput}
               onChange={(event) => setPhoneInput(event.target.value)}
               placeholder="Ej: +507 6000-0000"
+              disabled={isSavingPhone}
               className="mt-4 w-full rounded-2xl border border-border/70 bg-background px-4 py-3 text-sm font-semibold text-foreground"
             />
             <div className="mt-5 flex flex-col gap-2 sm:flex-row">
@@ -999,14 +1025,20 @@ export default function ReservationWizard({
                 type="button"
                 className="w-full rounded-full"
                 onClick={async () => {
+                  if (isSavingPhone) return;
                   const value = phoneInput.trim();
                   setPhoneError(null);
                   if (!value) {
-                    setShowPhonePrompt(false);
-                    setShowConfirmation(true);
+                    setPhoneError("El número de teléfono es requerido.");
+                    return;
+                  }
+                  const digits = value.replace(/\D/g, "");
+                  if (digits.length < 7) {
+                    setPhoneError("Ingresa un número válido (mínimo 7 dígitos).");
                     return;
                   }
                   try {
+                    setIsSavingPhone(true);
                     const response = await fetch("/api/profile/phone", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
@@ -1014,14 +1046,14 @@ export default function ReservationWizard({
                     });
                     const result = await response.json();
                     if (!response.ok) {
-                      if (result?.error === "rls_denied") {
-                        setShowPhonePrompt(false);
-                        setShowConfirmation(true);
-                        return;
+                      if (result?.error === "invalid_phone") {
+                        throw new Error(
+                          "Ingresa un número válido (mínimo 7 dígitos)."
+                        );
                       }
                       throw new Error("No se pudo guardar el teléfono.");
                     }
-                    setProfilePhone(value);
+                    setProfilePhone(result?.phone ?? value);
                     setShowPhonePrompt(false);
                     setShowConfirmation(true);
                   } catch (error) {
@@ -1030,21 +1062,13 @@ export default function ReservationWizard({
                         ? error.message
                         : "No se pudo guardar el teléfono."
                     );
+                  } finally {
+                    setIsSavingPhone(false);
                   }
                 }}
+                disabled={isSavingPhone}
               >
-                Guardar teléfono
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full rounded-full"
-                onClick={() => {
-                  setShowPhonePrompt(false);
-                  setShowConfirmation(true);
-                }}
-              >
-                Continuar sin teléfono
+                {isSavingPhone ? "Guardando..." : "Guardar teléfono"}
               </Button>
             </div>
             {phoneError && (
@@ -1157,10 +1181,21 @@ export default function ReservationWizard({
                   </span>
                 </div>
                 <div className="flex items-center justify-between py-3">
-                  <span className="font-semibold text-foreground">Total</span>
-                  <span className="font-semibold text-foreground">
+                  <span className="text-muted-foreground">Total estimado</span>
+                  <span className="font-medium text-foreground">
                     {formatCurrency(
                       confirmationData?.totalAmount ?? totals.total
+                    )}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between py-3">
+                  <span className="font-semibold text-foreground">
+                    Pago inicial (50%)
+                  </span>
+                  <span className="font-semibold text-primary">
+                    {formatCurrency(
+                      confirmationData?.depositAmount ??
+                        Math.round((confirmationData?.totalAmount ?? totals.total) * 0.5 * 100) / 100
                     )}
                   </span>
                 </div>

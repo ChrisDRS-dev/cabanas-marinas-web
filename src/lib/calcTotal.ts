@@ -16,6 +16,7 @@ type CalcTotalInput = {
   packages: Package[];
   extrasCatalog: Extra[];
   minPeopleForDate?: number;
+  durationHours?: number;
 };
 
 export function calcTotal({
@@ -26,6 +27,7 @@ export function calcTotal({
   packages,
   extrasCatalog,
   minPeopleForDate,
+  durationHours,
 }: CalcTotalInput): ReservationTotals {
   const pkg = packages.find((item) => item.id === packageId);
   if (!pkg) {
@@ -40,7 +42,9 @@ export function calcTotal({
   const base = Math.max(baseRaw, minBase);
   const extrasTotal = extrasCatalog.reduce((sum, extra) => {
     const selected = extras[extra.id] ?? false;
-    return sum + (selected ? extra.price : 0);
+    if (!selected) return sum;
+    const qty = extra.pricingUnit === "PER_HOUR" ? (durationHours ?? 1) : 1;
+    return sum + extra.price * qty;
   }, 0);
 
   return { base, extrasTotal, total: base + extrasTotal };

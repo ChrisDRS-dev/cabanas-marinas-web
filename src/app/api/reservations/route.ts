@@ -47,6 +47,81 @@ function extractErrorCode(error: unknown) {
   return null;
 }
 
+function roundCurrency(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
+async function syncReservationPaymentState(args: {
+  supabase: Awaited<ReturnType<typeof supabaseServer>>;
+  reservationId: string;
+  totalAmount: number;
+  depositAmount: number;
+  paymentMethod: string;
+  customerId: string;
+  reservedDate: string;
+}) {
+  const { supabase, reservationId, totalAmount, depositAmount, paymentMethod } =
+    args;
+
+  await supabase
+    .from("reservations")
+    .update({
+      payment_method: paymentMethod,
+      deposit_amount: depositAmount,
+    })
+    .eq("id", reservationId);
+
+  const { data: existingInvoice } = await supabase
+    .from("invoices")
+    .select("id")
+    .eq("reservation_id", reservationId)
+    .maybeSingle();
+
+  const invoiceId =
+    existingInvoice?.id ??
+    (
+      await supabase
+        .from("invoices")
+        .insert({
+          reservation_id: reservationId,
+          status: "DUE",
+          subtotal: totalAmount,
+          total: totalAmount,
+        })
+        .select("id")
+        .maybeSingle()
+    ).data?.id ??
+    null;
+
+  if (!invoiceId) return;
+
+  const { data: existingPayment } = await supabase
+    .from("payments")
+    .select("id")
+    .eq("invoice_id", invoiceId)
+    .eq("provider", paymentMethod)
+    .eq("status", "PENDING")
+    .eq("amount", depositAmount)
+    .maybeSingle();
+
+  if (existingPayment?.id) return;
+
+  await supabase.from("payments").insert({
+    invoice_id: invoiceId,
+    provider: paymentMethod,
+    status: "PENDING",
+    amount: depositAmount,
+    meta: {
+      reservation_id: reservationId,
+      customer_id: args.customerId,
+      reserved_date: args.reservedDate,
+      payment_method: paymentMethod,
+      expected_amount: depositAmount,
+      flow: paymentMethod === "YAPPY" ? "yappy_v1" : "manual",
+    },
+  });
+}
+
 export async function POST(req: Request) {
   const supabase = await supabaseServer();
   const {
@@ -112,7 +187,12 @@ export async function POST(req: Request) {
     })) ?? [];
 
   const rawPayment = String(payload.paymentMethod ?? "CASH").toUpperCase();
-  const paymentMethod = rawPayment === "WHATSAPP" ? "CASH" : "CASH";
+  const VALID_METHODS = ["CASH", "YAPPY", "PAYPAL", "CARD"] as const;
+  const paymentMethod = VALID_METHODS.includes(
+    rawPayment as (typeof VALID_METHODS)[number]
+  )
+    ? rawPayment
+    : "CASH";
 
   const { data, error } = await supabase.rpc("create_reservation_public", {
     p_package_id: packageId,
@@ -142,9 +222,26 @@ export async function POST(req: Request) {
   }
 
   const result = Array.isArray(data) ? data[0] : data;
+  const reservationId = result?.reservation_id ?? null;
+  const totalAmount = Number(result?.total_amount ?? 0);
+  const depositAmount = roundCurrency(totalAmount * 0.5);
+
+  if (reservationId) {
+    await syncReservationPaymentState({
+      supabase,
+      reservationId,
+      totalAmount,
+      depositAmount,
+      paymentMethod,
+      customerId: user.id,
+      reservedDate,
+    });
+  }
 
   return NextResponse.json({
-    id: result?.reservation_id ?? null,
-    total: result?.total_amount ?? null,
+    id: reservationId,
+    total: totalAmount,
+    deposit: depositAmount,
+    paymentMethod,
   });
 }

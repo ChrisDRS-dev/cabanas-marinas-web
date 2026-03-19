@@ -170,5 +170,6 @@ export const siteData = {
   },
   links: {
     whatsapp: "https://wa.me/50762811651", // Replace with actual number including country code
+    yappy: "62811651", // Panama local number for Yappy payments — replace with actual Yappy account number
   },
 };

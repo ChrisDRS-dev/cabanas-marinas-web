@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import type { ReservationState } from "@/components/reservar/ReservationWizard";
@@ -12,6 +13,7 @@ type StepExtrasProps = {
   dispatch: React.Dispatch<{ type: "setExtra"; id: string; value: boolean }>;
   extras: Extra[];
   config?: ExtrasStepConfig;
+  durationHours?: number;
 };
 
 function formatExtraUnit(value: Extra["pricingUnit"]) {
@@ -30,7 +32,14 @@ export default function StepExtras({
   dispatch,
   extras,
   config,
+  durationHours,
 }: StepExtrasProps) {
+  const titleRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    titleRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+
   const title = config?.title ?? "Extras para el plan";
   const subtitle =
     config?.subtitle ??
@@ -40,10 +49,13 @@ export default function StepExtras({
   const addedLabel = config?.addedLabel ?? "Agregado";
 
   return (
-    <section className="space-y-4">
+    <section ref={titleRef} className="space-y-4">
       <div className="space-y-2">
         <h2 className="font-display text-2xl font-semibold">{title}</h2>
         <p className="text-sm text-muted-foreground">{subtitle}</p>
+      </div>
+      <div className="rounded-2xl border border-border/70 bg-secondary/30 px-4 py-3 text-sm text-muted-foreground">
+        También puedes agregar extras al llegar.
       </div>
       <Card className="border-border/70 py-4">
         <CardContent className="space-y-3">
@@ -54,6 +66,10 @@ export default function StepExtras({
           )}
           {extras.map((extra) => {
             const selected = state.extras[extra.id] ?? false;
+            const priceLabel =
+              extra.pricingUnit === "PER_HOUR"
+                ? `$${extra.price}/hr`
+                : `$${extra.price} ${formatExtraUnit(extra.pricingUnit)}`;
             return (
               <div
                 key={extra.id}
@@ -67,8 +83,13 @@ export default function StepExtras({
                     </p>
                   )}
                   <p className="text-sm font-semibold text-foreground">
-                    ${extra.price} {formatExtraUnit(extra.pricingUnit)}
+                    {priceLabel}
                   </p>
+                  {extra.stock != null && (
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Disponibles: {extra.stock}
+                    </p>
+                  )}
                 </div>
                 <Button
                   type="button"

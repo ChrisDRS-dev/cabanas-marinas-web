@@ -200,26 +200,40 @@ export default function StepTime({
                   Selecciona un paquete para ver los horarios.
                 </p>
               )}
-              {timeSlots.map((slot) => {
-                const selected = state.timeSlot === slot.id;
+              {(["mañana", "tarde", "noche"] as const).map((period) => {
+                const slots = timeSlots.filter((slot) => slot.period === period);
+                if (slots.length === 0) return null;
+                const periodLabel =
+                  period === "mañana"
+                    ? "☀️ Mañana"
+                    : period === "tarde"
+                    ? "🌅 Tarde"
+                    : "🌙 Noche";
                 return (
-                  <button
-                    key={slot.id}
-                    type="button"
-                    onClick={() =>
-                      dispatch({ type: "setTimeSlot", value: slot.id })
-                    }
-                    className={`flex items-center justify-between rounded-2xl border px-4 py-3 text-left transition ${
-                      selected
-                        ? "border-primary bg-primary/10"
-                        : "border-border/70 bg-background hover:border-primary/60"
-                    }`}
-                  >
-                    <span className="text-sm font-semibold">{slot.label}</span>
-                    <span className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-                      {slot.period}
-                    </span>
-                  </button>
+                  <div key={period} className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                      {periodLabel}
+                    </p>
+                    {slots.map((slot) => {
+                      const selected = state.timeSlot === slot.id;
+                      return (
+                        <button
+                          key={slot.id}
+                          type="button"
+                          onClick={() =>
+                            dispatch({ type: "setTimeSlot", value: slot.id })
+                          }
+                          className={`flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left transition ${
+                            selected
+                              ? "border-primary bg-primary/10"
+                              : "border-border/70 bg-background hover:border-primary/60"
+                          }`}
+                        >
+                          <span className="text-sm font-semibold">{slot.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 );
               })}
             </>

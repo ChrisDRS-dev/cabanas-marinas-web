@@ -1,6 +1,14 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 
+function normalizePhone(value: string) {
+  const trimmed = value.trim();
+  const hasPlus = trimmed.startsWith("+");
+  const digits = trimmed.replace(/\D/g, "");
+  if (!digits) return "";
+  return hasPlus ? `+${digits}` : digits;
+}
+
 export async function POST(req: Request) {
   const supabase = await supabaseServer();
   const {
@@ -18,9 +26,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
   }
 
-  const phone = String(payload.phone ?? "").trim();
+  const phone = normalizePhone(String(payload.phone ?? ""));
   if (!phone) {
     return NextResponse.json({ error: "missing_phone" }, { status: 400 });
+  }
+
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length < 7) {
+    return NextResponse.json({ error: "invalid_phone" }, { status: 400 });
   }
 
   const { error } = await supabase
@@ -28,18 +41,33 @@ export async function POST(req: Request) {
     .upsert({ user_id: user.id, phone }, { onConflict: "user_id" });
 
   if (error) {
-    const message = String(error.message ?? "");
-    if (message.includes("row-level security")) {
-      const { error: authError } = await supabase.auth.updateUser({
-        data: { phone },
+    const { error: authError } = await supabase.auth.updateUser({
+      data: { phone },
+    });
+
+    if (!authError) {
+      return NextResponse.json({
+        ok: true,
+        phone,
+        fallback: "auth_metadata",
+        warning: "profiles_upsert_failed",
       });
-      if (authError) {
-        return NextResponse.json({ error: "rls_denied" }, { status: 403 });
-      }
-      return NextResponse.json({ ok: true, fallback: "auth_metadata" });
     }
-    return NextResponse.json({ error: "update_failed" }, { status: 400 });
+
+    return NextResponse.json(
+      {
+        error: "update_failed",
+        detail:
+          process.env.NODE_ENV === "production"
+            ? undefined
+            : {
+                profiles: String(error.message ?? "unknown_profiles_error"),
+                auth: String(authError.message ?? "unknown_auth_error"),
+              },
+      },
+      { status: 400 }
+    );
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, phone });
 }
