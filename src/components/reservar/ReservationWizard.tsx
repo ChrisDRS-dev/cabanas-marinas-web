@@ -748,10 +748,11 @@ export default function ReservationWizard({
       const message = messageLines.join("\n");
       const whatsappLink = `${whatsappBase}?text=${encodeURIComponent(message)}`;
       setWhatsAppLink(whatsappLink);
+      const rid = result?.id ?? null;
       if (!profilePhone) {
         setShowPhonePrompt(true);
       } else {
-        setShowConfirmation(true);
+        router.push(`/reservar/pago?method=${state.paymentMethod ?? "YAPPY"}&rid=${rid ?? ""}`);
       }
     } catch (error) {
       setSubmitError(
@@ -1042,7 +1043,7 @@ export default function ReservationWizard({
                     }
                     setProfilePhone(result?.phone ?? value);
                     setShowPhonePrompt(false);
-                    setShowConfirmation(true);
+                    router.push(`/reservar/pago?method=${state.paymentMethod ?? "YAPPY"}&rid=${confirmationId ?? ""}`);
                   } catch (error) {
                     setPhoneError(
                       error instanceof Error
@@ -1191,7 +1192,7 @@ export default function ReservationWizard({
               {/* Actions */}
               <div className="mt-5 flex flex-col gap-2">
                 <a
-                  href="/reservar/pago"
+                  href={`/reservar/pago?method=${confirmationData?.paymentMethod ?? "YAPPY"}&rid=${confirmationId ?? ""}`}
                   className="w-full rounded-full bg-primary px-4 py-2.5 text-center text-sm font-semibold text-primary-foreground transition hover:opacity-90"
                 >
                   Pagar aquí

@@ -1,4 +1,4 @@
-import FAQAccordion from "@/components/FAQAccordion";
+import FAQAccordionWrapper from "@/components/FAQAccordionWrapper";
 import MapCard from "@/components/MapCard";
 import NavbarMobile from "@/components/NavbarMobile";
 import GalleryCarousel from "@/components/GalleryCarousel";
@@ -189,7 +189,7 @@ export default async function HomePage() {
             </h2>
           </div>
           <div className="mt-8">
-            <FAQAccordion items={faq} />
+            <FAQAccordionWrapper items={faq} />
           </div>
         </section>
 

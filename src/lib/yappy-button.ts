@@ -189,8 +189,8 @@ export async function createYappyButtonOrder(args: {
 
 export function createReservationOrderId(reservationId: string) {
   const compact = reservationId.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
-  const suffix = Date.now().toString(36).toUpperCase();
-  return `Y${compact}${suffix}`.slice(0, 15);
+  const suffix = Date.now().toString(36).toUpperCase(); // ~8 chars, unique per attempt
+  return `Y${suffix}${compact}`.slice(0, 15);
 }
 
 export function verifyYappyIpnHash(args: {
