@@ -22,6 +22,18 @@ type ReservationItem = {
 
 const ACTIVE_STATUS = new Set(["PENDING_PAYMENT", "CONFIRMED"]);
 
+const STATUS_INFO: Record<string, { label: string; color: string }> = {
+  PENDING_PAYMENT: { label: "Pago pendiente", color: "text-amber-600" },
+  CONFIRMED: { label: "Confirmada", color: "text-muted-foreground" },
+  COMPLETED: { label: "Completada", color: "text-emerald-600" },
+  CANCELLED: { label: "Cancelada", color: "text-rose-500" },
+  NO_SHOW: { label: "No show", color: "text-muted-foreground" },
+};
+
+function getPanamaTodayStr() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Panama" }).format(new Date());
+}
+
 function parsePanamaDate(value: string) {
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     const [year, month, day] = value.split("-").map(Number);
@@ -87,8 +99,10 @@ export default function ReservationOverlay() {
   const [checkedSession, setCheckedSession] = useState(false);
   const [loadingReservation, setLoadingReservation] = useState(false);
   const [activeReservations, setActiveReservations] = useState<ReservationItem[]>([]);
+  const [pastReservations, setPastReservations] = useState<ReservationItem[]>([]);
   const [selectedReservation, setSelectedReservation] = useState<ReservationItem | null>(null);
   const [showWizard, setShowWizard] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   const stepParam = searchParams.get("step");
   const forceWizard = stepParam === "payment";
@@ -122,6 +136,7 @@ export default function ReservationOverlay() {
     if (!show) {
       setShowWizard(false);
       setSelectedReservation(null);
+      setShowHistory(false);
     }
   }, [show]);
 
@@ -166,15 +181,22 @@ export default function ReservationOverlay() {
         const result = await response.json();
         if (!active) return;
         if (response.ok && Array.isArray(result?.reservations)) {
-          const actives = result.reservations.filter((item: ReservationItem) =>
-            ACTIVE_STATUS.has(item.status)
+          const todayStr = getPanamaTodayStr();
+          const all = result.reservations as ReservationItem[];
+          const upcoming = all.filter(
+            (item) => ACTIVE_STATUS.has(item.status) && item.reserved_date >= todayStr
           );
-          setActiveReservations(actives);
-          if (actives.length === 0 && session?.user?.id && typeof window !== "undefined") {
+          const past = all.filter(
+            (item) => !ACTIVE_STATUS.has(item.status) || item.reserved_date < todayStr
+          );
+          setActiveReservations(upcoming);
+          setPastReservations(past);
+          if (upcoming.length === 0 && session?.user?.id && typeof window !== "undefined") {
             window.localStorage.removeItem(`cm_last_reservation:${session.user.id}`);
           }
         } else {
           setActiveReservations([]);
+          setPastReservations([]);
         }
       } catch {
         if (!active) return;
@@ -310,10 +332,100 @@ export default function ReservationOverlay() {
                   Hacer otra reserva
                 </button>
               </div>
+              {pastReservations.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowHistory(true)}
+                  className="w-full rounded-full border border-border/50 px-4 py-2 text-xs font-medium text-muted-foreground transition hover:text-foreground"
+                >
+                  Ver historial ({pastReservations.length})
+                </button>
+              )}
             </div>
           )}
         </div>
       </div>
+
+      {/* ── History popup ── */}
+      {showHistory && (
+        <div
+          className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 sm:items-center sm:p-6"
+          onClick={() => setShowHistory(false)}
+        >
+          <div
+            className="flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-t-[2rem] border border-border/70 bg-card shadow-2xl sm:rounded-[2rem]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {/* Drag handle — mobile only */}
+            <div className="mx-auto mt-4 h-1 w-10 shrink-0 rounded-full bg-border sm:hidden" />
+
+            {/* Header */}
+            <div className="flex shrink-0 items-start justify-between px-6 pb-4 pt-5">
+              <div>
+                <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+                  Historial
+                </p>
+                <h3 className="mt-1 text-xl font-semibold text-foreground">
+                  Reservas anteriores
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowHistory(false)}
+                aria-label="Cerrar historial"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border/70 bg-background/80 text-base font-semibold text-foreground shadow-sm transition hover:brightness-105"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* List */}
+            <div className="overflow-y-auto px-6 pb-8">
+              <div className="space-y-2">
+                {pastReservations.map((reservation) => {
+                  const statusInfo = STATUS_INFO[reservation.status] ?? {
+                    label: reservation.status,
+                    color: "text-muted-foreground",
+                  };
+                  const packageLabel = resolvePackageLabel(reservation);
+                  return (
+                    <button
+                      key={reservation.id}
+                      type="button"
+                      onClick={() => {
+                        setShowHistory(false);
+                        setSelectedReservation(reservation);
+                      }}
+                      className="w-full rounded-2xl border border-border/60 bg-background px-5 py-4 text-left text-sm transition hover:border-primary/30 hover:shadow-sm active:scale-[0.99]"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p
+                            className={`text-xs uppercase tracking-[0.2em] ${statusInfo.color}`}
+                          >
+                            {statusInfo.label}
+                          </p>
+                          <p className="mt-0.5 text-sm font-semibold">
+                            {packageLabel ?? "Paquete"}
+                          </p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            {formatDate(reservation.reserved_date)} ·{" "}
+                            {formatTime(reservation.start_at)} –{" "}
+                            {formatTime(reservation.end_at)}
+                          </p>
+                        </div>
+                        <p className="shrink-0 text-sm font-semibold">
+                          {formatCurrency(reservation.total_amount)}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Reservation detail popup ── */}
       {selectedReservation && (
@@ -330,14 +442,10 @@ export default function ReservationOverlay() {
 
             <p
               className={`text-xs uppercase tracking-[0.3em] ${
-                selectedReservation.status === "PENDING_PAYMENT"
-                  ? "text-amber-600"
-                  : "text-muted-foreground"
+                STATUS_INFO[selectedReservation.status]?.color ?? "text-muted-foreground"
               }`}
             >
-              {selectedReservation.status === "PENDING_PAYMENT"
-                ? "Pago pendiente"
-                : "Confirmada"}
+              {STATUS_INFO[selectedReservation.status]?.label ?? selectedReservation.status}
             </p>
             <h3 className="mt-1 text-xl font-semibold text-foreground">
               {resolvePackageLabel(selectedReservation) ?? "Paquete"}

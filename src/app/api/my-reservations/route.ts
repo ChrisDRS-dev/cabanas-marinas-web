@@ -42,7 +42,7 @@ export async function GET() {
   const { data, error } = await base
     .eq("customer_id", user.id)
     .order("reserved_date", { ascending: false })
-    .limit(5);
+    .limit(20);
 
   if (error) {
     return NextResponse.json({ reservations: [] }, { status: 200 });

@@ -6,6 +6,7 @@ import {
   createYappyButtonOrder,
   getYappyButtonConfig,
   validateYappyMerchant,
+  YappyButtonError,
 } from "@/lib/yappy-button";
 
 type ButtonOrderPayload = {
@@ -43,6 +44,26 @@ async function syncInvoiceStatus(invoiceId: string) {
       : "PARTIALLY_PAID";
 
   await admin.from("invoices").update({ status: invoiceStatus }).eq("id", invoiceId);
+}
+
+function extractPaymentMeta(
+  meta: unknown
+): {
+  flow?: string;
+  transactionId?: string;
+  token?: string;
+  documentName?: string;
+} {
+  if (!meta || typeof meta !== "object") return {};
+  const record = meta as Record<string, unknown>;
+  return {
+    flow: typeof record.flow === "string" ? record.flow : undefined,
+    transactionId:
+      typeof record.transactionId === "string" ? record.transactionId : undefined,
+    token: typeof record.token === "string" ? record.token : undefined,
+    documentName:
+      typeof record.documentName === "string" ? record.documentName : undefined,
+  };
 }
 
 export async function POST(req: Request) {
@@ -119,29 +140,99 @@ export async function POST(req: Request) {
     null;
 
   if (!invoiceId) {
-    return NextResponse.json({ error: "invoice_create_failed" }, { status: 400 });
+    return NextResponse.json(
+      {
+        error: "invoice_create_failed",
+        detail: "No se pudo preparar la factura local para esta reserva.",
+      },
+      { status: 400 }
+    );
+  }
+
+  const existingPendingPayment = (Array.isArray(invoice?.payments)
+    ? [...invoice.payments]
+    : []
+  )
+    .sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")))
+    .find((payment) => payment.provider === "YAPPY" && payment.status === "PENDING");
+
+  const existingMeta = extractPaymentMeta(existingPendingPayment?.meta);
+  if (
+    existingPendingPayment?.id &&
+    existingMeta.flow === "yappy_button_v2" &&
+    existingMeta.transactionId &&
+    existingMeta.token &&
+    existingMeta.documentName
+  ) {
+    return NextResponse.json({
+      ok: true,
+      paymentId: existingPendingPayment.id,
+      reused: true,
+      body: {
+        transactionId: existingMeta.transactionId,
+        token: existingMeta.token,
+        documentName: existingMeta.documentName,
+      },
+    });
+  }
+
+  if (existingPendingPayment?.id) {
+    await admin
+      .from("payments")
+      .update({
+        status: "CANCELLED",
+        meta: {
+          ...(typeof existingPendingPayment.meta === "object" &&
+          existingPendingPayment.meta
+            ? existingPendingPayment.meta
+            : {}),
+          invalidated_at: new Date().toISOString(),
+          invalidation_reason: "superseded_before_new_button_order",
+        },
+      })
+      .eq("id", existingPendingPayment.id);
   }
 
   try {
     const url = new URL(req.url);
     const config = getYappyButtonConfig(url.origin);
-    const merchant = await validateYappyMerchant({
-      merchantId: config.merchantId,
-      domain: config.domain,
-      baseUrl: config.baseUrl,
-    });
+    let merchant;
+    try {
+      merchant = await validateYappyMerchant({
+        merchantId: config.merchantId,
+        domain: config.domain,
+        baseUrl: config.baseUrl,
+      });
+    } catch (error) {
+      const detail =
+        error instanceof YappyButtonError ? error.message : "Merchant validation failed.";
+      return NextResponse.json(
+        { error: "merchant_validation_failed", detail },
+        { status: 400 }
+      );
+    }
 
     const orderId = createReservationOrderId(reservation.id);
-    const yappyOrder = await createYappyButtonOrder({
-      authorizationToken: merchant.token,
-      merchantId: config.merchantId,
-      domain: config.domain,
-      aliasYappy: config.alias,
-      ipnUrl: config.ipnUrl,
-      orderId,
-      amount: depositAmount,
-      baseUrl: config.baseUrl,
-    });
+    let yappyOrder;
+    try {
+      yappyOrder = await createYappyButtonOrder({
+        authorizationToken: merchant.token,
+        merchantId: config.merchantId,
+        domain: config.domain,
+        aliasYappy: config.alias,
+        ipnUrl: config.ipnUrl,
+        orderId,
+        amount: depositAmount,
+        baseUrl: config.baseUrl,
+      });
+    } catch (error) {
+      const detail =
+        error instanceof YappyButtonError ? error.message : "Order creation failed.";
+      return NextResponse.json(
+        { error: "order_creation_failed", detail },
+        { status: 400 }
+      );
+    }
 
     const { data: payment } = await admin
       .from("payments")
@@ -154,6 +245,7 @@ export async function POST(req: Request) {
           reservation_id: reservation.id,
           orderId,
           transactionId: yappyOrder.transactionId,
+          token: yappyOrder.token,
           documentName: yappyOrder.documentName,
           merchant_validation: merchant.raw,
           order_response: yappyOrder.raw,
@@ -180,11 +272,9 @@ export async function POST(req: Request) {
       {
         error: "yappy_button_order_failed",
         detail:
-          process.env.NODE_ENV === "production"
-            ? undefined
-            : error instanceof Error
+          error instanceof Error
             ? error.message
-            : "unknown_error",
+            : "No se pudo iniciar el pago con Yappy.",
       },
       { status: 400 }
     );

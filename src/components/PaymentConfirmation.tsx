@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import YappyPaymentButton from "@/components/YappyPaymentButton";
 import { getSessionSafe } from "@/lib/supabase/client";
 import { siteData } from "@/lib/siteData";
@@ -148,8 +149,10 @@ function buildWhatsAppLink(data: ConfirmationData | null) {
 }
 
 export default function PaymentConfirmation() {
+  const searchParams = useSearchParams();
   const [data, setData] = useState<ConfirmationData | null>(null);
   const [isRefreshingStatus, setIsRefreshingStatus] = useState(false);
+  const requestedReservationId = searchParams.get("rid");
 
   useEffect(() => {
     let active = true;
@@ -187,6 +190,9 @@ export default function PaymentConfirmation() {
         if (response.ok && Array.isArray(result?.reservations)) {
           const list = result.reservations as ReservationApiItem[];
           const activeReservation =
+            (requestedReservationId
+              ? list.find((item) => item.id === requestedReservationId) ?? null
+              : null) ??
             list.find((item) => item.status === "PENDING_PAYMENT") ??
             list.find((item) => item.status === "CONFIRMED") ??
             null;
@@ -230,7 +236,16 @@ export default function PaymentConfirmation() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [requestedReservationId]);
+
+  const yappyBlockedReason =
+    !data?.id
+      ? "No encontramos una reserva válida para pagar."
+      : data.paymentMethod !== "YAPPY"
+        ? "Esta reserva no está configurada para pagarse con Yappy."
+        : data.status !== "PENDING_PAYMENT"
+          ? "Esta reserva ya no está pendiente de pago."
+          : null;
 
   useEffect(() => {
     if (data?.paymentMethod !== "YAPPY" || data?.status !== "PENDING_PAYMENT") {
@@ -355,6 +370,7 @@ export default function PaymentConfirmation() {
           <YappyPaymentButton
             reservationId={data?.id ?? null}
             disabled={data?.paymentMethod !== "YAPPY" || data?.status !== "PENDING_PAYMENT"}
+            blockedReason={yappyBlockedReason}
             onPaymentCompleted={() => {
               setIsRefreshingStatus(true);
             }}

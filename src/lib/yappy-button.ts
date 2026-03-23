@@ -41,12 +41,42 @@ export type YappyButtonOrderPayload = {
   documentName: string;
 };
 
+export class YappyButtonError extends Error {
+  code: string;
+  detail?: string;
+
+  constructor(code: string, message: string, detail?: string) {
+    super(message);
+    this.name = "YappyButtonError";
+    this.code = code;
+    this.detail = detail;
+  }
+}
+
 function defaultBaseUrl() {
   return "https://api-comecom-uat.yappycloud.com";
 }
 
 function defaultCdnUrl() {
   return "https://bt-cdn-uat.yappycloud.com/v1/cdn/web-component-btn-yappy.js";
+}
+
+function isValidHttpsUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function detectYappyEnvironment(value: string) {
+  const normalized = value.toLowerCase();
+  if (normalized.includes("uat")) return "UAT";
+  if (normalized.includes("apipagosbg") || normalized.includes("bt-cdn.yappy")) {
+    return "PROD";
+  }
+  return "UNKNOWN";
 }
 
 export function getYappyButtonConfig(origin?: string): YappyButtonConfig {
@@ -64,11 +94,35 @@ export function getYappyButtonConfig(origin?: string): YappyButtonConfig {
     process.env.YAPPY_BUTTON_IPN_URL?.trim() ||
     (origin ? `${origin}/api/payments/yappy/ipn` : "")
   ).replace(/\/$/, "");
-  const alias = (process.env.YAPPY_BUTTON_ALIAS?.trim() || "").replace(/\D/g, "");
+  const alias = process.env.YAPPY_BUTTON_ALIAS?.trim() ?? "";
 
   if (!merchantId || !secretKey || !domain || !ipnUrl || !alias) {
-    throw new Error(
+    throw new YappyButtonError(
+      "config_missing",
       "Yappy button environment variables are incomplete. Required: YAPPY_BUTTON_MERCHANT_ID, YAPPY_BUTTON_SECRET_KEY, YAPPY_BUTTON_DOMAIN, YAPPY_BUTTON_IPN_URL, YAPPY_BUTTON_ALIAS."
+    );
+  }
+
+  if (!isValidHttpsUrl(domain)) {
+    throw new YappyButtonError(
+      "invalid_domain",
+      "YAPPY_BUTTON_DOMAIN debe ser una URL HTTPS válida."
+    );
+  }
+
+  if (!isValidHttpsUrl(ipnUrl)) {
+    throw new YappyButtonError(
+      "invalid_ipn_url",
+      "YAPPY_BUTTON_IPN_URL debe ser una URL HTTPS válida."
+    );
+  }
+
+  const baseEnv = detectYappyEnvironment(baseUrl);
+  const cdnEnv = detectYappyEnvironment(cdnUrl);
+  if (baseEnv !== "UNKNOWN" && cdnEnv !== "UNKNOWN" && baseEnv !== cdnEnv) {
+    throw new YappyButtonError(
+      "environment_mismatch",
+      "YAPPY_BUTTON_BASE_URL y YAPPY_BUTTON_CDN_URL apuntan a ambientes distintos."
     );
   }
 
@@ -96,7 +150,20 @@ async function yappyButtonRequest<T>(
   const payload = (await response.json().catch(() => null)) as T | null;
 
   if (!response.ok || !payload) {
-    throw new Error(`Yappy button request failed (${response.status}).`);
+    const errorPayload = payload as
+      | {
+          status?: {
+            code?: string;
+            description?: string;
+          };
+        }
+      | null;
+    throw new YappyButtonError(
+      "request_failed",
+      errorPayload?.status?.description ||
+        `Yappy button request failed (${response.status}).`,
+      errorPayload?.status?.code
+    );
   }
 
   return payload;
@@ -122,8 +189,10 @@ export async function validateYappyMerchant(args: {
 
   const token = payload.body?.token;
   if (!token) {
-    throw new Error(
-      payload.status?.description || "Yappy did not return a merchant token."
+    throw new YappyButtonError(
+      "merchant_validation_failed",
+      payload.status?.description || "Yappy did not return a merchant token.",
+      payload.status?.code
     );
   }
 
@@ -174,8 +243,10 @@ export async function createYappyButtonOrder(args: {
   const documentName = payload.body?.documentName;
 
   if (!transactionId || !token || !documentName) {
-    throw new Error(
-      payload.status?.description || "Yappy did not return button order data."
+    throw new YappyButtonError(
+      "order_creation_failed",
+      payload.status?.description || "Yappy did not return button order data.",
+      payload.status?.code
     );
   }
 

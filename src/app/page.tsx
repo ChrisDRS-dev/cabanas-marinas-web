@@ -76,35 +76,6 @@ export default async function HomePage() {
           </div>
         </section>
 
-        <section id="conocer" className="mx-auto max-w-6xl px-6 py-10">
-          <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
-            <div className="space-y-4">
-              <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-                Conoce el lugar
-              </p>
-              <h2 className="font-display text-3xl font-semibold">
-                {about.title}
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                {about.description}
-              </p>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              {benefits.slice(0, 4).map((benefit) => (
-                <div
-                  key={benefit.title}
-                  className="rounded-3xl border border-border/80 bg-card/80 p-5 shadow-lg shadow-black/5 transition hover:-translate-y-1 hover:shadow-xl"
-                >
-                  <h3 className="text-base font-semibold">{benefit.title}</h3>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {benefit.description}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
         <section id="actividades" className="mx-auto max-w-6xl px-6 py-14">
           <div className="space-y-6">
             <div className="space-y-3">
@@ -143,31 +114,32 @@ export default async function HomePage() {
           </div>
         </section>
 
-        <section
-          id="como-funciona"
-          className="mx-auto max-w-6xl px-6 py-14"
-        >
-          <div className="space-y-6">
-            <div className="space-y-3">
+        <section id="ubicacion" className="mx-auto max-w-6xl px-6 py-14">
+          <MapCard {...location} />
+        </section>
+
+        <section id="conocer" className="mx-auto max-w-6xl px-6 py-10">
+          <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+            <div className="space-y-4">
               <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-                Como funciona
+                Conoce el lugar
               </p>
               <h2 className="font-display text-3xl font-semibold">
-                Reserva en cuatro pasos
+                {about.title}
               </h2>
+              <p className="text-sm text-muted-foreground">
+                {about.description}
+              </p>
             </div>
-            <div className="grid gap-4 lg:grid-cols-4">
-              {steps.map((step, index) => (
+            <div className="grid gap-4 sm:grid-cols-2">
+              {benefits.slice(0, 4).map((benefit) => (
                 <div
-                  key={step.title}
-                  className="rounded-3xl border border-border/80 bg-card p-6 shadow-lg shadow-black/5 transition hover:-translate-y-1 hover:shadow-xl"
+                  key={benefit.title}
+                  className="rounded-3xl border border-border/80 bg-card/80 p-5 shadow-lg shadow-black/5 transition hover:-translate-y-1 hover:shadow-xl"
                 >
-                  <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-                    Paso {index + 1}
-                  </p>
-                  <h3 className="mt-3 text-lg font-semibold">{step.title}</h3>
+                  <h3 className="text-base font-semibold">{benefit.title}</h3>
                   <p className="mt-2 text-sm text-muted-foreground">
-                    {step.description}
+                    {benefit.description}
                   </p>
                 </div>
               ))}
@@ -175,23 +147,39 @@ export default async function HomePage() {
           </div>
         </section>
 
-        <section id="ubicacion" className="mx-auto max-w-6xl px-6 py-14">
-          <MapCard {...location} />
-        </section>
-
-        <section id="faq" className="mx-auto max-w-4xl px-6 py-14">
-          <div className="space-y-3 text-center">
-            <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-              Preguntas rapidas
-            </p>
-            <h2 className="font-display text-3xl font-semibold">
-              Todo lo esencial antes de reservar
-            </h2>
-          </div>
-          <div className="mt-8">
-            <FAQAccordionWrapper items={faq} />
-          </div>
-        </section>
+        {false && (
+          <section
+            id="como-funciona"
+            className="mx-auto max-w-6xl px-6 py-14"
+          >
+            <div className="space-y-6">
+              <div className="space-y-3">
+                <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+                  Como funciona
+                </p>
+                <h2 className="font-display text-3xl font-semibold">
+                  Reserva en cuatro pasos
+                </h2>
+              </div>
+              <div className="grid gap-4 lg:grid-cols-4">
+                {steps.map((step, index) => (
+                  <div
+                    key={step.title}
+                    className="rounded-3xl border border-border/80 bg-card p-6 shadow-lg shadow-black/5 transition hover:-translate-y-1 hover:shadow-xl"
+                  >
+                    <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+                      Paso {index + 1}
+                    </p>
+                    <h3 className="mt-3 text-lg font-semibold">{step.title}</h3>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      {step.description}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
 
         <section className="mx-auto max-w-6xl px-6 py-16">
           <div className="relative overflow-hidden rounded-[2.5rem] border border-border bg-primary px-6 py-12 text-primary-foreground shadow-xl shadow-primary/30">
@@ -210,6 +198,20 @@ export default async function HomePage() {
                 {finalCta.button}
               </ReserveButton>
             </div>
+          </div>
+        </section>
+
+        <section id="faq" className="mx-auto max-w-4xl px-6 py-14">
+          <div className="space-y-3 text-center">
+            <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+              Preguntas frecuentes
+            </p>
+            <h2 className="font-display text-3xl font-semibold">
+              Todo lo esencial antes de reservar
+            </h2>
+          </div>
+          <div className="mt-8">
+            <FAQAccordionWrapper items={faq} />
           </div>
         </section>
       </main>

@@ -16,6 +16,7 @@ type YappyButtonElement = HTMLElement & {
 type Props = {
   reservationId: string | null;
   disabled?: boolean;
+  blockedReason?: string | null;
   onPaymentStarted?: () => void;
   onPaymentCompleted?: () => void;
 };
@@ -24,6 +25,7 @@ type ButtonConfigResponse = {
   enabled?: boolean;
   cdnUrl?: string;
   reason?: string;
+  detail?: string;
 };
 
 type ButtonOrderResponse = {
@@ -78,6 +80,7 @@ function loadYappyScript(src: string) {
 export default function YappyPaymentButton({
   reservationId,
   disabled = false,
+  blockedReason = null,
   onPaymentStarted,
   onPaymentCompleted,
 }: Props) {
@@ -104,7 +107,8 @@ export default function YappyPaymentButton({
 
         if (!enabled) {
           setMessage(
-            "Yappy no está configurado todavía en este ambiente. Usa WhatsApp mientras terminamos la activación."
+            config?.detail ||
+              "Yappy no está configurado todavía en este ambiente. Usa WhatsApp mientras terminamos la activación."
           );
           return;
         }
@@ -133,6 +137,9 @@ export default function YappyPaymentButton({
 
     const handleClick = async () => {
       if (!reservationId || disabled || loading) {
+        if (blockedReason) {
+          setMessage(blockedReason);
+        }
         return;
       }
 
@@ -249,6 +256,10 @@ export default function YappyPaymentButton({
         <p className="text-xs text-amber-600">
           Yappy aparece fuera de línea en este momento. Puedes intentar más tarde o usar WhatsApp.
         </p>
+      ) : null}
+
+      {!message && blockedReason ? (
+        <p className="text-xs text-muted-foreground">{blockedReason}</p>
       ) : null}
 
       {message ? <p className="text-xs text-muted-foreground">{message}</p> : null}
