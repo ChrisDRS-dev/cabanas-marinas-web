@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import YappyPaymentButton from "@/components/YappyPaymentButton";
 import { getSessionSafe } from "@/lib/supabase/client";
 import { siteData } from "@/lib/siteData";
+import { ChevronDown } from "lucide-react";
 
 type ConfirmationData = {
   id: string | null;
@@ -148,11 +149,17 @@ function buildWhatsAppLink(data: ConfirmationData | null) {
   return `${base}?text=${encodeURIComponent(message)}`;
 }
 
+type PaymentMethod = "YAPPY" | "YAPPY_MANUAL" | "CARD" | "WHATSAPP";
+
 export default function PaymentConfirmation() {
   const searchParams = useSearchParams();
   const [data, setData] = useState<ConfirmationData | null>(null);
-  const [isRefreshingStatus, setIsRefreshingStatus] = useState(false);
+  const [openMethod, setOpenMethod] = useState<PaymentMethod | null>(null);
   const requestedReservationId = searchParams.get("rid");
+
+  function toggleMethod(method: PaymentMethod) {
+    setOpenMethod((prev) => (prev === method ? null : method));
+  }
 
   useEffect(() => {
     let active = true;
@@ -238,85 +245,34 @@ export default function PaymentConfirmation() {
     };
   }, [requestedReservationId]);
 
-  const yappyBlockedReason =
-    !data?.id
-      ? "No encontramos una reserva válida para pagar."
-      : data.paymentMethod !== "YAPPY"
-        ? "Esta reserva no está configurada para pagarse con Yappy."
-        : data.status !== "PENDING_PAYMENT"
-          ? "Esta reserva ya no está pendiente de pago."
-          : null;
 
-  useEffect(() => {
-    if (data?.paymentMethod !== "YAPPY" || data?.status !== "PENDING_PAYMENT") {
-      return;
-    }
-
-    const timer = window.setInterval(async () => {
-      try {
-        setIsRefreshingStatus(true);
-        const response = await fetch("/api/my-reservations", { cache: "no-store" });
-        const result = await response.json();
-        if (!response.ok || !Array.isArray(result?.reservations)) return;
-        const reservations = result.reservations as ReservationApiItem[];
-        const current = reservations.find((item) => item.id === data.id);
-        if (!current) return;
-        const packageLabel = Array.isArray(current.packages)
-          ? current.packages[0]?.label ?? null
-          : current.packages?.label ?? null;
-        const start = toPanamaTime(current.start_at);
-        const end = toPanamaTime(current.end_at);
-        setData((previous) => ({
-          id: current.id ?? previous?.id ?? null,
-          name: previous?.name ?? null,
-          status: current.status ?? previous?.status ?? null,
-          adults: Number(current.adults_count ?? previous?.adults ?? 0),
-          kids: Number(current.kids_count ?? previous?.kids ?? 0),
-          packageLabel: packageLabel ?? previous?.packageLabel ?? null,
-          date: current.reserved_date ?? previous?.date ?? null,
-          timeSlot: start && end ? `${start}-${end}` : previous?.timeSlot ?? null,
-          extras: previous?.extras ?? [],
-          cabinCode: previous?.cabinCode ?? null,
-          totalAmount: current.total_amount ?? previous?.totalAmount ?? null,
-          depositAmount: current.deposit_amount ?? previous?.depositAmount ?? null,
-          paymentMethod: current.payment_method ?? previous?.paymentMethod ?? null,
-        }));
-      } catch {
-        return;
-      } finally {
-        setIsRefreshingStatus(false);
-      }
-    }, 5000);
-
-    return () => {
-      window.clearInterval(timer);
-    };
-  }, [data?.id, data?.paymentMethod, data?.status]);
+  const depositAmount =
+    data?.depositAmount != null
+      ? data.depositAmount
+      : data?.totalAmount != null
+        ? Math.round(Number(data.totalAmount) * 0.5 * 100) / 100
+        : null;
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-10">
       <div>
         <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-          Confirmar reserva
+          Pago de reserva
         </p>
         <h1 className="mt-2 text-3xl font-semibold text-foreground">
-          Completa el pago
+          Elige cómo pagar
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Para confirmar tu reserva necesitamos el pago. Elige un método para
-          continuar.
+          Selecciona un método para completar el depósito del 50% y confirmar tu reserva.
         </p>
       </div>
 
+      {/* Resumen */}
       <div className="rounded-3xl border border-border/70 bg-card px-6 py-5 text-sm">
         <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
           Resumen de reserva
         </p>
         <div className="mt-3 grid gap-2">
-          <p>
-            <span className="font-semibold text-foreground">Nombre:</span>{" "}
-            {data?.name ?? "Reserva solicitada"}
-          </p>
           <p>
             <span className="font-semibold text-foreground">Paquete:</span>{" "}
             {data?.packageLabel ?? "Por confirmar"}
@@ -338,88 +294,180 @@ export default function PaymentConfirmation() {
             {(data?.adults ?? 0) + (data?.kids ?? 0)} (Adultos:{" "}
             {data?.adults ?? 0}, Niños: {data?.kids ?? 0})
           </p>
-          <p>
-            <span className="font-semibold text-foreground">Total estimado:</span>{" "}
-            {formatCurrency(data?.totalAmount ?? null)}
-          </p>
           <p className="mt-1 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-base font-semibold text-primary">
-            Pago inicial (50%):{" "}
-            {formatCurrency(
-              data?.depositAmount != null
-                ? data.depositAmount
-                : data?.totalAmount != null
-                  ? Math.round(Number(data.totalAmount) * 0.5 * 100) / 100
-                  : null
-            )}
-          </p>
-          <p>
-            <span className="font-semibold text-foreground">Método:</span>{" "}
-            {data?.paymentMethod === "YAPPY"
-              ? "Yappy"
-              : data?.paymentMethod === "PAYPAL"
-                ? "PayPal"
-                : data?.paymentMethod === "CARD"
-                  ? "Tarjeta"
-                  : "WhatsApp"}
+            Depósito a pagar (50%):{" "}
+            {formatCurrency(depositAmount)}
           </p>
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <div className="sm:col-span-2">
-          <YappyPaymentButton
-            reservationId={data?.id ?? null}
-            disabled={data?.paymentMethod !== "YAPPY" || data?.status !== "PENDING_PAYMENT"}
-            blockedReason={yappyBlockedReason}
-            onPaymentCompleted={() => {
-              setIsRefreshingStatus(true);
-            }}
-          />
-          <div className="mt-3 rounded-3xl border border-yellow-500/20 bg-yellow-500/10 px-5 py-4 text-sm text-muted-foreground">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-yellow-700 dark:text-yellow-500">
-              Desde la app Yappy
-            </p>
-            <p className="mt-3 text-xs text-muted-foreground">
-              También puedes buscarnos en el directorio de Yappy. Puedes hacer el pago manualmente, compártenos el comprobante por WhatsApp.
-            </p>
-            <div className="mt-3 flex flex-col gap-3">
-              <div>
-                <p className="text-[11px] uppercase text-muted-foreground">Número de teléfono:</p>
-                <div className="mt-1 w-fit cursor-text select-all rounded-lg border border-border/40 bg-background/60 px-3 py-1.5 font-mono text-sm font-medium text-foreground transition-colors hover:bg-background/80">
-                  {siteData.links.yappy}
+      {/* Métodos de pago (acordeón) */}
+      <div className="flex flex-col gap-2">
+
+        {/* Yappy (link) */}
+        <div className="rounded-3xl border border-border/70 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => toggleMethod("YAPPY")}
+            className="flex w-full items-center justify-between px-5 py-4 text-left"
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-semibold uppercase tracking-[0.2em] text-foreground">
+                Yappy
+              </span>
+              <span className="rounded-full bg-[#00ADEF]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[#00ADEF]">
+                Recomendado
+              </span>
+            </div>
+            <ChevronDown
+              className={[
+                "h-4 w-4 text-muted-foreground transition-transform duration-200",
+                openMethod === "YAPPY" ? "rotate-180" : "",
+              ].join(" ")}
+            />
+          </button>
+          <div
+            className="grid transition-[grid-template-rows] duration-200 ease-out"
+            style={{ gridTemplateRows: openMethod === "YAPPY" ? "1fr" : "0fr" }}
+          >
+            <div className="overflow-hidden">
+              <div className="border-t border-border/50 px-5 pb-5 pt-4">
+                <p className="text-xs text-muted-foreground">
+                  Ingresa el monto del depósito (
+                  <span className="font-semibold text-foreground">
+                    {formatCurrency(depositAmount)}
+                  </span>
+                  ), tu número Yappy y tu nombre como comentario para identificar tu pago.
+                </p>
+                <div className="mt-4">
+                  <YappyPaymentButton reservationId={data?.id ?? null} />
                 </div>
-              </div>
-              <div>
-                <p className="text-[11px] uppercase text-muted-foreground">Alias / Directorio:</p>
-                <div className="mt-1 w-fit cursor-text select-all rounded-lg border border-border/40 bg-background/60 px-3 py-1.5 font-mono text-sm font-medium text-foreground transition-colors hover:bg-background/80">
-                  cabanasmarinas507
-                </div>
+                <p className="mt-3 text-xs font-medium text-amber-600 dark:text-amber-500">
+                  Recuerda enviarnos la captura de pantalla del comprobante por WhatsApp para confirmar tu reserva.
+                </p>
               </div>
             </div>
           </div>
         </div>
-        <div className="rounded-3xl border border-border/70 bg-background px-5 py-4 text-sm text-muted-foreground">
-          <p className="text-xs uppercase tracking-[0.2em]">Tarjeta</p>
-          <p className="mt-2 text-sm font-semibold text-foreground">
-            Próximamente
-          </p>
-        </div>
-        <a
-          href={buildWhatsAppLink(data)}
-          className="flex flex-col justify-between rounded-3xl bg-[#25D366] px-5 py-4 text-sm font-semibold text-white"
-        >
-          <p className="text-xs uppercase tracking-[0.2em] text-white/70">
-            WhatsApp
-          </p>
-          <p className="mt-2 text-base">Contactar por WhatsApp</p>
-        </a>
-      </div>
 
-      {isRefreshingStatus && data?.status === "PENDING_PAYMENT" ? (
-        <p className="text-center text-xs text-muted-foreground">
-          Verificando confirmación de pago...
-        </p>
-      ) : null}
+        {/* Yappy Manual */}
+        <div className="rounded-3xl border border-yellow-500/20 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => toggleMethod("YAPPY_MANUAL")}
+            className="flex w-full items-center justify-between px-5 py-4 text-left"
+          >
+            <span className="text-xs font-semibold uppercase tracking-[0.2em] text-yellow-700 dark:text-yellow-500">
+              Yappy manual – desde la app
+            </span>
+            <ChevronDown
+              className={[
+                "h-4 w-4 text-muted-foreground transition-transform duration-200",
+                openMethod === "YAPPY_MANUAL" ? "rotate-180" : "",
+              ].join(" ")}
+            />
+          </button>
+          <div
+            className="grid transition-[grid-template-rows] duration-200 ease-out"
+            style={{ gridTemplateRows: openMethod === "YAPPY_MANUAL" ? "1fr" : "0fr" }}
+          >
+            <div className="overflow-hidden">
+              <div className="border-t border-yellow-500/20 px-5 pb-5 pt-4">
+                <p className="text-xs text-muted-foreground">
+                  Búscanos en el directorio de Yappy y realiza el pago manualmente.
+                </p>
+                <div className="mt-3 flex flex-col gap-3">
+                  <div>
+                    <p className="text-[11px] uppercase text-muted-foreground">Número de teléfono:</p>
+                    <div className="mt-1 w-fit cursor-text select-all rounded-lg border border-border/40 bg-background/60 px-3 py-1.5 font-mono text-sm font-medium text-foreground">
+                      {siteData.links.yappy}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[11px] uppercase text-muted-foreground">Alias / Directorio:</p>
+                    <div className="mt-1 w-fit cursor-text select-all rounded-lg border border-border/40 bg-background/60 px-3 py-1.5 font-mono text-sm font-medium text-foreground">
+                      cabanasmarinas507
+                    </div>
+                  </div>
+                </div>
+                <p className="mt-3 text-xs font-medium text-amber-600 dark:text-amber-500">
+                  Recuerda enviarnos la captura de pantalla del comprobante por WhatsApp para confirmar tu reserva.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Tarjeta */}
+        <div className="rounded-3xl border border-border/70 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => toggleMethod("CARD")}
+            className="flex w-full items-center justify-between px-5 py-4 text-left"
+          >
+            <span className="text-xs font-semibold uppercase tracking-[0.2em] text-foreground">
+              Tarjeta
+            </span>
+            <ChevronDown
+              className={[
+                "h-4 w-4 text-muted-foreground transition-transform duration-200",
+                openMethod === "CARD" ? "rotate-180" : "",
+              ].join(" ")}
+            />
+          </button>
+          <div
+            className="grid transition-[grid-template-rows] duration-200 ease-out"
+            style={{ gridTemplateRows: openMethod === "CARD" ? "1fr" : "0fr" }}
+          >
+            <div className="overflow-hidden">
+              <div className="border-t border-border/50 px-5 pb-5 pt-4">
+                <p className="text-xs text-muted-foreground">
+                  El pago con tarjeta estará disponible muy pronto.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* WhatsApp */}
+        <div className="rounded-3xl border border-[#25D366]/30 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => toggleMethod("WHATSAPP")}
+            className="flex w-full items-center justify-between px-5 py-4 text-left"
+          >
+            <span className="text-xs font-semibold uppercase tracking-[0.2em] text-[#25D366]">
+              WhatsApp
+            </span>
+            <ChevronDown
+              className={[
+                "h-4 w-4 text-muted-foreground transition-transform duration-200",
+                openMethod === "WHATSAPP" ? "rotate-180" : "",
+              ].join(" ")}
+            />
+          </button>
+          <div
+            className="grid transition-[grid-template-rows] duration-200 ease-out"
+            style={{ gridTemplateRows: openMethod === "WHATSAPP" ? "1fr" : "0fr" }}
+          >
+            <div className="overflow-hidden">
+              <div className="border-t border-[#25D366]/20 px-5 pb-5 pt-4">
+                <p className="text-xs text-muted-foreground">
+                  Contáctanos por WhatsApp para coordinar el pago manualmente.
+                </p>
+                <a
+                  href={buildWhatsAppLink(data)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-4 flex items-center justify-center gap-2 rounded-full bg-[#25D366] px-6 py-3 text-sm font-semibold text-white"
+                >
+                  Abrir WhatsApp
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <Link
         href="/"
