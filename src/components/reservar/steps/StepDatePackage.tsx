@@ -127,9 +127,8 @@ function classifySlotGroup(timeSlot: string, durationMinutes?: number | null) {
   const range = resolveTimeRange(timeSlot, durationMinutes);
   if (!range) return "tarde-noche";
   const start = toTotalMinutes(range.start.hour, range.start.minute);
-  const end = toTotalMinutes(range.end.hour, range.end.minute);
-  if (start < 12 * 60 && end <= 12 * 60) return "mañana";
-  if (start < 12 * 60 && end <= 18 * 60) return "mañana-tarde";
+  if (start < 10 * 60) return "mañana";
+  if (start < 12 * 60) return "mañana-tarde";
   return "tarde-noche";
 }
 
@@ -490,6 +489,29 @@ export default function StepDatePackage({
     );
   };
 
+  const renderSlotGroup = ({
+    title,
+    emptyLabel,
+    slots,
+    accentClasses,
+  }: {
+    title: string;
+    emptyLabel: string;
+    slots: TimeSlot[];
+    accentClasses: string;
+  }) => (
+    <div className={`space-y-3 rounded-[1.75rem] border px-4 py-4 ${accentClasses}`}>
+      <p className="text-sm font-semibold">{title}</p>
+      <div className="gallery-scroll flex gap-3 overflow-x-auto pb-2">
+        {slots.length === 0 ? (
+          <span className="text-sm text-muted-foreground">{emptyLabel}</span>
+        ) : (
+          slots.map(renderSlotCard)
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-8">
       <section className="space-y-4">
@@ -725,45 +747,27 @@ export default function StepDatePackage({
                 </div>
               ) : (
                 <>
-                  <div className="space-y-3">
-                    <p className="text-sm font-semibold text-muted-foreground">
-                      {morningLabel}
-                    </p>
-                    <div className="gallery-scroll flex gap-3 overflow-x-auto pb-2">
-                      {groupedSlots["mañana"].length === 0 && (
-                        <span className="text-sm text-muted-foreground">
-                          {noMorningLabel}
-                        </span>
-                      )}
-                      {groupedSlots["mañana"].map(renderSlotCard)}
-                    </div>
-                  </div>
-                  <div className="space-y-3">
-                    <p className="text-sm font-semibold text-muted-foreground">
-                      {afternoonLabel}
-                    </p>
-                    <div className="gallery-scroll flex gap-3 overflow-x-auto pb-2">
-                      {groupedSlots["mañana-tarde"].length === 0 && (
-                        <span className="text-sm text-muted-foreground">
-                          {noAfternoonLabel}
-                        </span>
-                      )}
-                      {groupedSlots["mañana-tarde"].map(renderSlotCard)}
-                    </div>
-                  </div>
-                  <div className="space-y-3">
-                    <p className="text-sm font-semibold text-muted-foreground">
-                      {eveningLabel}
-                    </p>
-                    <div className="gallery-scroll flex gap-3 overflow-x-auto pb-2">
-                      {groupedSlots["tarde-noche"].length === 0 && (
-                        <span className="text-sm text-muted-foreground">
-                          {noAfternoonLabel}
-                        </span>
-                      )}
-                      {groupedSlots["tarde-noche"].map(renderSlotCard)}
-                    </div>
-                  </div>
+                  {renderSlotGroup({
+                    title: morningLabel,
+                    emptyLabel: noMorningLabel,
+                    slots: groupedSlots["mañana"],
+                    accentClasses:
+                      "border-yellow-300/50 bg-gradient-to-br from-yellow-100/70 via-background to-amber-100/30",
+                  })}
+                  {renderSlotGroup({
+                    title: afternoonLabel,
+                    emptyLabel: noAfternoonLabel,
+                    slots: groupedSlots["mañana-tarde"],
+                    accentClasses:
+                      "border-orange-300/50 bg-gradient-to-br from-orange-100/70 via-background to-amber-100/30",
+                  })}
+                  {renderSlotGroup({
+                    title: eveningLabel,
+                    emptyLabel: noAfternoonLabel,
+                    slots: groupedSlots["tarde-noche"],
+                    accentClasses:
+                      "border-sky-400/40 bg-gradient-to-br from-sky-100/60 via-background to-blue-200/30 dark:from-sky-950/40 dark:to-blue-950/40",
+                  })}
                 </>
               )}
             </div>
