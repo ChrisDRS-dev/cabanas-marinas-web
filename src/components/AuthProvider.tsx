@@ -1,6 +1,14 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { Session } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
 import AuthModal from "@/components/AuthModal";
@@ -22,36 +30,44 @@ export default function AuthProvider({
 }) {
   const [session, setSession] = useState<Session | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
-  const [pendingRedirect, setPendingRedirect] = useState<string | null>(null);
+  const [pendingRedirect, setPendingRedirect] = useState<string | null>(() =>
+    typeof window === "undefined"
+      ? null
+      : sessionStorage.getItem(PENDING_REDIRECT_KEY)
+  );
+  const pendingRedirectRef = useRef<string | null>(pendingRedirect);
   const router = useRouter();
 
   useEffect(() => {
-    const storedPending = sessionStorage.getItem(PENDING_REDIRECT_KEY);
-    if (storedPending) {
-      setPendingRedirect(storedPending);
-    }
-    void getSessionSafe().then((session) => setSession(session));
+    const flushPendingRedirect = (nextSession: Session | null) => {
+      if (!nextSession || !pendingRedirectRef.current) return;
+      const redirectTo = pendingRedirectRef.current;
+      pendingRedirectRef.current = null;
+      sessionStorage.removeItem(PENDING_REDIRECT_KEY);
+      setPendingRedirect(null);
+      router.replace(redirectTo);
+    };
+
+    void getSessionSafe().then((nextSession) => {
+      setSession(nextSession);
+      flushPendingRedirect(nextSession);
+    });
     const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
       setSession(next);
+      flushPendingRedirect(next);
     });
     return () => {
       sub.subscription.unsubscribe();
     };
-  }, []);
+  }, [router]);
 
-  useEffect(() => {
-    if (!session || !pendingRedirect) return;
-    sessionStorage.removeItem(PENDING_REDIRECT_KEY);
-    setPendingRedirect(null);
-    router.replace(pendingRedirect);
-  }, [pendingRedirect, router, session]);
+  const openAuth = useCallback(() => setAuthOpen(true), []);
 
-  const openAuth = () => setAuthOpen(true);
-
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setAuthOpen(false);
     if (!pendingRedirect) return;
     sessionStorage.removeItem(PENDING_REDIRECT_KEY);
+    pendingRedirectRef.current = null;
     setPendingRedirect(null);
     const url = new URL(window.location.href);
     if (url.searchParams.has("reservar") || url.searchParams.has("package")) {
@@ -60,16 +76,17 @@ export default function AuthProvider({
       const query = url.searchParams.toString();
       router.replace(query ? `${url.pathname}?${query}` : url.pathname);
     }
-  };
+  }, [pendingRedirect, router]);
 
-  const requireAuthFor = async (redirectTo: string) => {
+  const requireAuthFor = useCallback(async (redirectTo: string) => {
     const session = await getSessionSafe();
     if (session) return true;
     sessionStorage.setItem(PENDING_REDIRECT_KEY, redirectTo);
+    pendingRedirectRef.current = redirectTo;
     setPendingRedirect(redirectTo);
     setAuthOpen(true);
     return false;
-  };
+  }, []);
 
   const value = useMemo<AuthContextValue>(
     () => ({ session, openAuth, requireAuthFor }),

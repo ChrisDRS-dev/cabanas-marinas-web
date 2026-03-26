@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
@@ -20,14 +21,13 @@ export default function StickyCTA({
 }: StickyCTAProps) {
   const pathname = usePathname();
   const [session, setSession] = useState<Session | null>(null);
-  const [dismissed, setDismissed] = useState(false);
+  const [dismissed, setDismissed] = useState(() =>
+    typeof window !== "undefined"
+      ? Boolean((window as { __cmAuthDismissed?: boolean }).__cmAuthDismissed)
+      : false
+  );
 
   useEffect(() => {
-    const initial =
-      typeof window !== "undefined"
-        ? (window as { __cmAuthDismissed?: boolean }).__cmAuthDismissed
-        : false;
-    setDismissed(Boolean(initial));
     void getSessionSafe().then((session) => setSession(session));
     const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
       setSession(next);
@@ -58,12 +58,12 @@ export default function StickyCTA({
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-4 z-50 flex justify-center px-4">
       <div className="pointer-events-auto flex w-full max-w-md items-center gap-3 rounded-full border border-border/60 bg-card/95 p-2 shadow-lg backdrop-blur">
-        <a
+        <Link
           href={primaryHref}
           className="flex-1 rounded-full bg-primary px-6 py-3 text-center text-sm font-semibold uppercase tracking-wide text-primary-foreground shadow-lg shadow-primary/20 transition hover:brightness-110"
         >
           {primaryLabel}
-        </a>
+        </Link>
         <a
           href={secondaryHref}
           className="flex items-center justify-center rounded-full bg-[#25D366] px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-[#25D366]/30 transition hover:bg-[#1ebe5b]"

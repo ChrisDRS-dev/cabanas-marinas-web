@@ -15,14 +15,18 @@ export default function NavbarMobile({ brand }: NavbarMobileProps) {
   const [session, setSession] = useState<Session | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
-  const [userName, setUserName] = useState<string | null>(null);
-  const [userPhone, setUserPhone] = useState<string | null>(null);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [profile, setProfile] = useState<{
+    fullName: string | null;
+    phone: string | null;
+  }>({ fullName: null, phone: null });
 
   useEffect(() => {
     void getSessionSafe().then((session) => setSession(session));
     const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
       setSession(next);
+      if (!next?.user?.id) {
+        setProfile({ fullName: null, phone: null });
+      }
     });
     return () => {
       sub.subscription.unsubscribe();
@@ -30,14 +34,7 @@ export default function NavbarMobile({ brand }: NavbarMobileProps) {
   }, []);
 
   useEffect(() => {
-    if (!session?.user?.id) {
-      setUserName(null);
-      setUserPhone(null);
-      setUserEmail(null);
-      return;
-    }
-
-    setUserEmail(session.user.email ?? null);
+    if (!session?.user?.id) return;
     const metaName =
       (session.user.user_metadata?.full_name as string | undefined) ??
       (session.user.user_metadata?.name as string | undefined) ??
@@ -52,15 +49,23 @@ export default function NavbarMobile({ brand }: NavbarMobileProps) {
           .select("full_name, phone")
           .eq("user_id", session.user.id)
           .maybeSingle();
-        setUserName(data?.full_name ?? metaName ?? session.user.email ?? null);
-        setUserPhone(data?.phone ?? metaPhone ?? null);
+        setProfile({
+          fullName: data?.full_name ?? metaName ?? session.user.email ?? null,
+          phone: data?.phone ?? metaPhone ?? null,
+        });
       } catch {
-        setUserName(metaName ?? session.user.email ?? null);
-        setUserPhone(metaPhone ?? null);
+        setProfile({
+          fullName: metaName ?? session.user.email ?? null,
+          phone: metaPhone ?? null,
+        });
       }
     };
     void loadProfile();
   }, [session]);
+
+  const userName = profile.fullName ?? session?.user?.email ?? null;
+  const userEmail = session?.user?.email ?? null;
+  const userPhone = profile.phone;
 
   const signOut = async () => {
     await supabase.auth.signOut();

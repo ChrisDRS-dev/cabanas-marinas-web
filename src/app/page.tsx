@@ -1,3 +1,4 @@
+import Image from "next/image";
 import FAQAccordionWrapper from "@/components/FAQAccordionWrapper";
 import MapCard from "@/components/MapCard";
 import NavbarMobile from "@/components/NavbarMobile";
@@ -22,14 +23,10 @@ export default async function HomePage() {
   const homeContent =
     (contentRow?.content as typeof siteData) ?? siteData;
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const {
     brand,
     about,
     benefits,
     plans,
-    steps,
     gallery,
     activities,
     location,
@@ -96,9 +93,11 @@ export default async function HomePage() {
                   className="min-w-[250px] flex-1 rounded-3xl border border-border/80 bg-card shadow-lg shadow-black/5 transition hover:-translate-y-1 hover:shadow-xl"
                 >
                   <div className="h-40 overflow-hidden rounded-t-3xl">
-                    <img
+                    <Image
                       src={activity.image}
                       alt={activity.title}
+                      width={640}
+                      height={320}
                       className="h-full w-full object-cover transition duration-500 hover:scale-105"
                     />
                   </div>
@@ -146,40 +145,6 @@ export default async function HomePage() {
             </div>
           </div>
         </section>
-
-        {false && (
-          <section
-            id="como-funciona"
-            className="mx-auto max-w-6xl px-6 py-14"
-          >
-            <div className="space-y-6">
-              <div className="space-y-3">
-                <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-                  Como funciona
-                </p>
-                <h2 className="font-display text-3xl font-semibold">
-                  Reserva en cuatro pasos
-                </h2>
-              </div>
-              <div className="grid gap-4 lg:grid-cols-4">
-                {steps.map((step, index) => (
-                  <div
-                    key={step.title}
-                    className="rounded-3xl border border-border/80 bg-card p-6 shadow-lg shadow-black/5 transition hover:-translate-y-1 hover:shadow-xl"
-                  >
-                    <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-                      Paso {index + 1}
-                    </p>
-                    <h3 className="mt-3 text-lg font-semibold">{step.title}</h3>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      {step.description}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
 
         <section className="mx-auto max-w-6xl px-6 py-16">
           <div className="relative overflow-hidden rounded-[2.5rem] border border-border bg-primary px-6 py-12 text-primary-foreground shadow-xl shadow-primary/30">

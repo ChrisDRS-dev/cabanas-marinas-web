@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { siteData } from "@/lib/siteData";
@@ -109,7 +110,6 @@ export default function HomeReservationNotice({
   const [editingReservation, setEditingReservation] =
     useState<ReservationItem | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [dismissed, setDismissed] = useState(false);
   const [profileName, setProfileName] = useState<string | null>(null);
   const [reservations, setReservations] =
     useState<ReservationItem[]>(initialReservations);
@@ -177,7 +177,7 @@ export default function HomeReservationNotice({
     return () => {
       active = false;
     };
-  }, [session]);
+  }, [session, initialReservations]);
 
   useEffect(() => {
     if (reservationsLoaded) return;
@@ -185,34 +185,14 @@ export default function HomeReservationNotice({
   }, [initialReservations, reservationsLoaded]);
 
   useEffect(() => {
-    const initial =
-      typeof window !== "undefined"
-        ? (window as { __cmAuthDismissed?: boolean }).__cmAuthDismissed
-        : false;
-    setDismissed(Boolean(initial));
     void getSessionSafe().then((session) => {
       setSession(session);
-      if (session) {
-        setDismissed(false);
-      }
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
       setSession(next);
-      if (next) {
-        setDismissed(false);
-      }
     });
-    const handleDismissed = () => {
-      const next =
-        typeof window !== "undefined"
-          ? (window as { __cmAuthDismissed?: boolean }).__cmAuthDismissed
-          : false;
-      setDismissed(Boolean(next));
-    };
-    window.addEventListener("cm:auth:dismissed", handleDismissed);
     return () => {
       sub.subscription.unsubscribe();
-      window.removeEventListener("cm:auth:dismissed", handleDismissed);
     };
   }, []);
 
@@ -315,12 +295,12 @@ export default function HomeReservationNotice({
         {hasDraft && (
           <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             <span>Hay una reserva en progreso. Continúa donde la dejaste.</span>
-            <a
+            <Link
               href="/?reservar=1&draft=1"
               className="rounded-full bg-primary px-4 py-2 text-xs font-semibold uppercase tracking-wide text-primary-foreground"
             >
               Continuar reserva
-            </a>
+            </Link>
           </div>
         )}
 

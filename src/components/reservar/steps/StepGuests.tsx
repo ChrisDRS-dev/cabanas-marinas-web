@@ -156,9 +156,9 @@ export default function StepGuests({
       </div>
       {showMinWarning && (
         <div className="space-y-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          <p>Minimo: {minPeople} personas en esta fecha.</p>
+          <p>El cobro mínimo por esta fecha es de {minPeople} personas.</p>
           <p>
-            El precio minimo cubre costos de mantenimiento, transporte y
+            El precio mínimo cubre costos de mantenimiento, transporte y
             facilidades.
           </p>
         </div>

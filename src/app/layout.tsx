@@ -1,19 +1,8 @@
 import type { Metadata } from "next";
-import { Fraunces, Manrope } from "next/font/google";
 import "./globals.css";
 import StickyCTA from "@/components/StickyCTA";
 import AuthGate from "@/components/AuthGate";
 import AuthProvider from "@/components/AuthProvider";
-
-const bodyFont = Manrope({
-  variable: "--font-body",
-  subsets: ["latin"],
-});
-
-const displayFont = Fraunces({
-  variable: "--font-display",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "Cabañas Marinas | Cabañas frente al mar",
@@ -34,7 +23,7 @@ export default function RootLayout({
   return (
     <html lang="es" suppressHydrationWarning>
       <body
-        className={`${bodyFont.variable} ${displayFont.variable} min-h-screen bg-background text-foreground antialiased`}
+        className="min-h-screen bg-background text-foreground antialiased"
       >
         <script
           dangerouslySetInnerHTML={{

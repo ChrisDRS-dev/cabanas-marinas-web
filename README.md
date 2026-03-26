@@ -1,36 +1,41 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## Cabañas Marinas Web
 
-## Getting Started
+Aplicación Next.js para reservas de Cabañas Marinas. Incluye landing pública, wizard de reserva, autenticación con Supabase, disponibilidad y pagos.
 
-First, run the development server:
+## Requisitos
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- Node.js 20+
+- npm
+- Proyecto Supabase con las tablas y RPC usadas por el sitio
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Variables de entorno
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Definir al menos:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- Variables de Yappy usadas por `src/lib/yappy-button.ts` cuando ese flujo está activo
 
-## Learn More
+La service role debe existir solo en backend.
 
-To learn more about Next.js, take a look at the following resources:
+## Scripts
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `npm run dev`: servidor local
+- `npm run lint`: validación estática
+- `npm run build`: build de producción
+- `npm run start`: servir build local
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Flujo principal
 
-## Deploy on Vercel
+1. El usuario elige personas, paquete, fecha, horario y extras.
+2. El frontend valida disponibilidad contra `/api/availability`.
+3. La reserva se crea en `/api/reservations`.
+4. Se sincronizan factura y pago pendiente.
+5. El usuario completa el depósito desde `/reservar/pago` o por WhatsApp.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Notas
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `src/proxy.ts` protege rutas de pago y confirmación.
+- El wizard guarda draft de reserva por usuario autenticado.
+- Hay backlog abierto para i18n, reseñas y pruebas automatizadas.

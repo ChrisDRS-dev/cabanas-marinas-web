@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -46,7 +47,7 @@ export type ReservationState = {
   timeSlot: string | null;
   adults: number;
   kids: number;
-  extras: Record<string, boolean>;
+  extras: Record<string, number>;
   couplePackage: boolean;
   paymentMethod: PaymentMethod | null;
 };
@@ -57,7 +58,7 @@ type Action =
   | { type: "setTimeSlot"; value: string | null }
   | { type: "setAdults"; value: number }
   | { type: "setKids"; value: number }
-  | { type: "setExtra"; id: string; value: boolean }
+  | { type: "setExtraQuantity"; id: string; value: number }
   | { type: "syncExtras"; ids: string[] }
   | { type: "setCouplePackage"; value: boolean }
   | { type: "setPayment"; value: PaymentMethod | null }
@@ -66,7 +67,6 @@ type Action =
   | { type: "nextStep"; max: number }
   | { type: "prevStep" };
 
-const DEFAULT_MIN_PEOPLE = 2;
 const DEFAULT_STEPS: FormStepConfig[] = [
   { id: "guests", label: "Personas", summary: "Personas" },
   { id: "date_package", label: "Fecha y hora", summary: "Fecha y hora" },
@@ -86,6 +86,40 @@ const initialState: ReservationState = {
   paymentMethod: "YAPPY",
 };
 
+function normalizeExtrasRecord(
+  value: Partial<Record<string, unknown>> | null | undefined,
+  ids?: string[]
+) {
+  const source = value ?? {};
+  const entries = (ids ?? Object.keys(source)).map((id) => {
+    const raw = source[id];
+    const quantity =
+      typeof raw === "number"
+        ? Math.max(0, raw)
+        : raw
+          ? 1
+          : 0;
+    return [id, quantity];
+  });
+  return Object.fromEntries(entries) as Record<string, number>;
+}
+
+function formatExtraSelection(extra: Extra, quantity: number) {
+  const unitLabel =
+    extra.pricingUnit === "PER_HOUR"
+      ? quantity === 1
+        ? "hora"
+        : "horas"
+      : extra.pricingUnit === "PER_PERSON"
+        ? quantity === 1
+          ? "persona"
+          : "personas"
+        : quantity === 1
+          ? "reserva"
+          : "reservas";
+  return `${extra.label} x ${quantity} ${unitLabel}`;
+}
+
 function reducer(state: ReservationState, action: Action): ReservationState {
   switch (action.type) {
     case "setDate":
@@ -102,16 +136,13 @@ function reducer(state: ReservationState, action: Action): ReservationState {
       return { ...state, adults: Math.max(0, action.value) };
     case "setKids":
       return { ...state, kids: Math.max(0, action.value) };
-    case "setExtra":
+    case "setExtraQuantity":
       return {
         ...state,
-        extras: { ...state.extras, [action.id]: action.value },
+        extras: { ...state.extras, [action.id]: Math.max(0, action.value) },
       };
     case "syncExtras": {
-      const next = { ...state.extras };
-      const filtered = Object.fromEntries(
-        action.ids.map((id) => [id, next[id] ?? false])
-      );
+      const filtered = normalizeExtrasRecord(state.extras, action.ids);
       return { ...state, extras: filtered };
     }
     case "setCouplePackage":
@@ -125,7 +156,9 @@ function reducer(state: ReservationState, action: Action): ReservationState {
       return {
         ...state,
         ...action.value,
-        extras: action.value.extras ?? state.extras,
+        extras: action.value.extras
+          ? normalizeExtrasRecord(action.value.extras)
+          : state.extras,
       };
     case "setStep":
       return {
@@ -206,7 +239,6 @@ export default function ReservationWizard({
   const [isRepeatConfirmation, setIsRepeatConfirmation] = useState(false);
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
   const [draftLoaded, setDraftLoaded] = useState(false);
-  const [draftHydrated, setDraftHydrated] = useState(false);
   const [whatsAppLink, setWhatsAppLink] = useState<string | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
   const stepOverrideRef = useRef(false);
@@ -231,9 +263,6 @@ export default function ReservationWizard({
         return value ?? "Por confirmar";
     }
   };
-
-  const formatTime = (value: string) =>
-    value.includes(":") ? value.slice(0, 5) : value;
 
   const formatTime12h = (value: string | null) => {
     if (!value) return "Por confirmar";
@@ -278,32 +307,6 @@ export default function ReservationWizard({
       }
     }
     return { start: timeSlot, end: "" };
-  };
-
-  const scrollToSummary = () => {
-    const summary = document.getElementById("reservation-summary-title");
-    if (!summary) return;
-    const header = document.getElementById("reservation-header");
-    const headerOffset = header?.getBoundingClientRect().height ?? 0;
-
-    let parent = summary.parentElement;
-    while (parent && parent !== document.body) {
-      const style = window.getComputedStyle(parent);
-      if (/(auto|scroll)/.test(style.overflowY)) {
-        const parentRect = parent.getBoundingClientRect();
-        const summaryRect = summary.getBoundingClientRect();
-        const targetTop =
-          parent.scrollTop + (summaryRect.top - parentRect.top) - headerOffset;
-        parent.scrollTo({ top: targetTop, behavior: "smooth" });
-        return;
-      }
-      parent = parent.parentElement;
-    }
-
-    window.scrollTo({
-      top: window.scrollY + summary.getBoundingClientRect().top - headerOffset,
-      behavior: "smooth",
-    });
   };
 
   useEffect(() => {
@@ -358,7 +361,6 @@ export default function ReservationWizard({
         if (!active) return;
         if (data?.state) {
           dispatch({ type: "hydrate", value: data.state as Partial<ReservationState> });
-          setDraftHydrated(true);
         }
       } catch {
         if (!active) return;
@@ -543,7 +545,10 @@ export default function ReservationWizard({
         timeSlot: null,
         adults: initialState.adults,
         kids: initialState.kids,
-        extras: {},
+        extras: normalizeExtrasRecord(
+          {},
+          extrasCatalog.map((extra) => extra.id)
+        ),
         couplePackage: false,
         paymentMethod: initialState.paymentMethod,
       },
@@ -554,7 +559,7 @@ export default function ReservationWizard({
     params.delete("package");
     const query = params.toString();
     router.replace(query ? `${pathname}?${query}` : pathname);
-  }, [searchParams, packages, router, pathname, prefill]);
+  }, [searchParams, packages, extrasCatalog, router, pathname, prefill]);
 
   useEffect(() => {
     if (!prefill || prefillRef.current) return;
@@ -593,7 +598,6 @@ export default function ReservationWizard({
         packages,
         extrasCatalog,
         minPeopleForDate: minPeople || undefined,
-        durationHours,
       }),
     [
       state.packageId,
@@ -603,7 +607,6 @@ export default function ReservationWizard({
       packages,
       extrasCatalog,
       minPeople,
-      durationHours,
     ]
   );
   const totalPeople = state.adults + state.kids;
@@ -622,11 +625,7 @@ export default function ReservationWizard({
       case "guests":
         return totalPeople >= 1;
       case "date_package":
-        if (!state.date || !state.packageId || !state.timeSlot) return false;
-        if (state.packageId === "EVENTO") {
-          return totalPeople >= 6;
-        }
-        return totalPeople >= DEFAULT_MIN_PEOPLE;
+        return Boolean(state.date && state.packageId && state.timeSlot && totalPeople >= 1);
       case "extras":
         return true;
       case "payment":
@@ -645,8 +644,8 @@ export default function ReservationWizard({
     setSubmitSuccess(null);
     try {
       const selectedExtras = Object.entries(state.extras)
-        .filter(([, selected]) => selected)
-        .map(([id]) => ({ id, quantity: 1 }));
+        .filter(([, quantity]) => quantity > 0)
+        .map(([id, quantity]) => ({ id, quantity }));
 
       const response = await fetch("/api/reservations", {
         method: "POST",
@@ -675,7 +674,7 @@ export default function ReservationWizard({
             : code === "CM_INVALID_PEOPLE_COUNT"
             ? "Indica la cantidad de personas para continuar."
             : code === "CM_MIN_PEOPLE_REQUIRED"
-            ? "No cumples con el minimo de personas para esta fecha."
+            ? "El cobro mínimo para esta fecha aplica aunque vengan menos personas."
             : code === "CM_NO_CABIN_AVAILABLE"
             ? "No hay cabañas disponibles para ese horario."
             : code === "CM_MAX_PEOPLE_EXCEEDED"
@@ -688,10 +687,13 @@ export default function ReservationWizard({
 
       setSubmitSuccess("Reserva solicitada. Completa el pago para confirmar.");
       const resolvedExtras = Object.entries(state.extras)
-        .filter(([, selected]) => selected)
-        .map(
-          ([id]) => extrasCatalog.find((extra) => extra.id === id)?.label ?? id
-        );
+        .filter(([, quantity]) => quantity > 0)
+        .map(([id, quantity]) => {
+          const extra = extrasCatalog.find((item) => item.id === id);
+          return extra
+            ? formatExtraSelection(extra, quantity)
+            : `${id} x ${quantity}`;
+        });
       const totalAmount =
         typeof result?.total === "number" ? result.total : totals.total;
       const depositAmount =
@@ -848,9 +850,9 @@ export default function ReservationWizard({
               asChild
               className="rounded-full"
             >
-              <a href="/" aria-label="Volver al inicio">
+              <Link href="/" aria-label="Volver al inicio">
                 ←
-              </a>
+              </Link>
             </Button>
           )}
           <div className="text-center">
@@ -916,6 +918,7 @@ export default function ReservationWizard({
             extras={extrasCatalog}
             config={formConfig?.extras}
             durationHours={durationHours}
+            totalPeople={totalPeople}
           />
         )}
         {activeStep === "payment" && (
@@ -954,11 +957,11 @@ export default function ReservationWizard({
                     ? `${state.date} · ${state.timeSlot ?? "Por definir"}`
                     : "Por definir"
                   : stepId === "extras"
-                  ? `${Object.values(state.extras).filter(Boolean).length} extras`
+                  ? `${Object.values(state.extras).filter((quantity) => quantity > 0).length} extras`
                   : "Revisar y solicitar";
               const stepComplete =
                 stepId === "guests"
-                  ? totalPeople >= DEFAULT_MIN_PEOPLE
+                  ? totalPeople >= 1
                   : stepId === "date_package"
                   ? Boolean(state.date && state.packageId && state.timeSlot)
                   : true;
@@ -1251,12 +1254,13 @@ export default function ReservationWizard({
                     {confirmationData?.extras?.length
                       ? confirmationData.extras.join(", ")
                       : Object.entries(state.extras)
-                          .filter(([, selected]) => selected)
-                          .map(
-                            ([id]) =>
-                              extrasCatalog.find((extra) => extra.id === id)
-                                ?.label ?? id
-                          )
+                          .filter(([, quantity]) => quantity > 0)
+                          .map(([id, quantity]) => {
+                            const extra = extrasCatalog.find((item) => item.id === id);
+                            return extra
+                              ? formatExtraSelection(extra, quantity)
+                              : `${id} x ${quantity}`;
+                          })
                           .join(", ") || "Ninguno"}
                   </span>
                 </div>
@@ -1283,12 +1287,12 @@ export default function ReservationWizard({
 
               {/* Actions */}
               <div className="mt-5 flex flex-col gap-2">
-                <a
+                <Link
                   href={`/reservar/pago?method=${confirmationData?.paymentMethod ?? "YAPPY"}&rid=${confirmationId ?? ""}`}
                   className="w-full rounded-full bg-primary px-4 py-2.5 text-center text-sm font-semibold text-primary-foreground transition hover:opacity-90"
                 >
                   Pagar aquí
-                </a>
+                </Link>
                 <div className="flex gap-2">
                   {whatsAppLink && (
                     <a

@@ -294,6 +294,10 @@ export default function PaymentConfirmation() {
             {(data?.adults ?? 0) + (data?.kids ?? 0)} (Adultos:{" "}
             {data?.adults ?? 0}, Niños: {data?.kids ?? 0})
           </p>
+          <p>
+            <span className="font-semibold text-foreground">Costo total:</span>{" "}
+            {formatCurrency(data?.totalAmount ?? null)}
+          </p>
           <p className="mt-1 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-base font-semibold text-primary">
             Depósito a pagar (50%):{" "}
             {formatCurrency(depositAmount)}

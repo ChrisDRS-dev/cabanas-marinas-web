@@ -45,6 +45,8 @@
 }
 
 :root {
+  --font-body: "Manrope", "Avenir Next", "Segoe UI", sans-serif;
+  --font-display: "Fraunces", "Iowan Old Style", "Palatino Linotype", serif;
   --radius: 1.1rem;
   --background: #ffffff;
   --foreground: #0f1f24;
@@ -166,4 +168,12 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 20px 45px rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(18px) saturate(160%);
+}
+
+.hide-scrollbar {
+  scrollbar-width: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
 }

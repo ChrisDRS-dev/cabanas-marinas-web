@@ -12,11 +12,10 @@ type CalcTotalInput = {
   packageId: PackageType | null;
   adults: number;
   kids: number;
-  extras: Record<string, boolean>;
+  extras: Record<string, number>;
   packages: Package[];
   extrasCatalog: Extra[];
   minPeopleForDate?: number;
-  durationHours?: number;
 };
 
 export function calcTotal({
@@ -27,7 +26,6 @@ export function calcTotal({
   packages,
   extrasCatalog,
   minPeopleForDate,
-  durationHours,
 }: CalcTotalInput): ReservationTotals {
   const pkg = packages.find((item) => item.id === packageId);
   if (!pkg) {
@@ -41,9 +39,8 @@ export function calcTotal({
   const minBase = minPeople * pkg.pricePerAdult;
   const base = Math.max(baseRaw, minBase);
   const extrasTotal = extrasCatalog.reduce((sum, extra) => {
-    const selected = extras[extra.id] ?? false;
-    if (!selected) return sum;
-    const qty = extra.pricingUnit === "PER_HOUR" ? (durationHours ?? 1) : 1;
+    const qty = Math.max(0, Number(extras[extra.id] ?? 0));
+    if (!qty) return sum;
     return sum + extra.price * qty;
   }, 0);
 

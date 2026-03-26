@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient, type SetAllCookies } from "@supabase/ssr";
 
-export default async function middleware(req: NextRequest) {
+export default async function proxy(req: NextRequest) {
   const res = NextResponse.next();
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;

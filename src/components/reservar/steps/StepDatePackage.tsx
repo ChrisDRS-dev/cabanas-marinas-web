@@ -86,6 +86,53 @@ function formatTimeRange12h(timeSlot: string, durationMinutes?: number | null) {
   return timeSlot;
 }
 
+function resolveTimeRange(timeSlot: string, durationMinutes?: number | null) {
+  const [startRaw, endRaw] = timeSlot.split("-");
+  const [startHourText, startMinuteText = "0"] = startRaw.split(":");
+  const startHour = Number(startHourText);
+  const startMinute = Number(startMinuteText);
+  if (Number.isNaN(startHour) || Number.isNaN(startMinute)) return null;
+
+  if (endRaw) {
+    const [endHourText, endMinuteText = "0"] = endRaw.split(":");
+    const endHour = Number(endHourText);
+    const endMinute = Number(endMinuteText);
+    if (Number.isNaN(endHour) || Number.isNaN(endMinute)) return null;
+    return {
+      start: { hour: startHour, minute: startMinute },
+      end: { hour: endHour, minute: endMinute },
+    };
+  }
+
+  if (typeof durationMinutes === "number" && durationMinutes > 0) {
+    const startTotal = startHour * 60 + startMinute;
+    const endTotal = (startTotal + durationMinutes) % (HOURS_IN_DAY * 60);
+    return {
+      start: { hour: startHour, minute: startMinute },
+      end: {
+        hour: Math.floor(endTotal / 60),
+        minute: endTotal % 60,
+      },
+    };
+  }
+
+  return null;
+}
+
+function toTotalMinutes(hour: number, minute = 0) {
+  return hour * 60 + minute;
+}
+
+function classifySlotGroup(timeSlot: string, durationMinutes?: number | null) {
+  const range = resolveTimeRange(timeSlot, durationMinutes);
+  if (!range) return "tarde-noche";
+  const start = toTotalMinutes(range.start.hour, range.start.minute);
+  const end = toTotalMinutes(range.end.hour, range.end.minute);
+  if (start < 12 * 60 && end <= 12 * 60) return "mañana";
+  if (start < 12 * 60 && end <= 18 * 60) return "mañana-tarde";
+  return "tarde-noche";
+}
+
 function isSameDate(dateValue: string, compareDate: Date) {
   const [year, month, day] = dateValue.split("-").map(Number);
   return (
@@ -138,7 +185,7 @@ export default function StepDatePackage({
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
   const calendarRef = useRef<HTMLDivElement | null>(null);
   const lastPackageRef = useRef<PackageType | null>(null);
-  const now = new Date();
+  const now = useMemo(() => new Date(), []);
 
   const today = new Date();
   const displayDate = new Date(
@@ -174,11 +221,12 @@ export default function StepDatePackage({
   const modalTitle = config?.modalTitle ?? "Selecciona tu hora de entrada";
   const modalSubtitle = config?.modalSubtitle ?? "Horario seleccionado";
   const morningLabel = config?.morningLabel ?? "Mañana";
-  const afternoonLabel = config?.afternoonLabel ?? "Tarde";
+  const afternoonLabel = config?.afternoonLabel ?? "Mañana - Tarde";
+  const eveningLabel = "Tarde - Noche";
   const noMorningLabel =
     config?.noMorningLabel ?? "Sin horarios en la mañana.";
   const noAfternoonLabel =
-    config?.noAfternoonLabel ?? "Sin horarios en la tarde.";
+    config?.noAfternoonLabel ?? "Sin horarios en esta franja.";
   const modalCancelLabel = config?.modalCancelLabel ?? "Cancelar / Volver";
   const modalConfirmLabel = config?.modalConfirmLabel ?? "Confirmar horario";
   const customHelp =
@@ -193,8 +241,17 @@ export default function StepDatePackage({
     return timeSlotsByPackage[state.packageId] ?? [];
   }, [state.packageId, timeSlotsByPackage]);
 
-  const morningSlots = timeSlots.filter((slot) => slot.period === "mañana");
-  const afternoonSlots = timeSlots.filter((slot) => slot.period !== "mañana");
+  const groupedSlots = useMemo(() => {
+    const groups = {
+      "mañana": [] as TimeSlot[],
+      "mañana-tarde": [] as TimeSlot[],
+      "tarde-noche": [] as TimeSlot[],
+    };
+    timeSlots.forEach((slot) => {
+      groups[classifySlotGroup(slot.id, selectedPackage?.durationMinutes)].push(slot);
+    });
+    return groups;
+  }, [timeSlots, selectedPackage?.durationMinutes]);
 
   const startHourOptions = useMemo(
     () =>
@@ -318,6 +375,7 @@ export default function StepDatePackage({
     customEnd,
     endHourOptions,
     showTimeModal,
+    customErrorCopy,
   ]);
 
   const handleDateClick = (formatted: string) => {
@@ -377,6 +435,60 @@ export default function StepDatePackage({
     state.timeSlot && selectedPackage
       ? formatTimeRange12h(state.timeSlot, selectedPackage.durationMinutes)
       : state.timeSlot;
+
+  const renderSlotCard = (slot: TimeSlot) => {
+    const selected = pendingTimeSlot === slot.id;
+    const disabled = isPastTimeSlot(slot.id, activeDate, now);
+    const range = resolveTimeRange(slot.id, selectedPackage?.durationMinutes);
+    const startLabel = range
+      ? formatTimeLabel(range.start.hour, range.start.minute)
+      : slot.label;
+    const endLabel = range
+      ? formatTimeLabel(range.end.hour, range.end.minute)
+      : "Por definir";
+
+    return (
+      <button
+        key={slot.id}
+        type="button"
+        onClick={() => !disabled && setPendingTimeSlot(slot.id)}
+        disabled={disabled}
+        className={`min-w-36 shrink-0 rounded-[1.75rem] border p-4 text-left transition-all duration-300 ${
+          selected
+            ? "border-primary bg-primary text-primary-foreground shadow-lg shadow-primary/20"
+            : "border-border/70 bg-card hover:-translate-y-0.5 hover:border-primary/50"
+        } ${disabled ? "cursor-not-allowed opacity-40" : ""}`}
+      >
+        <div className="space-y-3">
+          <div>
+            <p
+              className={`text-[11px] uppercase tracking-[0.26em] ${
+                selected ? "text-primary-foreground/70" : "text-muted-foreground"
+              }`}
+            >
+              Entrada
+            </p>
+            <p className="mt-1 text-base font-semibold">{startLabel}</p>
+          </div>
+          <div
+            className={`h-px ${
+              selected ? "bg-primary-foreground/20" : "bg-border/70"
+            }`}
+          />
+          <div>
+            <p
+              className={`text-[11px] uppercase tracking-[0.26em] ${
+                selected ? "text-primary-foreground/70" : "text-muted-foreground"
+              }`}
+            >
+              Salida
+            </p>
+            <p className="mt-1 text-base font-semibold">{endLabel}</p>
+          </div>
+        </div>
+      </button>
+    );
+  };
 
   return (
     <div className="space-y-8">
@@ -617,74 +729,39 @@ export default function StepDatePackage({
                     <p className="text-sm font-semibold text-muted-foreground">
                       {morningLabel}
                     </p>
-                    <div className="flex flex-wrap gap-2">
-                      {morningSlots.length === 0 && (
+                    <div className="gallery-scroll flex gap-3 overflow-x-auto pb-2">
+                      {groupedSlots["mañana"].length === 0 && (
                         <span className="text-sm text-muted-foreground">
                           {noMorningLabel}
                         </span>
                       )}
-                      {morningSlots.map((slot) => {
-                        const selected = pendingTimeSlot === slot.id;
-                        const disabled = isPastTimeSlot(
-                          slot.id,
-                          activeDate,
-                          now
-                        );
-                        return (
-                          <button
-                            key={slot.id}
-                            type="button"
-                            onClick={() =>
-                              !disabled && setPendingTimeSlot(slot.id)
-                            }
-                            disabled={disabled}
-                            className={`rounded-full border px-5 py-3 text-sm font-semibold transition ${
-                              selected
-                                ? "border-primary bg-primary text-primary-foreground"
-                                : "border-border/70 bg-secondary/40 hover:border-primary/60"
-                            } ${disabled ? "cursor-not-allowed opacity-40" : ""}`}
-                          >
-                            {slot.label}
-                          </button>
-                        );
-                      })}
+                      {groupedSlots["mañana"].map(renderSlotCard)}
                     </div>
                   </div>
                   <div className="space-y-3">
                     <p className="text-sm font-semibold text-muted-foreground">
                       {afternoonLabel}
                     </p>
-                    <div className="flex flex-wrap gap-2">
-                      {afternoonSlots.length === 0 && (
+                    <div className="gallery-scroll flex gap-3 overflow-x-auto pb-2">
+                      {groupedSlots["mañana-tarde"].length === 0 && (
                         <span className="text-sm text-muted-foreground">
                           {noAfternoonLabel}
                         </span>
                       )}
-                      {afternoonSlots.map((slot) => {
-                        const selected = pendingTimeSlot === slot.id;
-                        const disabled = isPastTimeSlot(
-                          slot.id,
-                          activeDate,
-                          now
-                        );
-                        return (
-                          <button
-                            key={slot.id}
-                            type="button"
-                            onClick={() =>
-                              !disabled && setPendingTimeSlot(slot.id)
-                            }
-                            disabled={disabled}
-                            className={`rounded-full border px-5 py-3 text-sm font-semibold transition ${
-                              selected
-                                ? "border-primary bg-primary text-primary-foreground"
-                                : "border-border/70 bg-secondary/40 hover:border-primary/60"
-                            } ${disabled ? "cursor-not-allowed opacity-40" : ""}`}
-                          >
-                            {slot.label}
-                          </button>
-                        );
-                      })}
+                      {groupedSlots["mañana-tarde"].map(renderSlotCard)}
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <p className="text-sm font-semibold text-muted-foreground">
+                      {eveningLabel}
+                    </p>
+                    <div className="gallery-scroll flex gap-3 overflow-x-auto pb-2">
+                      {groupedSlots["tarde-noche"].length === 0 && (
+                        <span className="text-sm text-muted-foreground">
+                          {noAfternoonLabel}
+                        </span>
+                      )}
+                      {groupedSlots["tarde-noche"].map(renderSlotCard)}
                     </div>
                   </div>
                 </>

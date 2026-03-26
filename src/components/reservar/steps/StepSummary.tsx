@@ -73,8 +73,26 @@ export default function StepSummary({
   extrasCatalog,
 }: StepSummaryProps) {
   const selectedExtras = extrasCatalog
-    .filter((extra) => state.extras[extra.id] ?? false)
-    .map((extra) => extra.label)
+    .map((extra) => ({
+      extra,
+      quantity: Math.max(0, state.extras[extra.id] ?? 0),
+    }))
+    .filter(({ quantity }) => quantity > 0)
+    .map(({ extra, quantity }) => {
+      const unitLabel =
+        extra.pricingUnit === "PER_HOUR"
+          ? quantity === 1
+            ? "hora"
+            : "horas"
+          : extra.pricingUnit === "PER_PERSON"
+            ? quantity === 1
+              ? "persona"
+              : "personas"
+            : quantity === 1
+              ? "reserva"
+              : "reservas";
+      return `${extra.label} x ${quantity} ${unitLabel}`;
+    })
     .join(", ");
 
   return (
@@ -158,8 +176,8 @@ export default function StepSummary({
       {showMinWarning && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           {weekend
-            ? `Minimo: ${minPeople} personas en fines de semana.`
-            : `Minimo: ${minPeople} personas en esta fecha.`}
+            ? `El cobro mínimo por esta fecha es de ${minPeople} personas.`
+            : `El cobro mínimo por esta fecha es de ${minPeople} personas.`}
         </div>
       )}
     </section>

@@ -236,6 +236,21 @@ export async function POST(req: Request) {
       customerId: user.id,
       reservedDate,
     });
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("full_name,email,phone")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    await supabase
+      .from("reservations")
+      .update({
+        customer_name: profile?.full_name ?? null,
+        customer_phone: profile?.phone ?? null,
+        customer_email: profile?.email ?? user.email ?? null,
+      })
+      .eq("id", reservationId);
   }
 
   return NextResponse.json({
