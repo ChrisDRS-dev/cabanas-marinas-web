@@ -752,21 +752,21 @@ export default function StepDatePackage({
                     emptyLabel: noMorningLabel,
                     slots: groupedSlots["mañana"],
                     accentClasses:
-                      "border-yellow-300/50 bg-gradient-to-br from-yellow-100/70 via-background to-amber-100/30",
+                      "border-yellow-400/35 bg-yellow-300/10",
                   })}
                   {renderSlotGroup({
                     title: afternoonLabel,
                     emptyLabel: noAfternoonLabel,
                     slots: groupedSlots["mañana-tarde"],
                     accentClasses:
-                      "border-orange-300/50 bg-gradient-to-br from-orange-100/70 via-background to-amber-100/30",
+                      "border-orange-400/35 bg-orange-300/10",
                   })}
                   {renderSlotGroup({
                     title: eveningLabel,
                     emptyLabel: noAfternoonLabel,
                     slots: groupedSlots["tarde-noche"],
                     accentClasses:
-                      "border-sky-400/40 bg-gradient-to-br from-sky-100/60 via-background to-blue-200/30 dark:from-sky-950/40 dark:to-blue-950/40",
+                      "border-sky-500/30 bg-sky-300/8 dark:bg-blue-900/20",
                   })}
                 </>
               )}
