@@ -230,7 +230,20 @@ export async function createYappyButtonOrder(args: {
   amount: number;
   baseUrl: string;
 }) {
-  const amount = args.amount.toFixed(2);
+  const amountFixed = args.amount.toFixed(2);
+  const requestBody = {
+    merchantId: args.merchantId,
+    orderId: args.orderId,
+    domain: args.domain,
+    paymentDate: Math.floor(Date.now() / 1000),
+    aliasYappy: args.aliasYappy,
+    ipnUrl: args.ipnUrl,
+    discount: 0,
+    taxes: 0,
+    subtotal: parseFloat(amountFixed),
+    total: parseFloat(amountFixed),
+  };
+  console.log("[Yappy] payment-wc payload", JSON.stringify(requestBody));
   const payload = await yappyButtonRequest<YappyCreateOrderResponse>(
     args.baseUrl,
     "/payments/payment-wc",
@@ -240,20 +253,10 @@ export async function createYappyButtonOrder(args: {
         "Content-Type": "application/json",
         Authorization: args.authorizationToken,
       },
-      body: JSON.stringify({
-        merchantId: args.merchantId,
-        orderId: args.orderId,
-        domain: args.domain,
-        paymentDate: Math.floor(Date.now() / 1000),
-        aliasYappy: args.aliasYappy,
-        ipnUrl: args.ipnUrl,
-        discount: 0,
-        taxes: 0,
-        subtotal: parseFloat(amount),
-        total: parseFloat(amount),
-      }),
+      body: JSON.stringify(requestBody),
     }
   );
+  console.log("[Yappy] payment-wc raw response", JSON.stringify(payload));
 
   const transactionId = payload.body?.transactionId;
   const token = payload.body?.token;

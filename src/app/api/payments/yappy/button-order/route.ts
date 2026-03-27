@@ -219,15 +219,18 @@ export async function POST(req: Request) {
       );
     }
 
-    const orderId = createReservationOrderId(reservation.id);
+    const debugFixed = process.env.YAPPY_DEBUG_FIXED_ORDER === "true";
+    const orderId = debugFixed ? "CM123456" : createReservationOrderId(reservation.id);
+    const effectiveAmount = debugFixed ? 10.0 : depositAmount;
     console.log("[Yappy] create-order input", {
       merchantId: config.merchantId,
       orderId,
       domain: config.domain,
       aliasYappy: config.alias,
       ipnUrl: config.ipnUrl,
-      depositAmount,
-      depositAmountType: typeof depositAmount,
+      depositAmount: effectiveAmount,
+      depositAmountType: typeof effectiveAmount,
+      debugFixed,
     });
     let yappyOrder;
     try {
@@ -238,7 +241,7 @@ export async function POST(req: Request) {
         aliasYappy: config.alias,
         ipnUrl: config.ipnUrl,
         orderId,
-        amount: depositAmount,
+        amount: effectiveAmount,
         baseUrl: config.baseUrl,
       });
     } catch (error) {
@@ -246,8 +249,9 @@ export async function POST(req: Request) {
         errorMessage: error instanceof Error ? error.message : String(error),
         yappyCode: error instanceof YappyButtonError ? error.detail : undefined,
         orderId,
-        depositAmount,
+        effectiveAmount,
         aliasYappy: config.alias,
+        debugFixed,
       });
       const detail =
         error instanceof YappyButtonError ? error.message : "Order creation failed.";
