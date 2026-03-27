@@ -29,6 +29,19 @@ function extractPanamaYappyAlias(phone: string | null | undefined): string | nul
   return null;
 }
 
+function resolveCustomerYappyAlias(args: {
+  reservationPhone?: string | null;
+  profilePhone?: string | null;
+  metadataPhone?: string | null;
+}) {
+  return (
+    extractPanamaYappyAlias(args.reservationPhone) ??
+    extractPanamaYappyAlias(args.profilePhone) ??
+    extractPanamaYappyAlias(args.metadataPhone) ??
+    null
+  );
+}
+
 async function syncInvoiceStatus(invoiceId: string) {
   const admin = supabaseAdmin();
   const { data: payments } = await admin
@@ -101,28 +114,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "missing_reservation" }, { status: 400 });
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("phone")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  const customerAlias = extractPanamaYappyAlias(profile?.phone);
-  if (!customerAlias) {
-    return NextResponse.json(
-      {
-        error: "missing_panama_phone",
-        detail:
-          "Tu número de teléfono no está registrado o no es un número panameño. Actualiza tu perfil para continuar.",
-      },
-      { status: 400 }
-    );
-  }
-
   const { data: reservation } = await supabase
     .from("reservations")
     .select(
-      "id,status,total_amount,deposit_amount,payment_method,customer_id,invoices(id,status,payments(id,provider,status,amount,meta,created_at))"
+      "id,status,total_amount,deposit_amount,payment_method,customer_id,customer_phone,invoices(id,status,payments(id,provider,status,amount,meta,created_at))"
     )
     .eq("id", reservationId)
     .eq("customer_id", user.id)
@@ -141,6 +136,31 @@ export async function POST(req: Request) {
 
   if (String(reservation.payment_method ?? "").toUpperCase() !== "YAPPY") {
     return NextResponse.json({ error: "invalid_payment_method" }, { status: 400 });
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("phone")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const metadataPhone =
+    typeof user.user_metadata?.phone === "string" ? user.user_metadata.phone : null;
+  const customerAlias = resolveCustomerYappyAlias({
+    reservationPhone: reservation.customer_phone,
+    profilePhone: profile?.phone,
+    metadataPhone,
+  });
+
+  if (!customerAlias) {
+    return NextResponse.json(
+      {
+        error: "missing_panama_phone",
+        detail:
+          "Necesitas un número panameño de 8 dígitos, guardado como +507XXXXXXXX o XXXXXXXX, para solicitar el pago por Yappy.",
+      },
+      { status: 400 }
+    );
   }
 
   const totalAmount = Number(reservation.total_amount ?? 0);
@@ -249,19 +269,8 @@ export async function POST(req: Request) {
       );
     }
 
-    const debugFixed = process.env.YAPPY_DEBUG_FIXED_ORDER === "true";
-    const orderId = debugFixed ? "CM123456" : createReservationOrderId(reservation.id);
-    const effectiveAmount = debugFixed ? 10.0 : depositAmount;
-    console.log("[Yappy] create-order input", {
-      merchantId: config.merchantId,
-      orderId,
-      domain: config.domain,
-      aliasYappy: customerAlias,
-      ipnUrl: config.ipnUrl,
-      depositAmount: effectiveAmount,
-      depositAmountType: typeof effectiveAmount,
-      debugFixed,
-    });
+    const orderId = createReservationOrderId(reservation.id);
+    const effectiveAmount = depositAmount;
     let yappyOrder;
     try {
       yappyOrder = await createYappyButtonOrder({
@@ -281,7 +290,6 @@ export async function POST(req: Request) {
         orderId,
         effectiveAmount,
         aliasYappy: customerAlias,
-        debugFixed,
       });
       const detail =
         error instanceof YappyButtonError ? error.message : "Order creation failed.";
@@ -308,6 +316,7 @@ export async function POST(req: Request) {
           order_response: yappyOrder.raw,
           expected_amount: depositAmount,
           flow: "yappy_button_v2",
+          requested_alias: customerAlias,
         },
       })
       .select("id")

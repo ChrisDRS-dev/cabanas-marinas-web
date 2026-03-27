@@ -32,7 +32,6 @@ type YappyButtonConfig = {
   cdnUrl: string;
   domain: string;
   ipnUrl: string;
-  alias: string;
 };
 
 export type YappyButtonOrderPayload = {
@@ -94,12 +93,10 @@ export function getYappyButtonConfig(origin?: string): YappyButtonConfig {
     process.env.YAPPY_BUTTON_IPN_URL?.trim() ||
     (origin ? `${origin}/api/payments/yappy/ipn` : "")
   ).replace(/\/$/, "");
-  const alias = process.env.YAPPY_BUTTON_ALIAS?.trim() ?? "";
-
-  if (!merchantId || !secretKey || !domain || !ipnUrl || !alias) {
+  if (!merchantId || !secretKey || !domain || !ipnUrl) {
     throw new YappyButtonError(
       "config_missing",
-      "Yappy button environment variables are incomplete. Required: YAPPY_BUTTON_MERCHANT_ID, YAPPY_BUTTON_SECRET_KEY, YAPPY_BUTTON_DOMAIN, YAPPY_BUTTON_IPN_URL, YAPPY_BUTTON_ALIAS."
+      "Yappy button environment variables are incomplete. Required: YAPPY_BUTTON_MERCHANT_ID, YAPPY_BUTTON_SECRET_KEY, YAPPY_BUTTON_DOMAIN, YAPPY_BUTTON_IPN_URL."
     );
   }
 
@@ -133,7 +130,6 @@ export function getYappyButtonConfig(origin?: string): YappyButtonConfig {
     cdnUrl,
     domain,
     ipnUrl,
-    alias,
   };
 }
 
@@ -235,15 +231,14 @@ export async function createYappyButtonOrder(args: {
     merchantId: args.merchantId,
     orderId: args.orderId,
     domain: args.domain,
-    paymentDate: Math.floor(Date.now() / 1000),
+    paymentDate: Date.now(),
     aliasYappy: args.aliasYappy,
     ipnUrl: args.ipnUrl,
-    discount: 0,
-    taxes: 0,
-    subtotal: parseFloat(amountFixed),
-    total: parseFloat(amountFixed),
+    discount: "0.00",
+    taxes: "0.00",
+    subtotal: amountFixed,
+    total: amountFixed,
   };
-  console.log("[Yappy] payment-wc payload", JSON.stringify(requestBody));
   const payload = await yappyButtonRequest<YappyCreateOrderResponse>(
     args.baseUrl,
     "/payments/payment-wc",
@@ -256,7 +251,6 @@ export async function createYappyButtonOrder(args: {
       body: JSON.stringify(requestBody),
     }
   );
-  console.log("[Yappy] payment-wc raw response", JSON.stringify(payload));
 
   const transactionId = payload.body?.transactionId;
   const token = payload.body?.token;

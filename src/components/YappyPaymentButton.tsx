@@ -46,6 +46,9 @@ function normalizeErrorMessage(error: string | null | undefined, detail: string 
   if (error === "reservation_not_pending_payment") {
     return "Esta reserva ya no está disponible para pago.";
   }
+  if (error === "missing_panama_phone") {
+    return detail ?? "Necesitas un número panameño válido para recibir la solicitud de pago por Yappy.";
+  }
   return "No se pudo iniciar el pago con Yappy.";
 }
 
