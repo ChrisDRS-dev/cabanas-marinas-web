@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import YappyPaymentButton from "@/components/YappyPaymentButton";
 import { getSessionSafe } from "@/lib/supabase/client";
@@ -150,23 +150,25 @@ function buildWhatsAppLink(data: ConfirmationData | null) {
 }
 
 type PaymentMethod = "YAPPY" | "YAPPY_MANUAL" | "CARD" | "WHATSAPP";
+const YAPPY_STATIC_LINK =
+  "https://link.yappy.com.pa/stc/GXqG1kCpTLfAbMHmc7E9nxSk16Vdr9BZvaim7nGhYrA%3D";
 
 export default function PaymentConfirmation() {
   const searchParams = useSearchParams();
   const [data, setData] = useState<ConfirmationData | null>(null);
   const [openMethod, setOpenMethod] = useState<PaymentMethod | null>(null);
+  const [paymentNotice, setPaymentNotice] = useState<string | null>(null);
+  const [manualLinkBusy, setManualLinkBusy] = useState(false);
+  const [polling, setPolling] = useState(false);
   const requestedReservationId = searchParams.get("rid");
 
   function toggleMethod(method: PaymentMethod) {
     setOpenMethod((prev) => (prev === method ? null : method));
   }
 
-  useEffect(() => {
-    let active = true;
-
-    const loadReservation = async () => {
+  const loadReservation = useCallback(async () => {
+      let nextStatus: string | null = null;
       const session = await getSessionSafe();
-      if (!active) return;
       const userId = session?.user?.id ?? null;
 
       if (userId && typeof window !== "undefined") {
@@ -178,9 +180,9 @@ export default function PaymentConfirmation() {
               current?.id
                 ? current
                 : {
-                  ...parsed,
-                  status: parsed.status ?? "PENDING_PAYMENT",
-                }
+                    ...parsed,
+                    status: parsed.status ?? "PENDING_PAYMENT",
+                  }
             );
           } catch {
             setData(null);
@@ -193,7 +195,6 @@ export default function PaymentConfirmation() {
           cache: "no-store",
         });
         const result = await response.json();
-        if (!active) return;
         if (response.ok && Array.isArray(result?.reservations)) {
           const list = result.reservations as ReservationApiItem[];
           const activeReservation =
@@ -226,24 +227,82 @@ export default function PaymentConfirmation() {
               depositAmount: activeReservation.deposit_amount ?? null,
               paymentMethod: activeReservation.payment_method ?? null,
             });
-            return;
-          }
-
-          if (userId && typeof window !== "undefined") {
+            nextStatus = activeReservation.status ?? null;
+          } else if (userId && typeof window !== "undefined") {
             window.localStorage.removeItem(`cm_last_reservation:${userId}`);
           }
         }
       } catch {
-        if (!active) return;
+        return null;
       }
-    };
+      return nextStatus;
+  }, [requestedReservationId]);
 
+  useEffect(() => {
     void loadReservation();
+  }, [loadReservation]);
+
+  useEffect(() => {
+    if (!polling) return;
+
+    let attempts = 0;
+    const interval = window.setInterval(() => {
+      attempts += 1;
+      void loadReservation().then((status) => {
+        if (status === "CONFIRMED" || status === "COMPLETED") {
+          setPaymentNotice("Pago confirmado. Tu reserva ya aparece como confirmada.");
+          setPolling(false);
+        } else if (attempts >= 18) {
+          setPolling(false);
+        }
+      });
+    }, 5000);
 
     return () => {
-      active = false;
+      window.clearInterval(interval);
     };
-  }, [requestedReservationId]);
+  }, [loadReservation, polling]);
+
+  async function handleManualLinkClick() {
+    if (!data?.id) {
+      setPaymentNotice("No encontramos una reserva pendiente para asociar el pago manual.");
+      return;
+    }
+
+    setManualLinkBusy(true);
+    setPaymentNotice(null);
+
+    try {
+      const response = await fetch("/api/payments/yappy/manual-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reservationId: data.id }),
+      });
+      const result = (await response.json().catch(() => null)) as
+        | { detail?: string; error?: string }
+        | null;
+
+      if (!response.ok) {
+        throw new Error(
+          result?.detail ?? "No se pudo preparar la referencia manual de este pago."
+        );
+      }
+
+      window.open(YAPPY_STATIC_LINK, "_blank", "noopener,noreferrer");
+      setPaymentNotice(
+        "Abrimos el link de Yappy y dejamos el pago marcado como manual en el sistema. Cuando lo completes, envía el comprobante por WhatsApp."
+      );
+      setPolling(true);
+    } catch (error) {
+      setPaymentNotice(
+        error instanceof Error
+          ? error.message
+          : "No se pudo abrir el flujo manual de Yappy."
+      );
+    } finally {
+      setManualLinkBusy(false);
+    }
+  }
 
 
   const depositAmount =
@@ -252,6 +311,15 @@ export default function PaymentConfirmation() {
       : data?.totalAmount != null
         ? Math.round(Number(data.totalAmount) * 0.5 * 100) / 100
         : null;
+
+  const yappyBlockedReason =
+    !data?.id
+      ? "No encontramos una reserva pendiente para iniciar el pago."
+      : data.paymentMethod !== "YAPPY"
+        ? "Esta reserva no fue creada con Yappy como método de pago."
+        : data.status !== "PENDING_PAYMENT"
+          ? "La reserva ya no está pendiente de pago."
+          : null;
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-10">
@@ -344,10 +412,20 @@ export default function PaymentConfirmation() {
                   ), tu número Yappy y tu nombre como comentario para identificar tu pago.
                 </p>
                 <div className="mt-4">
-                  <YappyPaymentButton reservationId={data?.id ?? null} />
+                  <YappyPaymentButton
+                    reservationId={data?.id ?? null}
+                    disabled={Boolean(yappyBlockedReason)}
+                    blockedReason={yappyBlockedReason}
+                    onPaymentStarted={() => {
+                      setPaymentNotice(
+                        "El flujo de Yappy fue iniciado. En cuanto Yappy confirme el pago, actualizaremos tu reserva."
+                      );
+                      setPolling(true);
+                    }}
+                  />
                 </div>
                 <p className="mt-3 text-xs font-medium text-amber-600 dark:text-amber-500">
-                  Recuerda enviarnos la captura de pantalla del comprobante por WhatsApp para confirmar tu reserva.
+                  Si el botón no te funciona, puedes usar el link manual de Yappy o escribirnos por WhatsApp.
                 </p>
               </div>
             </div>
@@ -378,8 +456,18 @@ export default function PaymentConfirmation() {
             <div className="overflow-hidden">
               <div className="border-t border-yellow-500/20 px-5 pb-5 pt-4">
                 <p className="text-xs text-muted-foreground">
-                  Búscanos en el directorio de Yappy y realiza el pago manualmente.
+                  Este es el respaldo manual. Abriremos el link estático de Yappy y dejaremos el pago marcado como pendiente manual para que el equipo lo confirme.
                 </p>
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    onClick={() => void handleManualLinkClick()}
+                    disabled={manualLinkBusy || Boolean(yappyBlockedReason)}
+                    className="flex w-full items-center justify-center rounded-full bg-[#00ADEF] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#0099d6] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {manualLinkBusy ? "Preparando link..." : "Abrir link estático de Yappy"}
+                  </button>
+                </div>
                 <div className="mt-3 flex flex-col gap-3">
                   <div>
                     <p className="text-[11px] uppercase text-muted-foreground">Número de teléfono:</p>
@@ -472,6 +560,12 @@ export default function PaymentConfirmation() {
           </div>
         </div>
       </div>
+
+      {paymentNotice ? (
+        <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-400">
+          {paymentNotice}
+        </div>
+      ) : null}
 
       <Link
         href="/"
