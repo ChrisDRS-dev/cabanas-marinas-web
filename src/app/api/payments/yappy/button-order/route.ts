@@ -17,6 +17,18 @@ function roundCurrency(value: number) {
   return Math.round(value * 100) / 100;
 }
 
+function extractPanamaYappyAlias(phone: string | null | undefined): string | null {
+  if (!phone) return null;
+  const digits = phone.replace(/\D/g, "");
+  if (digits.startsWith("507") && digits.length === 11) {
+    return digits.slice(3);
+  }
+  if (digits.length === 8) {
+    return digits;
+  }
+  return null;
+}
+
 async function syncInvoiceStatus(invoiceId: string) {
   const admin = supabaseAdmin();
   const { data: payments } = await admin
@@ -87,6 +99,24 @@ export async function POST(req: Request) {
   const reservationId = String(payload.reservationId ?? "").trim();
   if (!reservationId) {
     return NextResponse.json({ error: "missing_reservation" }, { status: 400 });
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("phone")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const customerAlias = extractPanamaYappyAlias(profile?.phone);
+  if (!customerAlias) {
+    return NextResponse.json(
+      {
+        error: "missing_panama_phone",
+        detail:
+          "Tu número de teléfono no está registrado o no es un número panameño. Actualiza tu perfil para continuar.",
+      },
+      { status: 400 }
+    );
   }
 
   const { data: reservation } = await supabase
@@ -226,7 +256,7 @@ export async function POST(req: Request) {
       merchantId: config.merchantId,
       orderId,
       domain: config.domain,
-      aliasYappy: config.alias,
+      aliasYappy: customerAlias,
       ipnUrl: config.ipnUrl,
       depositAmount: effectiveAmount,
       depositAmountType: typeof effectiveAmount,
@@ -238,7 +268,7 @@ export async function POST(req: Request) {
         authorizationToken: merchant.token,
         merchantId: config.merchantId,
         domain: config.domain,
-        aliasYappy: config.alias,
+        aliasYappy: customerAlias,
         ipnUrl: config.ipnUrl,
         orderId,
         amount: effectiveAmount,
@@ -250,7 +280,7 @@ export async function POST(req: Request) {
         yappyCode: error instanceof YappyButtonError ? error.detail : undefined,
         orderId,
         effectiveAmount,
-        aliasYappy: config.alias,
+        aliasYappy: customerAlias,
         debugFixed,
       });
       const detail =
