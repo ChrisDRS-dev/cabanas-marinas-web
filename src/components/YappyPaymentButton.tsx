@@ -254,7 +254,7 @@ export default function YappyPaymentButton({
 
       <div
         className={[
-          "rounded-full",
+          "flex justify-center rounded-full",
           isBlocked || !scriptReady ? "pointer-events-none opacity-60" : "",
         ].join(" ")}
       >
@@ -267,14 +267,14 @@ export default function YappyPaymentButton({
       </div>
 
       {!scriptReady && !configBlocked ? (
-        <p className="text-xs text-muted-foreground">Cargando botón oficial de Yappy...</p>
+        <p className="text-center text-xs text-muted-foreground">Cargando botón oficial de Yappy...</p>
       ) : null}
       {busy ? (
-        <p className="text-xs text-muted-foreground">Creando orden de pago...</p>
+        <p className="text-center text-xs text-muted-foreground">Creando orden de pago...</p>
       ) : null}
-      {hint ? <p className="text-xs text-emerald-600 dark:text-emerald-400">{hint}</p> : null}
+      {hint ? <p className="text-center text-xs text-emerald-600 dark:text-emerald-400">{hint}</p> : null}
       {runtimeError ? (
-        <p className="text-xs text-rose-600 dark:text-rose-400">{runtimeError}</p>
+        <p className="text-center text-xs text-rose-600 dark:text-rose-400">{runtimeError}</p>
       ) : null}
     </div>
   );
