@@ -9,6 +9,7 @@ import StepDatePackage from "@/components/reservar/steps/StepDatePackage";
 import StepGuests from "@/components/reservar/steps/StepGuests";
 import StepExtras from "@/components/reservar/steps/StepExtras";
 import StepSummary from "@/components/reservar/steps/StepSummary";
+import PhoneDialog from "@/components/PhoneDialog";
 import { getSessionSafe, supabase } from "@/lib/supabase/client";
 import { siteData } from "@/lib/siteData";
 import {
@@ -25,20 +26,6 @@ import {
 
 export type PaymentMethod = "YAPPY" | "PAYPAL" | "CARD" | "CASH";
 
-const DIAL_COUNTRIES = [
-  { code: "PA", flag: "🇵🇦", name: "Panamá",            dial: "+507", min: 8,  max: 8  },
-  { code: "US", flag: "🇺🇸", name: "EE. UU. / Canadá", dial: "+1",   min: 10, max: 10 },
-  { code: "CR", flag: "🇨🇷", name: "Costa Rica",        dial: "+506", min: 8,  max: 8  },
-  { code: "CO", flag: "🇨🇴", name: "Colombia",          dial: "+57",  min: 10, max: 10 },
-  { code: "VE", flag: "🇻🇪", name: "Venezuela",         dial: "+58",  min: 10, max: 10 },
-  { code: "MX", flag: "🇲🇽", name: "México",            dial: "+52",  min: 10, max: 10 },
-  { code: "EC", flag: "🇪🇨", name: "Ecuador",           dial: "+593", min: 9,  max: 9  },
-  { code: "DO", flag: "🇩🇴", name: "Rep. Dominicana",   dial: "+1",   min: 10, max: 10 },
-  { code: "ES", flag: "🇪🇸", name: "España",            dial: "+34",  min: 9,  max: 9  },
-  { code: "AR", flag: "🇦🇷", name: "Argentina",         dial: "+54",  min: 10, max: 10 },
-  { code: "CL", flag: "🇨🇱", name: "Chile",             dial: "+56",  min: 9,  max: 9  },
-  { code: "PE", flag: "🇵🇪", name: "Perú",              dial: "+51",  min: 9,  max: 9  },
-] as const;
 
 export type ReservationState = {
   step: number;
@@ -218,10 +205,6 @@ export default function ReservationWizard({
   const [profileName, setProfileName] = useState<string | null>(null);
   const [profilePhone, setProfilePhone] = useState<string | null>(null);
   const [showPhonePrompt, setShowPhonePrompt] = useState(false);
-  const [phoneDialCode, setPhoneDialCode] = useState("+507");
-  const [phoneLocal, setPhoneLocal] = useState("");
-  const [phoneError, setPhoneError] = useState<string | null>(null);
-  const [isSavingPhone, setIsSavingPhone] = useState(false);
   const [confirmationData, setConfirmationData] = useState<{
     id: string | null;
     name: string | null;
@@ -1003,163 +986,15 @@ export default function ReservationWizard({
         )}
       </main>
 
-      {showPhonePrompt && (() => {
-        const selectedCountry =
-          DIAL_COUNTRIES.find((c) => c.dial === phoneDialCode && c.code === (
-            DIAL_COUNTRIES.find((x) => x.dial === phoneDialCode)?.code
-          )) ??
-          DIAL_COUNTRIES.find((c) => c.dial === phoneDialCode) ??
-          DIAL_COUNTRIES[0];
-        const localDigits = phoneLocal.replace(/\D/g, "");
-        const isLocalValid = localDigits.length >= selectedCountry.min;
-        const previewNumber =
-          localDigits.length > 0 ? `${phoneDialCode} ${localDigits}` : null;
-
-        const handleSave = async () => {
-          if (isSavingPhone) return;
-          setPhoneError(null);
-          if (!localDigits) {
-            setPhoneError("Ingresa tu número de teléfono.");
-            return;
-          }
-          if (localDigits.length < selectedCountry.min) {
-            setPhoneError(
-              `El número para ${selectedCountry.name} debe tener ${selectedCountry.min} dígitos.`
-            );
-            return;
-          }
-          if (localDigits.length > selectedCountry.max) {
-            setPhoneError(
-              `El número para ${selectedCountry.name} no puede tener más de ${selectedCountry.max} dígitos.`
-            );
-            return;
-          }
-          const fullPhone = `${phoneDialCode}${localDigits}`;
-          try {
-            setIsSavingPhone(true);
-            const response = await fetch("/api/profile/phone", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ phone: fullPhone }),
-            });
-            const result = await response.json();
-            if (!response.ok) {
-              throw new Error("No se pudo guardar el teléfono. Intenta de nuevo.");
-            }
-            setProfilePhone(result?.phone ?? fullPhone);
-            setShowPhonePrompt(false);
-            router.push(`/reservar/pago?method=${state.paymentMethod ?? "YAPPY"}&rid=${confirmationId ?? ""}`);
-          } catch (error) {
-            setPhoneError(
-              error instanceof Error ? error.message : "No se pudo guardar el teléfono."
-            );
-          } finally {
-            setIsSavingPhone(false);
-          }
-        };
-
-        return (
-          <div className="fixed inset-0 z-[95] flex items-end justify-center bg-black/60 px-0 pb-0 sm:items-center sm:px-4 sm:py-6">
-            <div className="w-full max-w-md rounded-t-[2rem] border border-border/70 bg-card px-6 pb-8 pt-6 shadow-2xl sm:rounded-3xl">
-              {/* Drag handle – mobile */}
-              <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-border sm:hidden" />
-
-              <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-                Número de contacto
-              </p>
-              <h3 className="mt-1 text-xl font-semibold text-foreground">
-                ¿Cuál es tu número?
-              </h3>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Lo usaremos para coordinar tu llegada y confirmar la reserva por WhatsApp.
-              </p>
-
-              {/* Country selector */}
-              <div className="mt-5">
-                <label className="mb-1.5 block text-[11px] uppercase tracking-widest text-muted-foreground">
-                  País
-                </label>
-                <select
-                  value={`${selectedCountry.code}|${selectedCountry.dial}`}
-                  onChange={(e) => {
-                    const [, dial] = e.target.value.split("|");
-                    setPhoneDialCode(dial);
-                    setPhoneLocal("");
-                    setPhoneError(null);
-                  }}
-                  disabled={isSavingPhone}
-                  className="w-full rounded-2xl border border-border/70 bg-background px-4 py-3 text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                >
-                  {DIAL_COUNTRIES.map((c) => (
-                    <option key={c.code} value={`${c.code}|${c.dial}`}>
-                      {c.flag}  {c.name} ({c.dial})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Local number input */}
-              <div className="mt-3">
-                <label className="mb-1.5 block text-[11px] uppercase tracking-widest text-muted-foreground">
-                  Número local ({selectedCountry.min} dígitos)
-                </label>
-                <div className="flex items-center gap-2">
-                  <span className="shrink-0 rounded-2xl border border-border/70 bg-background/60 px-3 py-3 text-sm font-semibold text-muted-foreground">
-                    {phoneDialCode}
-                  </span>
-                  <input
-                    type="tel"
-                    inputMode="numeric"
-                    value={phoneLocal}
-                    onChange={(e) => {
-                      const raw = e.target.value.replace(/[^\d]/g, "");
-                      if (raw.length <= selectedCountry.max) {
-                        setPhoneLocal(raw);
-                        setPhoneError(null);
-                      }
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && isLocalValid) void handleSave();
-                    }}
-                    placeholder={"0".repeat(selectedCountry.min)}
-                    disabled={isSavingPhone}
-                    maxLength={selectedCountry.max}
-                    className="w-full rounded-2xl border border-border/70 bg-background px-4 py-3 text-sm font-semibold text-foreground tracking-wider placeholder:font-normal placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  />
-                </div>
-              </div>
-
-              {/* Preview */}
-              {previewNumber && (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Número completo:{" "}
-                  <span className="font-semibold text-foreground">{previewNumber}</span>
-                  {isLocalValid && (
-                    <span className="ml-2 text-emerald-500">✓</span>
-                  )}
-                </p>
-              )}
-
-              {/* Error */}
-              {phoneError && (
-                <p className="mt-2 text-xs text-rose-600">{phoneError}</p>
-              )}
-
-              {/* Actions */}
-              <div className="mt-6 flex flex-col gap-2">
-                <Button
-                  type="button"
-                  className="w-full rounded-full"
-                  onClick={() => void handleSave()}
-                  disabled={isSavingPhone || !isLocalValid}
-                >
-                  {isSavingPhone ? "Guardando..." : "Continuar al pago"}
-                </Button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+      <PhoneDialog
+        open={showPhonePrompt}
+        onClose={() => setShowPhonePrompt(false)}
+        submitLabel="Continuar al pago"
+        onSaved={(phone) => {
+          setProfilePhone(phone);
+          router.push(`/reservar/pago?method=${state.paymentMethod ?? "YAPPY"}&rid=${confirmationId ?? ""}`);
+        }}
+      />
 
       {showConfirmation && (
         <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/50 sm:items-center sm:p-6">

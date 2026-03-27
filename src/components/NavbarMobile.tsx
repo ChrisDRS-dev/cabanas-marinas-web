@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import AuthModal from "@/components/AuthModal";
+import PhoneDialog from "@/components/PhoneDialog";
 import ThemeToggle from "@/components/ThemeToggle";
 import { getSessionSafe, supabase } from "@/lib/supabase/client";
 
@@ -15,6 +16,7 @@ export default function NavbarMobile({ brand }: NavbarMobileProps) {
   const [session, setSession] = useState<Session | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
+  const [phoneDialogOpen, setPhoneDialogOpen] = useState(false);
   const [profile, setProfile] = useState<{
     fullName: string | null;
     phone: string | null;
@@ -112,6 +114,11 @@ export default function NavbarMobile({ brand }: NavbarMobileProps) {
         </div>
       </header>
       <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
+      <PhoneDialog
+        open={phoneDialogOpen}
+        onClose={() => setPhoneDialogOpen(false)}
+        onSaved={(phone) => setProfile((prev) => ({ ...prev, phone }))}
+      />
       {userOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-sm rounded-3xl bg-background p-5 shadow-xl">
@@ -129,12 +136,21 @@ export default function NavbarMobile({ brand }: NavbarMobileProps) {
                   {userEmail ?? "-"}
                 </span>
               </p>
-              <p>
-                <span className="text-muted-foreground/70">Teléfono:</span>{" "}
-                <span className="font-semibold text-foreground">
-                  {userPhone ?? "-"}
-                </span>
-              </p>
+              <div className="flex items-center justify-between gap-2">
+                <p>
+                  <span className="text-muted-foreground/70">Teléfono:</span>{" "}
+                  <span className="font-semibold text-foreground">
+                    {userPhone ?? "-"}
+                  </span>
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setPhoneDialogOpen(true)}
+                  className="shrink-0 rounded-full border border-border px-2.5 py-1 text-[10px] font-semibold text-muted-foreground hover:text-foreground"
+                >
+                  {userPhone ? "Cambiar" : "Agregar"}
+                </button>
+              </div>
             </div>
             <div className="mt-4 flex gap-2">
               <button
