@@ -95,6 +95,44 @@ function ensureYappyScript(cdnUrl: string) {
   });
 }
 
+function applyYappyDialogCentering(button: BtnYappyElement | null) {
+  const root = button?.shadowRoot;
+  if (!root) return;
+
+  if (root.querySelector('style[data-cm-yappy-dialog="true"]')) {
+    return;
+  }
+
+  const style = document.createElement("style");
+  style.dataset.cmYappyDialog = "true";
+  style.textContent = `
+    dialog {
+      margin: auto !important;
+      inset: 0 !important;
+      width: min(90vw, 580px) !important;
+      max-width: 580px !important;
+      max-height: min(92dvh, 760px) !important;
+    }
+
+    dialog[open] {
+      display: block !important;
+    }
+
+    dialog .dialog-container {
+      justify-content: center !important;
+      min-height: auto !important;
+    }
+
+    @media (max-width: 640px) {
+      dialog {
+        width: min(92vw, 420px) !important;
+      }
+    }
+  `;
+
+  root.appendChild(style);
+}
+
 export default function YappyPaymentButton({
   reservationId = null,
   disabled = false,
@@ -154,6 +192,28 @@ export default function YappyPaymentButton({
       active = false;
     };
   }, [config]);
+
+  useEffect(() => {
+    if (!scriptReady) return;
+
+    const element = buttonRef.current;
+    if (!element) return;
+
+    let attempts = 0;
+    const interval = window.setInterval(() => {
+      attempts += 1;
+      applyYappyDialogCentering(element);
+      if (element.shadowRoot || attempts >= 20) {
+        window.clearInterval(interval);
+      }
+    }, 150);
+
+    applyYappyDialogCentering(element);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [scriptReady]);
 
   useEffect(() => {
     const element = buttonRef.current;
