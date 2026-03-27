@@ -158,11 +158,28 @@ async function yappyButtonRequest<T>(
           };
         }
       | null;
+    console.error("[Yappy] request_failed", {
+      path,
+      httpStatus: response.status,
+      yappyStatus: errorPayload?.status,
+    });
     throw new YappyButtonError(
       "request_failed",
       errorPayload?.status?.description ||
         `Yappy button request failed (${response.status}).`,
       errorPayload?.status?.code
+    );
+  }
+
+  const statusPayload = payload as {
+    status?: { code?: string; description?: string };
+  };
+  if (statusPayload.status?.code && statusPayload.status.code !== "0000") {
+    console.error("[Yappy] status_error", { path, status: statusPayload.status });
+    throw new YappyButtonError(
+      "request_failed",
+      statusPayload.status.description || "Yappy devolvió un error.",
+      statusPayload.status.code
     );
   }
 
@@ -227,13 +244,13 @@ export async function createYappyButtonOrder(args: {
         merchantId: args.merchantId,
         orderId: args.orderId,
         domain: args.domain,
-        paymentDate: Date.now(),
+        paymentDate: Math.floor(Date.now() / 1000),
         aliasYappy: args.aliasYappy,
         ipnUrl: args.ipnUrl,
-        discount: "0.00",
-        taxes: "0.00",
-        subtotal: amount,
-        total: amount,
+        discount: 0,
+        taxes: 0,
+        subtotal: parseFloat(amount),
+        total: parseFloat(amount),
       }),
     }
   );

@@ -119,6 +119,13 @@ export async function POST(req: Request) {
       ? Number(reservation.deposit_amount)
       : roundCurrency(totalAmount * 0.5);
 
+  if (!Number.isFinite(depositAmount) || depositAmount <= 0) {
+    return NextResponse.json(
+      { error: "invalid_amount", detail: `Monto de depósito inválido: ${depositAmount}` },
+      { status: 400 }
+    );
+  }
+
   const invoice = Array.isArray(reservation.invoices)
     ? reservation.invoices[0] ?? null
     : reservation.invoices ?? null;
@@ -213,6 +220,15 @@ export async function POST(req: Request) {
     }
 
     const orderId = createReservationOrderId(reservation.id);
+    console.log("[Yappy] create-order input", {
+      merchantId: config.merchantId,
+      orderId,
+      domain: config.domain,
+      aliasYappy: config.alias,
+      ipnUrl: config.ipnUrl,
+      depositAmount,
+      depositAmountType: typeof depositAmount,
+    });
     let yappyOrder;
     try {
       yappyOrder = await createYappyButtonOrder({
@@ -226,6 +242,13 @@ export async function POST(req: Request) {
         baseUrl: config.baseUrl,
       });
     } catch (error) {
+      console.error("[Yappy] order_creation_failed detail", {
+        errorMessage: error instanceof Error ? error.message : String(error),
+        yappyCode: error instanceof YappyButtonError ? error.detail : undefined,
+        orderId,
+        depositAmount,
+        aliasYappy: config.alias,
+      });
       const detail =
         error instanceof YappyButtonError ? error.message : "Order creation failed.";
       return NextResponse.json(

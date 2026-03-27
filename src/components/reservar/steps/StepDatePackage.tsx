@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -512,6 +513,130 @@ export default function StepDatePackage({
     </div>
   );
 
+  const timeModal =
+    showTimeModal && typeof document !== "undefined"
+      ? createPortal(
+          <div className="fixed inset-0 z-[120] flex items-stretch justify-center bg-black/40 p-0 sm:items-center sm:p-4">
+            <div className="flex h-full w-full flex-col rounded-none bg-background shadow-xl sm:h-auto sm:max-h-[calc(100vh-2rem)] sm:max-w-xl sm:rounded-3xl">
+              <div className="border-b border-border/70 px-6 py-5">
+                <p className="text-sm font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+                  {modalKicker}
+                </p>
+                <h3 className="mt-2 text-xl font-semibold">{modalTitle}</h3>
+                {pendingDate && (
+                  <p className="mt-1 text-sm text-muted-foreground capitalize">
+                    {modalSubtitle}: {formatDisplayDate(pendingDate)}
+                  </p>
+                )}
+              </div>
+              <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
+                {!state.packageId && (
+                  <div className="rounded-2xl border border-dashed border-border/70 bg-secondary/40 px-4 py-3 text-sm text-muted-foreground">
+                    {calendarEmpty}
+                  </div>
+                )}
+                {state.packageId === EVENTO_PACKAGE_ID ? (
+                  <div className="space-y-4">
+                    <p className="text-sm text-muted-foreground">{customHelp}</p>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <label className="space-y-2 text-sm font-semibold">
+                        {customStartLabel}
+                        <select
+                          value={customStart}
+                          onChange={(event) => setCustomStart(event.target.value)}
+                          className="w-full rounded-2xl border border-border/70 bg-background px-4 py-3 text-sm font-semibold"
+                        >
+                          <option value="">Selecciona</option>
+                          {startHourOptionsWithAvailability.map((option) => (
+                            <option
+                              key={option.value}
+                              value={option.value}
+                              disabled={option.disabled}
+                            >
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="space-y-2 text-sm font-semibold">
+                        {customEndLabel}
+                        <select
+                          value={customEnd}
+                          onChange={(event) => setCustomEnd(event.target.value)}
+                          disabled={!customStart}
+                          className="w-full rounded-2xl border border-border/70 bg-background px-4 py-3 text-sm font-semibold"
+                        >
+                          <option value="">Selecciona</option>
+                          {endHourOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                    {customError && (
+                      <p className="text-sm text-amber-600">{customError}</p>
+                    )}
+                    {availabilityError && (
+                      <p className="text-sm text-rose-600">{availabilityError}</p>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    {renderSlotGroup({
+                      title: morningLabel,
+                      emptyLabel: noMorningLabel,
+                      slots: groupedSlots["mañana"],
+                      accentClasses: "border-yellow-400/35 bg-yellow-300/10",
+                    })}
+                    {renderSlotGroup({
+                      title: afternoonLabel,
+                      emptyLabel: noAfternoonLabel,
+                      slots: groupedSlots["mañana-tarde"],
+                      accentClasses: "border-orange-400/35 bg-orange-300/10",
+                    })}
+                    {renderSlotGroup({
+                      title: eveningLabel,
+                      emptyLabel: noAfternoonLabel,
+                      slots: groupedSlots["tarde-noche"],
+                      accentClasses:
+                        "border-sky-500/30 bg-sky-300/8 dark:bg-blue-900/20",
+                    })}
+                  </>
+                )}
+              </div>
+              <div className="flex flex-col gap-3 border-t border-border/70 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowTimeModal(false)}
+                  className="rounded-full"
+                >
+                  {modalCancelLabel}
+                </Button>
+                {availabilityError && (
+                  <p className="text-sm text-rose-600">{availabilityError}</p>
+                )}
+                <Button
+                  type="button"
+                  onClick={handleConfirmTime}
+                  className="rounded-full"
+                  disabled={
+                    !pendingTimeSlot ||
+                    isPastTimeSlot(pendingTimeSlot, activeDate, now) ||
+                    isCheckingAvailability
+                  }
+                >
+                  {isCheckingAvailability ? "Verificando..." : modalConfirmLabel}
+                </Button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )
+      : null;
+
   return (
     <div className="space-y-8">
       <section className="space-y-4">
@@ -676,129 +801,7 @@ export default function StepDatePackage({
         </div>
       </section>
 
-      {showTimeModal && (
-        <div className="fixed inset-0 z-[80] flex items-stretch justify-center bg-black/40 p-0 sm:items-center sm:p-4">
-          <div className="flex h-full w-full flex-col rounded-none bg-background shadow-xl sm:h-auto sm:max-w-lg sm:rounded-3xl">
-            <div className="border-b border-border/70 px-6 py-5">
-              <p className="text-sm font-semibold uppercase tracking-[0.3em] text-muted-foreground">
-                {modalKicker}
-              </p>
-              <h3 className="mt-2 text-xl font-semibold">
-                {modalTitle}
-              </h3>
-              {pendingDate && (
-                <p className="mt-1 text-sm text-muted-foreground capitalize">
-                  {modalSubtitle}: {formatDisplayDate(pendingDate)}
-                </p>
-              )}
-            </div>
-            <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
-              {!state.packageId && (
-                <div className="rounded-2xl border border-dashed border-border/70 bg-secondary/40 px-4 py-3 text-sm text-muted-foreground">
-                  {calendarEmpty}
-                </div>
-              )}
-              {state.packageId === EVENTO_PACKAGE_ID ? (
-                <div className="space-y-4">
-                  <p className="text-sm text-muted-foreground">{customHelp}</p>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <label className="space-y-2 text-sm font-semibold">
-                      {customStartLabel}
-                      <select
-                        value={customStart}
-                        onChange={(event) => setCustomStart(event.target.value)}
-                        className="w-full rounded-2xl border border-border/70 bg-background px-4 py-3 text-sm font-semibold"
-                      >
-                        <option value="">Selecciona</option>
-                        {startHourOptionsWithAvailability.map((option) => (
-                          <option
-                            key={option.value}
-                            value={option.value}
-                            disabled={option.disabled}
-                          >
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="space-y-2 text-sm font-semibold">
-                      {customEndLabel}
-                      <select
-                        value={customEnd}
-                        onChange={(event) => setCustomEnd(event.target.value)}
-                        disabled={!customStart}
-                        className="w-full rounded-2xl border border-border/70 bg-background px-4 py-3 text-sm font-semibold"
-                      >
-                        <option value="">Selecciona</option>
-                        {endHourOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
-                  {customError && (
-                    <p className="text-sm text-amber-600">{customError}</p>
-                  )}
-                  {availabilityError && (
-                    <p className="text-sm text-rose-600">{availabilityError}</p>
-                  )}
-                </div>
-              ) : (
-                <>
-                  {renderSlotGroup({
-                    title: morningLabel,
-                    emptyLabel: noMorningLabel,
-                    slots: groupedSlots["mañana"],
-                    accentClasses:
-                      "border-yellow-400/35 bg-yellow-300/10",
-                  })}
-                  {renderSlotGroup({
-                    title: afternoonLabel,
-                    emptyLabel: noAfternoonLabel,
-                    slots: groupedSlots["mañana-tarde"],
-                    accentClasses:
-                      "border-orange-400/35 bg-orange-300/10",
-                  })}
-                  {renderSlotGroup({
-                    title: eveningLabel,
-                    emptyLabel: noAfternoonLabel,
-                    slots: groupedSlots["tarde-noche"],
-                    accentClasses:
-                      "border-sky-500/30 bg-sky-300/8 dark:bg-blue-900/20",
-                  })}
-                </>
-              )}
-            </div>
-            <div className="flex flex-col gap-3 border-t border-border/70 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setShowTimeModal(false)}
-                className="rounded-full"
-              >
-                {modalCancelLabel}
-              </Button>
-              {availabilityError && (
-                <p className="text-sm text-rose-600">{availabilityError}</p>
-              )}
-              <Button
-                type="button"
-                onClick={handleConfirmTime}
-                className="rounded-full"
-                disabled={
-                  !pendingTimeSlot ||
-                  isPastTimeSlot(pendingTimeSlot, activeDate, now) ||
-                  isCheckingAvailability
-                }
-              >
-                {isCheckingAvailability ? "Verificando..." : modalConfirmLabel}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      {timeModal}
     </div>
   );
 }
