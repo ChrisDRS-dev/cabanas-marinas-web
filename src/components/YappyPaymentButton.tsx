@@ -106,6 +106,16 @@ function applyYappyDialogCentering(button: BtnYappyElement | null) {
   const style = document.createElement("style");
   style.dataset.cmYappyDialog = "true";
   style.textContent = `
+    .yappy-backdrop {
+      position: fixed !important;
+      inset: 0 !important;
+      background:
+        radial-gradient(circle at top, rgba(0, 133, 161, 0.18), transparent 46%),
+        linear-gradient(135deg, rgba(15, 31, 36, 0.28), rgba(255, 179, 71, 0.14)) !important;
+      backdrop-filter: blur(18px) saturate(135%) !important;
+      -webkit-backdrop-filter: blur(18px) saturate(135%) !important;
+    }
+
     dialog {
       margin: auto !important;
       inset: 0 !important;
