@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase/server";
+import { supabaseServer } from "@/lib/supabase/server";
 
 function roundCurrency(value: number) {
   return Math.round(value * 100) / 100;
 }
 
 export async function POST(req: Request) {
-  const supabase = await createServerClient();
+  const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();
