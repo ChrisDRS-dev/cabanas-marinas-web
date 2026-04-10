@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import YappyPaymentButton from "@/components/YappyPaymentButton";
+import PagueloFacilPayment from "@/components/PagueloFacilPayment";
 import { getSessionSafe } from "@/lib/supabase/client";
 import { siteData } from "@/lib/siteData";
 import { ChevronDown } from "lucide-react";
@@ -490,16 +491,19 @@ export default function PaymentConfirmation() {
           </div>
         </div>
 
-        {/* Tarjeta */}
+        {/* Tarjeta — PagueloFacil */}
         <div className="rounded-3xl border border-border/70 overflow-hidden">
           <button
             type="button"
             onClick={() => toggleMethod("CARD")}
             className="flex w-full items-center justify-between px-5 py-4 text-left"
           >
-            <span className="text-xs font-semibold uppercase tracking-[0.2em] text-foreground">
-              Tarjeta
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-semibold uppercase tracking-[0.2em] text-foreground">
+                Tarjeta / CLAVE
+              </span>
+              <span className="text-[10px] text-muted-foreground">Visa · Mastercard · CLAVE · Nequi</span>
+            </div>
             <ChevronDown
               className={[
                 "h-4 w-4 text-muted-foreground transition-transform duration-200",
@@ -513,9 +517,24 @@ export default function PaymentConfirmation() {
           >
             <div className="overflow-hidden">
               <div className="border-t border-border/50 px-5 pb-5 pt-4">
-                <p className="text-xs text-muted-foreground">
-                  El pago con tarjeta estará disponible muy pronto.
-                </p>
+                <PagueloFacilPayment
+                  reservationId={data?.id ?? null}
+                  depositAmount={depositAmount}
+                  disabled={
+                    !data?.id ||
+                    data.paymentMethod !== "CARD" ||
+                    data.status !== "PENDING_PAYMENT"
+                  }
+                  blockedReason={
+                    !data?.id
+                      ? "No encontramos una reserva pendiente para iniciar el pago."
+                      : data.paymentMethod !== "CARD"
+                        ? "Esta reserva no fue creada con Tarjeta como método de pago."
+                        : data.status !== "PENDING_PAYMENT"
+                          ? "La reserva ya no está pendiente de pago."
+                          : null
+                  }
+                />
               </div>
             </div>
           </div>

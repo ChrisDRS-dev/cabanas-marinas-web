@@ -29,9 +29,9 @@ const METHODS: {
   },
   {
     id: "CARD",
-    label: "Tarjeta",
-    description: "Credito o debito.",
-    enabled: false,
+    label: "Tarjeta / CLAVE",
+    description: "Visa, Mastercard, CLAVE, Nequi.",
+    enabled: true,
   },
   {
     id: "CASH",
@@ -81,7 +81,7 @@ export default function StepPayment({
               ? "Ver opciones de pago por WhatsApp."
               : method.description ?? "",
           enabled:
-            method.id === "CASH" || method.id === "YAPPY"
+            method.id === "CASH" || method.id === "YAPPY" || method.id === "CARD"
               ? true
               : method.enabled ?? false,
         }))
