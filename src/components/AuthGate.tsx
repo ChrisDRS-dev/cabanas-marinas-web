@@ -18,9 +18,7 @@ export default function AuthGate() {
   useEffect(() => {
     void getSessionSafe().then((session) => {
       setSession(session);
-      if (!session) {
-        setAuthOpen(true);
-      } else {
+      if (session) {
         setDismissed(false);
       }
     });
@@ -30,8 +28,6 @@ export default function AuthGate() {
       if (next) {
         setDismissed(false);
         setAuthOpen(false);
-      } else {
-        setAuthOpen(true);
       }
     });
 

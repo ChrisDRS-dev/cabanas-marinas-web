@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { calcTotal, PackageType } from "@/lib/calcTotal";
@@ -224,6 +225,8 @@ export default function ReservationWizard({
   const [draftLoaded, setDraftLoaded] = useState(false);
   const [whatsAppLink, setWhatsAppLink] = useState<string | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [stepDirection, setStepDirection] = useState<1 | -1>(1);
+  const prevStepRef = useRef(1);
   const stepOverrideRef = useRef(false);
   const prefillRef = useRef(false);
   const packagePrefillRef = useRef(false);
@@ -603,6 +606,11 @@ export default function ReservationWizard({
     }
   }, [state.step, totalSteps]);
 
+  useEffect(() => {
+    setStepDirection(state.step >= prevStepRef.current ? 1 : -1);
+    prevStepRef.current = state.step;
+  }, [state.step]);
+
   const isStepComplete = () => {
     switch (activeStep) {
       case "guests":
@@ -846,18 +854,75 @@ export default function ReservationWizard({
           <div className="h-10 w-10" />
         </div>
         <div className="mx-auto max-w-3xl px-6 pb-4">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center">
             {Array.from({ length: totalSteps }).map((_, index) => {
               const stepIndex = index + 1;
               const isActive = state.step === stepIndex;
               const isDone = state.step > stepIndex;
               return (
-                <span
-                  key={`step-${stepIndex}`}
-                  className={`block h-1 flex-1 rounded-full transition ${
-                    isActive || isDone ? "bg-primary" : "bg-secondary"
-                  }`}
-                />
+                <div key={`step-${stepIndex}`} className="flex flex-1 items-center">
+                  {/* Circle */}
+                  <motion.div
+                    animate={{
+                      backgroundColor: isActive
+                        ? "hsl(var(--primary))"
+                        : isDone
+                          ? "hsl(var(--primary))"
+                          : "hsl(var(--secondary))",
+                      scale: isActive ? 1.1 : 1,
+                    }}
+                    transition={{ duration: 0.25, ease: "easeOut" }}
+                    className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
+                  >
+                    <AnimatePresence mode="wait">
+                      {isDone ? (
+                        <motion.svg
+                          key="check"
+                          initial={{ opacity: 0, scale: 0.5 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.5 }}
+                          transition={{ duration: 0.2 }}
+                          className="h-3.5 w-3.5 text-primary-foreground"
+                          viewBox="0 0 12 12"
+                          fill="none"
+                        >
+                          <path
+                            d="M2 6l3 3 5-5"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </motion.svg>
+                      ) : (
+                        <motion.span
+                          key="number"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.15 }}
+                          className={`text-xs font-semibold leading-none ${
+                            isActive
+                              ? "text-primary-foreground"
+                              : "text-muted-foreground"
+                          }`}
+                        >
+                          {stepIndex}
+                        </motion.span>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
+                  {/* Connector */}
+                  {stepIndex < totalSteps && (
+                    <div className="relative mx-1 h-0.5 flex-1 overflow-hidden rounded-full bg-secondary">
+                      <motion.div
+                        className="absolute inset-y-0 left-0 rounded-full bg-primary"
+                        animate={{ width: isDone ? "100%" : "0%" }}
+                        transition={{ duration: 0.3, ease: "easeOut" }}
+                      />
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -875,46 +940,58 @@ export default function ReservationWizard({
             {formConfigError}
           </div>
         )}
-        {activeStep === "guests" && (
-          <StepGuests
-            state={state}
-            dispatch={dispatch}
-            minPeople={minPeople}
-            showMinWarning={showMinWarning}
-            config={formConfig?.guests}
-          />
-        )}
-        {activeStep === "date_package" && (
-          <StepDatePackage
-            state={state}
-            dispatch={dispatch}
-            selectedPackage={selectedPackage}
-            packages={packages}
-            timeSlotsByPackage={timeSlotsByPackage}
-            config={formConfig?.date_package}
-          />
-        )}
-        {activeStep === "extras" && (
-          <StepExtras
-            state={state}
-            dispatch={dispatch}
-            extras={extrasCatalog}
-            config={formConfig?.extras}
-            durationHours={durationHours}
-            totalPeople={totalPeople}
-          />
-        )}
-        {activeStep === "payment" && (
-          <StepSummary
-            state={state}
-            selectedPackage={selectedPackage}
-            totals={totals}
-            showMinWarning={showMinWarning}
-            minPeople={minPeople}
-            weekend={weekend}
-            extrasCatalog={extrasCatalog}
-          />
-        )}
+        <AnimatePresence mode="wait" custom={stepDirection}>
+          <motion.div
+            key={state.step}
+            custom={stepDirection}
+            initial={{ opacity: 0, y: stepDirection * 28 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: stepDirection * -20 }}
+            transition={{ duration: 0.32, ease: [0.25, 0.1, 0.25, 1] }}
+            className="flex flex-col gap-8"
+          >
+            {activeStep === "guests" && (
+              <StepGuests
+                state={state}
+                dispatch={dispatch}
+                minPeople={minPeople}
+                showMinWarning={showMinWarning}
+                config={formConfig?.guests}
+              />
+            )}
+            {activeStep === "date_package" && (
+              <StepDatePackage
+                state={state}
+                dispatch={dispatch}
+                selectedPackage={selectedPackage}
+                packages={packages}
+                timeSlotsByPackage={timeSlotsByPackage}
+                config={formConfig?.date_package}
+              />
+            )}
+            {activeStep === "extras" && (
+              <StepExtras
+                state={state}
+                dispatch={dispatch}
+                extras={extrasCatalog}
+                config={formConfig?.extras}
+                durationHours={durationHours}
+                totalPeople={totalPeople}
+              />
+            )}
+            {activeStep === "payment" && (
+              <StepSummary
+                state={state}
+                selectedPackage={selectedPackage}
+                totals={totals}
+                showMinWarning={showMinWarning}
+                minPeople={minPeople}
+                weekend={weekend}
+                extrasCatalog={extrasCatalog}
+              />
+            )}
+          </motion.div>
+        </AnimatePresence>
         {(submitError || submitSuccess) && (
           <div
             className={`rounded-2xl border px-4 py-3 text-sm ${

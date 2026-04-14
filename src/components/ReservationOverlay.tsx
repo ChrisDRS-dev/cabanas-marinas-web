@@ -2,7 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import ReservationWizard from "@/components/reservar/ReservationWizard";
+import dynamic from "next/dynamic";
+
+const ReservationWizard = dynamic(
+  () => import("@/components/reservar/ReservationWizard"),
+  { ssr: false }
+);
 import type { Session } from "@supabase/supabase-js";
 import { getSessionSafe, supabase } from "@/lib/supabase/client";
 import { siteData } from "@/lib/siteData";

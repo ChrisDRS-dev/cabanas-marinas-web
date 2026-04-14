@@ -5,6 +5,7 @@ import NavbarMobile from "@/components/NavbarMobile";
 import GalleryCarousel from "@/components/GalleryCarousel";
 import ReservationOverlayClient from "@/components/ReservationOverlayClient";
 import ReserveButton from "@/components/ReserveButton";
+import FadeIn from "@/components/FadeIn";
 import { siteData } from "@/lib/siteData";
 import { supabaseServer } from "@/lib/supabase/server";
 import { Suspense } from "react";
@@ -59,7 +60,7 @@ export default async function HomePage() {
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(0,133,161,0.18),transparent_55%)]" />
           <div className="absolute -right-24 top-20 h-72 w-72 rounded-full bg-[radial-gradient(circle,rgba(255,200,120,0.35),transparent_65%)] blur-2xl" />
           <div className="absolute bottom-0 left-0 h-48 w-48 -translate-x-1/3 translate-y-1/3 rounded-full bg-[radial-gradient(circle,rgba(0,133,161,0.25),transparent_60%)]" />
-          <div className="relative mx-auto flex max-w-6xl flex-col gap-10 px-6 py-14">
+          <FadeIn className="relative mx-auto flex max-w-6xl flex-col gap-10 px-6 py-14">
             <div className="flex max-w-2xl flex-col gap-5">
               <h1 className="font-display text-3xl font-semibold sm:text-4xl lg:text-5xl">
                 Planes de reserva
@@ -70,11 +71,11 @@ export default async function HomePage() {
               </p>
             </div>
             <GalleryCarousel items={planGallery} />
-          </div>
+          </FadeIn>
         </section>
 
         <section id="actividades" className="mx-auto max-w-6xl px-6 py-14">
-          <div className="space-y-6">
+          <FadeIn className="space-y-6">
             <div className="space-y-3">
               <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
                 Actividades
@@ -110,15 +111,17 @@ export default async function HomePage() {
                 </div>
               ))}
             </div>
-          </div>
+          </FadeIn>
         </section>
 
         <section id="ubicacion" className="mx-auto max-w-6xl px-6 py-14">
-          <MapCard {...location} />
+          <FadeIn>
+            <MapCard {...location} />
+          </FadeIn>
         </section>
 
         <section id="conocer" className="mx-auto max-w-6xl px-6 py-10">
-          <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+          <FadeIn className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
             <div className="space-y-4">
               <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
                 Conoce el lugar
@@ -143,10 +146,11 @@ export default async function HomePage() {
                 </div>
               ))}
             </div>
-          </div>
+          </FadeIn>
         </section>
 
         <section className="mx-auto max-w-6xl px-6 py-16">
+          <FadeIn>
           <div className="relative overflow-hidden rounded-[2.5rem] border border-border bg-primary px-6 py-12 text-primary-foreground shadow-xl shadow-primary/30">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.25),transparent_60%)]" />
             <div className="relative space-y-4">
@@ -164,20 +168,23 @@ export default async function HomePage() {
               </ReserveButton>
             </div>
           </div>
+          </FadeIn>
         </section>
 
         <section id="faq" className="mx-auto max-w-4xl px-6 py-14">
-          <div className="space-y-3 text-center">
-            <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-              Preguntas frecuentes
-            </p>
-            <h2 className="font-display text-3xl font-semibold">
-              Todo lo esencial antes de reservar
-            </h2>
-          </div>
-          <div className="mt-8">
-            <FAQAccordionWrapper items={faq} />
-          </div>
+          <FadeIn>
+            <div className="space-y-3 text-center">
+              <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+                Preguntas frecuentes
+              </p>
+              <h2 className="font-display text-3xl font-semibold">
+                Todo lo esencial antes de reservar
+              </h2>
+            </div>
+            <div className="mt-8">
+              <FAQAccordionWrapper items={faq} />
+            </div>
+          </FadeIn>
         </section>
       </main>
 
