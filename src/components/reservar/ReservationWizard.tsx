@@ -230,6 +230,7 @@ export default function ReservationWizard({
   const stepOverrideRef = useRef(false);
   const prefillRef = useRef(false);
   const packagePrefillRef = useRef(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const router = useRouter();
 
@@ -785,6 +786,9 @@ export default function ReservationWizard({
       return;
     }
     dispatch({ type: "nextStep", max: totalSteps });
+    // Scroll to top of wizard container (works for both page and modal modes)
+    containerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleCancelReservation = async () => {
@@ -811,6 +815,7 @@ export default function ReservationWizard({
 
   return (
     <div
+      ref={containerRef}
       className={`${
         isModal ? "min-h-full" : "min-h-screen"
       } ${isModal ? "bg-transparent" : "bg-background"} text-foreground`}
@@ -863,16 +868,14 @@ export default function ReservationWizard({
                 <div key={`step-${stepIndex}`} className="flex flex-1 items-center">
                   {/* Circle */}
                   <motion.div
-                    animate={{
-                      backgroundColor: isActive
-                        ? "hsl(var(--primary))"
-                        : isDone
-                          ? "hsl(var(--primary))"
-                          : "hsl(var(--secondary))",
-                      scale: isActive ? 1.1 : 1,
-                    }}
+                    animate={{ scale: isActive ? 1.12 : 1 }}
                     transition={{ duration: 0.25, ease: "easeOut" }}
-                    className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
+                    className={[
+                      "relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
+                      isActive || isDone
+                        ? "bg-primary"
+                        : "border-2 border-border bg-background",
+                    ].join(" ")}
                   >
                     <AnimatePresence mode="wait">
                       {isDone ? (
@@ -901,10 +904,9 @@ export default function ReservationWizard({
                           animate={{ opacity: 1 }}
                           exit={{ opacity: 0 }}
                           transition={{ duration: 0.15 }}
-                          className={`text-xs font-semibold leading-none ${
-                            isActive
-                              ? "text-primary-foreground"
-                              : "text-muted-foreground"
+                          style={{ lineHeight: 1 }}
+                          className={`select-none text-xs font-semibold ${
+                            isActive ? "text-primary-foreground" : "text-foreground"
                           }`}
                         >
                           {stepIndex}
@@ -914,7 +916,7 @@ export default function ReservationWizard({
                   </motion.div>
                   {/* Connector */}
                   {stepIndex < totalSteps && (
-                    <div className="relative mx-1 h-0.5 flex-1 overflow-hidden rounded-full bg-secondary">
+                    <div className="relative mx-1.5 h-0.5 flex-1 overflow-hidden rounded-full bg-border">
                       <motion.div
                         className="absolute inset-y-0 left-0 rounded-full bg-primary"
                         animate={{ width: isDone ? "100%" : "0%" }}
