@@ -230,7 +230,7 @@ export default function ReservationWizard({
   const stepOverrideRef = useRef(false);
   const prefillRef = useRef(false);
   const packagePrefillRef = useRef(false);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const topAnchorRef = useRef<HTMLDivElement>(null);
 
   const router = useRouter();
 
@@ -786,9 +786,7 @@ export default function ReservationWizard({
       return;
     }
     dispatch({ type: "nextStep", max: totalSteps });
-    // Scroll to top of wizard container (works for both page and modal modes)
-    containerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    topAnchorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   const handleCancelReservation = async () => {
@@ -815,11 +813,12 @@ export default function ReservationWizard({
 
   return (
     <div
-      ref={containerRef}
       className={`${
         isModal ? "min-h-full" : "min-h-screen"
       } ${isModal ? "bg-transparent" : "bg-background"} text-foreground`}
     >
+      {/* Anchor for scrollIntoView — finds the correct scrollable ancestor automatically */}
+      <div ref={topAnchorRef} aria-hidden="true" />
       <div
         id="reservation-header"
         className={`sticky top-0 z-40 border-b border-border/60 backdrop-blur ${
@@ -865,13 +864,13 @@ export default function ReservationWizard({
               const isActive = state.step === stepIndex;
               const isDone = state.step > stepIndex;
               return (
-                <div key={`step-${stepIndex}`} className="flex flex-1 items-center">
+                <div key={`step-${stepIndex}`} className="contents">
                   {/* Circle */}
                   <motion.div
                     animate={{ scale: isActive ? 1.12 : 1 }}
                     transition={{ duration: 0.25, ease: "easeOut" }}
                     className={[
-                      "relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
+                      "flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
                       isActive || isDone
                         ? "bg-primary"
                         : "border-2 border-border bg-background",
@@ -914,7 +913,7 @@ export default function ReservationWizard({
                       )}
                     </AnimatePresence>
                   </motion.div>
-                  {/* Connector */}
+                  {/* Connector between steps */}
                   {stepIndex < totalSteps && (
                     <div className="relative mx-1.5 h-0.5 flex-1 overflow-hidden rounded-full bg-border">
                       <motion.div
