@@ -30,6 +30,7 @@ type BtnYappyElement = HTMLElement & {
 
 type Props = {
   reservationId?: string | null;
+  amountOverride?: number | null;
   disabled?: boolean;
   blockedReason?: string | null;
   onPaymentStarted?: () => void;
@@ -145,6 +146,7 @@ function applyYappyDialogCentering(button: BtnYappyElement | null) {
 
 export default function YappyPaymentButton({
   reservationId = null,
+  amountOverride = null,
   disabled = false,
   blockedReason = null,
   onPaymentStarted,
@@ -243,7 +245,10 @@ export default function YappyPaymentButton({
         const response = await fetch("/api/payments/yappy/button-order", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ reservationId }),
+          body: JSON.stringify({
+            reservationId,
+            ...(amountOverride != null ? { amountOverride } : {}),
+          }),
         });
         const result = (await response.json()) as ButtonOrderResponse;
         if (!response.ok || !result.body?.transactionId || !result.body?.token || !result.body?.documentName) {

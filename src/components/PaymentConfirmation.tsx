@@ -8,7 +8,6 @@ import YappyBalanceButton from "@/components/YappyBalanceButton";
 import PagueloFacilPayment from "@/components/PagueloFacilPayment";
 import { getSessionSafe } from "@/lib/supabase/client";
 import { siteData } from "@/lib/siteData";
-import { ChevronDown } from "lucide-react";
 
 type ConfirmationData = {
   id: string | null;
@@ -157,22 +156,19 @@ function buildWhatsAppLink(data: ConfirmationData | null) {
   return `${base}?text=${encodeURIComponent(message)}`;
 }
 
-type PaymentMethod = "YAPPY" | "YAPPY_MANUAL" | "WHATSAPP";
 const YAPPY_STATIC_LINK =
   "https://link.yappy.com.pa/stc/GXqG1kCpTLfAbMHmc7E9nxSk16Vdr9BZvaim7nGhYrA%3D";
 
 export default function PaymentConfirmation() {
   const searchParams = useSearchParams();
   const [data, setData] = useState<ConfirmationData | null>(null);
-  const [openMethod, setOpenMethod] = useState<PaymentMethod | null>(null);
+  type PayStep = "amount" | "pay";
+  const [payStep, setPayStep] = useState<PayStep>("amount");
+  const [selectedAmountType, setSelectedAmountType] = useState<"deposit" | "full" | null>(null);
   const [paymentNotice, setPaymentNotice] = useState<string | null>(null);
   const [manualLinkBusy, setManualLinkBusy] = useState(false);
   const [polling, setPolling] = useState(false);
   const requestedReservationId = searchParams.get("rid");
-
-  function toggleMethod(method: PaymentMethod) {
-    setOpenMethod((prev) => (prev === method ? null : method));
-  }
 
   const loadReservation = useCallback(async () => {
       let nextStatus: string | null = null;
@@ -329,6 +325,11 @@ export default function PaymentConfirmation() {
       : data?.totalAmount != null
         ? Math.round(Number(data.totalAmount) * 0.5 * 100) / 100
         : null;
+
+  const chosenAmount: number | null =
+    selectedAmountType === "full"
+      ? (data?.totalAmount != null ? Number(data.totalAmount) : null)
+      : depositAmount != null ? Number(depositAmount) : null;
 
   const yappyBlockedReason =
     !data?.id
@@ -487,161 +488,167 @@ export default function PaymentConfirmation() {
           </p>
         </div>
       ) : (
-        /* Métodos de pago (acordeón) — estado PENDING_PAYMENT */
-        <div className="flex flex-col gap-2">
+        /* ── 3-step payment flow ── */
+        <div className="flex flex-col gap-5">
 
-          {/* Yappy (link) */}
-          <div className="rounded-3xl border border-border/70 overflow-hidden">
-            <button
-              type="button"
-              onClick={() => toggleMethod("YAPPY")}
-              className="flex w-full items-center justify-between px-5 py-4 text-left"
-            >
+          {/* Mini step breadcrumb */}
+          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+            <span className={payStep === "amount" ? "font-semibold text-foreground" : ""}>Monto</span>
+            <span>›</span>
+            <span className={payStep === "pay" ? "font-semibold text-foreground" : ""}>Pagar</span>
+          </div>
+
+          {/* STEP 1 — Amount selector */}
+          {payStep === "amount" && (
+            <div className="flex flex-col gap-3">
+              <p className="text-sm text-muted-foreground">
+                ¿Cuánto quieres pagar ahora?
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedAmountType("deposit");
+                  setPayStep("pay");
+                }}
+                className="w-full rounded-3xl border border-border/70 bg-background px-6 py-5 text-left transition hover:border-primary/50 hover:shadow-sm active:scale-[0.99]"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-base font-semibold text-foreground">Depósito inicial (50%)</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">Confirma tu reserva con el mínimo requerido</p>
+                  </div>
+                  <p className="text-lg font-bold text-primary">{formatCurrency(depositAmount)}</p>
+                </div>
+              </button>
+              {data?.totalAmount != null && Number(data.totalAmount) > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedAmountType("full");
+                    setPayStep("pay");
+                  }}
+                  className="w-full rounded-3xl border border-border/70 bg-background px-6 py-5 text-left transition hover:border-primary/50 hover:shadow-sm active:scale-[0.99]"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-base font-semibold text-foreground">Pago completo (100%)</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">Saldo total saldado desde el inicio</p>
+                    </div>
+                    <p className="text-lg font-bold text-foreground">{formatCurrency(data.totalAmount)}</p>
+                  </div>
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* STEP 2 — Pay (all Yappy options together) */}
+          {payStep === "pay" && (
+            <div className="flex flex-col gap-4">
+              {/* Header with back button + chosen amount */}
               <div className="flex items-center gap-3">
-                <span className="text-xs font-semibold uppercase tracking-[0.2em] text-foreground">
-                  Yappy
-                </span>
-                <span className="rounded-full bg-[#00ADEF]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[#00ADEF]">
-                  Recomendado
-                </span>
+                <button
+                  type="button"
+                  onClick={() => setPayStep("amount")}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border/70 text-sm text-foreground transition hover:border-primary/50"
+                >
+                  ←
+                </button>
+                <p className="text-sm text-muted-foreground">
+                  Pagando{" "}
+                  <span className="font-semibold text-foreground">{formatCurrency(chosenAmount)}</span>
+                </p>
               </div>
-              <ChevronDown
-                className={[
-                  "h-4 w-4 text-muted-foreground transition-transform duration-200",
-                  openMethod === "YAPPY" ? "rotate-180" : "",
-                ].join(" ")}
-              />
-            </button>
-            <div
-              className="grid transition-[grid-template-rows] duration-200 ease-out"
-              style={{ gridTemplateRows: openMethod === "YAPPY" ? "1fr" : "0fr" }}
-            >
-              <div className="overflow-hidden">
-                <div className="border-t border-border/50 px-5 pb-5 pt-4">
-                  <p className="text-xs text-muted-foreground">
-                    Ingresa el monto del depósito (
-                    <span className="font-semibold text-foreground">
-                      {formatCurrency(depositAmount)}
-                    </span>
-                    ), tu número Yappy y tu nombre como comentario para identificar tu pago.
-                  </p>
-                  <div className="mt-4">
-                    <YappyPaymentButton
-                      reservationId={data?.id ?? null}
-                      disabled={Boolean(yappyBlockedReason)}
-                      blockedReason={yappyBlockedReason}
-                      onPaymentStarted={() => {
-                        setPaymentNotice(
-                          "El flujo de Yappy fue iniciado. En cuanto Yappy confirme el pago, actualizaremos tu reserva."
-                        );
-                        setPolling(true);
-                      }}
-                    />
-                  </div>
-                  <p className="mt-3 text-xs font-medium text-amber-600 dark:text-amber-500">
-                    Si el botón no te funciona, puedes usar el link manual de Yappy o escribirnos por WhatsApp.
-                  </p>
+
+              {/* Yappy botón (principal) */}
+              <div className="rounded-3xl border border-border/70 px-5 py-5">
+                <div className="mb-3 flex items-center gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-foreground">Yappy</p>
+                  <span className="rounded-full bg-[#00ADEF]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[#00ADEF]">
+                    Recomendado
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Ingresa tu número Yappy y tu nombre como comentario para identificar tu pago.
+                </p>
+                <div className="mt-4">
+                  <YappyPaymentButton
+                    reservationId={data?.id ?? null}
+                    amountOverride={chosenAmount}
+                    disabled={Boolean(yappyBlockedReason)}
+                    blockedReason={yappyBlockedReason}
+                    onPaymentStarted={() => {
+                      setPaymentNotice(
+                        "El flujo de Yappy fue iniciado. En cuanto Yappy confirme el pago, actualizaremos tu reserva."
+                      );
+                      setPolling(true);
+                    }}
+                  />
                 </div>
               </div>
-            </div>
-          </div>
 
-          {/* Yappy Manual */}
-          <div className="rounded-3xl border border-yellow-500/20 overflow-hidden">
-            <button
-              type="button"
-              onClick={() => toggleMethod("YAPPY_MANUAL")}
-              className="flex w-full items-center justify-between px-5 py-4 text-left"
-            >
-              <span className="text-xs font-semibold uppercase tracking-[0.2em] text-yellow-700 dark:text-yellow-500">
-                Yappy manual – desde la app
-              </span>
-              <ChevronDown
-                className={[
-                  "h-4 w-4 text-muted-foreground transition-transform duration-200",
-                  openMethod === "YAPPY_MANUAL" ? "rotate-180" : "",
-                ].join(" ")}
-              />
-            </button>
-            <div
-              className="grid transition-[grid-template-rows] duration-200 ease-out"
-              style={{ gridTemplateRows: openMethod === "YAPPY_MANUAL" ? "1fr" : "0fr" }}
-            >
-              <div className="overflow-hidden">
-                <div className="border-t border-yellow-500/20 px-5 pb-5 pt-4">
-                  <p className="text-xs text-muted-foreground">
-                    Este es el respaldo manual. Abriremos el link estático de Yappy y dejaremos el pago marcado como pendiente manual para que el equipo lo confirme.
-                  </p>
-                  <div className="mt-4">
-                    <button
-                      type="button"
-                      onClick={() => void handleManualLinkClick()}
-                      disabled={manualLinkBusy || Boolean(yappyBlockedReason)}
-                      className="flex w-full items-center justify-center rounded-full bg-[#00ADEF] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#0099d6] disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {manualLinkBusy ? "Preparando link..." : "Abrir link estático de Yappy"}
-                    </button>
-                  </div>
-                  <div className="mt-3 flex flex-col gap-3">
-                    <div>
-                      <p className="text-[11px] uppercase text-muted-foreground">Número de teléfono:</p>
-                      <div className="mt-1 w-fit cursor-text select-all rounded-lg border border-border/40 bg-background/60 px-3 py-1.5 font-mono text-sm font-medium text-foreground">
-                        {siteData.links.yappy}
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-[11px] uppercase text-muted-foreground">Alias / Directorio:</p>
-                      <div className="mt-1 w-fit cursor-text select-all rounded-lg border border-border/40 bg-background/60 px-3 py-1.5 font-mono text-sm font-medium text-foreground">
-                        cabanasmarinas507
-                      </div>
-                    </div>
-                  </div>
-                  <p className="mt-3 text-xs font-medium text-amber-600 dark:text-amber-500">
-                    Recuerda enviarnos la captura de pantalla del comprobante por WhatsApp para confirmar tu reserva.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* WhatsApp */}
-          <div className="rounded-3xl border border-[#25D366]/30 overflow-hidden">
-            <button
-              type="button"
-              onClick={() => toggleMethod("WHATSAPP")}
-              className="flex w-full items-center justify-between px-5 py-4 text-left"
-            >
-              <span className="text-xs font-semibold uppercase tracking-[0.2em] text-[#25D366]">
-                WhatsApp
-              </span>
-              <ChevronDown
-                className={[
-                  "h-4 w-4 text-muted-foreground transition-transform duration-200",
-                  openMethod === "WHATSAPP" ? "rotate-180" : "",
-                ].join(" ")}
-              />
-            </button>
-            <div
-              className="grid transition-[grid-template-rows] duration-200 ease-out"
-              style={{ gridTemplateRows: openMethod === "WHATSAPP" ? "1fr" : "0fr" }}
-            >
-              <div className="overflow-hidden">
-                <div className="border-t border-[#25D366]/20 px-5 pb-5 pt-4">
-                  <p className="text-xs text-muted-foreground">
-                    Contáctanos por WhatsApp para coordinar el pago manualmente.
-                  </p>
-                  <a
-                    href={buildWhatsAppLink(data)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-4 flex items-center justify-center gap-2 rounded-full bg-[#25D366] px-6 py-3 text-sm font-semibold text-white"
+              {/* Yappy manual (fallback) */}
+              <div className="rounded-3xl border border-yellow-500/20 px-5 py-5">
+                <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-yellow-700 dark:text-yellow-500">
+                  Yappy manual – desde la app
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Si el botón no funciona, usa el link estático. El equipo confirmará el pago manualmente.
+                </p>
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    onClick={() => void handleManualLinkClick()}
+                    disabled={manualLinkBusy || Boolean(yappyBlockedReason)}
+                    className="flex w-full items-center justify-center rounded-full bg-[#00ADEF] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#0099d6] disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    Abrir WhatsApp
-                  </a>
+                    {manualLinkBusy ? "Preparando link..." : "Abrir link estático de Yappy"}
+                  </button>
                 </div>
+                <div className="mt-3 flex flex-col gap-3">
+                  <div>
+                    <p className="text-[11px] uppercase text-muted-foreground">Monto a enviar:</p>
+                    <div className="mt-1 w-fit cursor-text select-all rounded-lg border border-border/40 bg-background/60 px-3 py-1.5 font-mono text-sm font-semibold text-primary">
+                      {formatCurrency(chosenAmount)}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[11px] uppercase text-muted-foreground">Número de teléfono:</p>
+                    <div className="mt-1 w-fit cursor-text select-all rounded-lg border border-border/40 bg-background/60 px-3 py-1.5 font-mono text-sm font-medium text-foreground">
+                      {siteData.links.yappy}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[11px] uppercase text-muted-foreground">Alias / Directorio:</p>
+                    <div className="mt-1 w-fit cursor-text select-all rounded-lg border border-border/40 bg-background/60 px-3 py-1.5 font-mono text-sm font-medium text-foreground">
+                      cabanasmarinas507
+                    </div>
+                  </div>
+                </div>
+                <p className="mt-3 text-xs font-medium text-amber-600 dark:text-amber-500">
+                  Recuerda enviarnos la captura de pantalla del comprobante por WhatsApp para confirmar tu reserva.
+                </p>
+              </div>
+
+              {/* WhatsApp (siempre disponible) */}
+              <div className="rounded-3xl border border-[#25D366]/30 px-5 py-5">
+                <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-[#25D366]">
+                  WhatsApp
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Contáctanos para coordinar el pago o si necesitas ayuda.
+                </p>
+                <a
+                  href={buildWhatsAppLink(data)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-4 flex items-center justify-center gap-2 rounded-full bg-[#25D366] px-6 py-3 text-sm font-semibold text-white"
+                >
+                  Abrir WhatsApp
+                </a>
               </div>
             </div>
-          </div>
+          )}
+
         </div>
       )}
 

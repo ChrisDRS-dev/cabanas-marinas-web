@@ -11,6 +11,7 @@ import {
 
 type ButtonOrderPayload = {
   reservationId?: string | null;
+  amountOverride?: number | null;
 };
 
 function roundCurrency(value: number) {
@@ -110,6 +111,10 @@ export async function POST(req: Request) {
   }
 
   const reservationId = String(payload.reservationId ?? "").trim();
+  const amountOverride =
+    typeof payload.amountOverride === "number" && payload.amountOverride > 0
+      ? roundCurrency(payload.amountOverride)
+      : null;
   if (!reservationId) {
     return NextResponse.json({ error: "missing_reservation" }, { status: 400 });
   }
@@ -270,7 +275,11 @@ export async function POST(req: Request) {
     }
 
     const orderId = createReservationOrderId(reservation.id);
-    const effectiveAmount = depositAmount;
+    // Use amountOverride if provided (e.g. user chose to pay 100%), otherwise default to deposit
+    const effectiveAmount =
+      amountOverride != null && amountOverride <= totalAmount
+        ? amountOverride
+        : depositAmount;
     let yappyOrder;
     try {
       yappyOrder = await createYappyButtonOrder({
@@ -305,7 +314,7 @@ export async function POST(req: Request) {
         invoice_id: invoiceId,
         provider: "YAPPY",
         status: "PENDING",
-        amount: depositAmount,
+        amount: effectiveAmount,
         meta: {
           reservation_id: reservation.id,
           orderId,
@@ -314,7 +323,7 @@ export async function POST(req: Request) {
           documentName: yappyOrder.documentName,
           merchant_validation: merchant.raw,
           order_response: yappyOrder.raw,
-          expected_amount: depositAmount,
+          expected_amount: effectiveAmount,
           flow: "yappy_button_v2",
           requested_alias: customerAlias,
         },
