@@ -62,12 +62,20 @@ export async function GET() {
       : [];
     const payment = payments[0] ?? null;
 
+    const paidAmount = payments
+      .filter((p) => p.status === "SUCCEEDED")
+      .reduce((sum, p) => sum + Number(p.amount ?? 0), 0);
+    const totalAmount = Number(reservation.total_amount ?? 0);
+    const balanceDue = Math.max(0, Math.round((totalAmount - paidAmount) * 100) / 100);
+
     return {
       ...reservation,
       invoice_status: invoice?.status ?? null,
       payment_status: payment?.status ?? null,
       payment_provider_ref: payment?.provider_ref ?? null,
       payment_amount: payment?.amount ?? null,
+      paid_amount: paidAmount,
+      balance_due: balanceDue,
     };
   });
 

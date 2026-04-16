@@ -14,6 +14,7 @@ const METHODS: {
   label: string;
   description: string;
   enabled: boolean;
+  hidden?: boolean;
 }[] = [
   {
     id: "YAPPY",
@@ -31,7 +32,8 @@ const METHODS: {
     id: "CARD",
     label: "Tarjeta / CLAVE",
     description: "Visa, Mastercard, CLAVE, Nequi.",
-    enabled: true,
+    enabled: false,
+    hidden: true,
   },
   {
     id: "CASH",
@@ -68,7 +70,7 @@ export default function StepPayment({
   const title = config?.title ?? "Metodo de pago";
   const subtitle =
     config?.subtitle ?? "Selecciona como prefieres confirmar tu reserva.";
-  const methods =
+  const methods = (
     config?.methods && config.methods.length > 0
       ? config.methods.map((method) => ({
           id: method.id,
@@ -81,11 +83,13 @@ export default function StepPayment({
               ? "Ver opciones de pago por WhatsApp."
               : method.description ?? "",
           enabled:
-            method.id === "CASH" || method.id === "YAPPY" || method.id === "CARD"
+            method.id === "CASH" || method.id === "YAPPY"
               ? true
               : method.enabled ?? false,
+          hidden: method.id === "CARD",
         }))
-      : METHODS;
+      : METHODS
+  ).filter((m) => !m.hidden);
 
   return (
     <section className="space-y-4">

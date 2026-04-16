@@ -23,6 +23,11 @@ type ReservationItem = {
   adults_count?: number | null;
   kids_count?: number | null;
   packages?: { label?: string | null } | { label?: string | null }[] | null;
+  deposit_amount?: number | string | null;
+  invoice_status?: string | null;
+  paid_amount?: number | null;
+  balance_due?: number | null;
+  payment_method?: string | null;
 };
 
 const ACTIVE_STATUS = new Set(["PENDING_PAYMENT", "CONFIRMED"]);
@@ -310,6 +315,20 @@ export default function ReservationOverlay() {
                             <p className="text-sm font-semibold">
                               {formatCurrency(reservation.total_amount)}
                             </p>
+                            {reservation.status === "CONFIRMED" &&
+                              reservation.balance_due != null &&
+                              Number(reservation.balance_due) > 0 && (
+                                <p className="mt-0.5 text-xs font-medium text-amber-600 dark:text-amber-500">
+                                  Saldo: {formatCurrency(reservation.balance_due)}
+                                </p>
+                              )}
+                            {reservation.status === "CONFIRMED" &&
+                              (reservation.balance_due == null ||
+                                Number(reservation.balance_due) === 0) && (
+                                <p className="mt-0.5 text-xs font-medium text-emerald-600">
+                                  Pagada ✓
+                                </p>
+                              )}
                             <p className="mt-0.5 text-xs text-muted-foreground">
                               Ver detalles →
                             </p>
@@ -486,6 +505,27 @@ export default function ReservationOverlay() {
                   {formatCurrency(selectedReservation.total_amount)}
                 </span>
               </div>
+              {selectedReservation.status === "CONFIRMED" &&
+                selectedReservation.paid_amount != null && (
+                  <div className="flex items-center justify-between py-3">
+                    <span className="text-muted-foreground">Depósito pagado</span>
+                    <span className="font-medium text-emerald-600">
+                      {formatCurrency(selectedReservation.paid_amount)}
+                    </span>
+                  </div>
+                )}
+              {selectedReservation.status === "CONFIRMED" &&
+                selectedReservation.balance_due != null &&
+                Number(selectedReservation.balance_due) > 0 && (
+                  <div className="flex items-center justify-between py-3">
+                    <span className="font-semibold text-amber-600 dark:text-amber-500">
+                      Saldo pendiente
+                    </span>
+                    <span className="font-semibold text-amber-600 dark:text-amber-500">
+                      {formatCurrency(selectedReservation.balance_due)}
+                    </span>
+                  </div>
+                )}
             </div>
 
             {/* Action buttons */}
@@ -509,7 +549,7 @@ export default function ReservationOverlay() {
               </div>
               {selectedReservation.status === "PENDING_PAYMENT" && (
                 <a
-                  href="/reservar/pago"
+                  href={`/reservar/pago?method=${selectedReservation.payment_method ?? "YAPPY"}&rid=${selectedReservation.id}`}
                   className="w-full rounded-full bg-primary px-4 py-2.5 text-center text-sm font-semibold text-primary-foreground"
                 >
                   Realizar pago
