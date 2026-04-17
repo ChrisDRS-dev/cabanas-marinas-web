@@ -147,7 +147,7 @@ export default function CircularGallery({ items }: CircularGalleryProps) {
   return (
     <div className="space-y-6">
       <div
-        className="relative h-[24rem] overflow-hidden rounded-[2rem] border border-white/10 bg-[#140f1a] sm:h-[26rem] lg:h-[28rem]"
+        className="relative h-[24rem] overflow-hidden rounded-[2rem] border border-white/25 bg-white/55 shadow-[0_2px_32px_rgba(15,31,36,0.07),inset_0_1px_0_rgba(255,255,255,0.35)] backdrop-blur-xl backdrop-saturate-[165%] dark:border-white/10 dark:bg-card/60 dark:shadow-[0_2px_40px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.06)] sm:h-[26rem] lg:h-[28rem]"
         onMouseEnter={() => setIsPaused(true)}
         onMouseLeave={() => setIsPaused(false)}
         onTouchStart={() => {
@@ -166,13 +166,12 @@ export default function CircularGallery({ items }: CircularGalleryProps) {
           );
         }}
       >
-        {/* Ambient gradient */}
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,181,200,0.12),transparent_42%),radial-gradient(circle_at_bottom_right,rgba(255,176,84,0.1),transparent_36%)]" />
+        {/* Subtle brand-color accents — teal top-left, amber bottom-right, white sheen top-center */}
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_15%_20%,rgba(0,133,161,0.07),transparent_50%),radial-gradient(ellipse_at_85%_80%,rgba(255,179,71,0.06),transparent_45%),radial-gradient(ellipse_at_50%_0%,rgba(255,255,255,0.14),transparent_38%)] dark:bg-[radial-gradient(ellipse_at_15%_20%,rgba(52,182,200,0.07),transparent_50%),radial-gradient(ellipse_at_85%_80%,rgba(255,179,71,0.06),transparent_45%),radial-gradient(ellipse_at_50%_0%,rgba(255,255,255,0.04),transparent_38%)]" />
 
-        {/* Left edge fade — blends side cards into the dark background */}
-        <div className="pointer-events-none absolute inset-y-0 left-0 z-40 w-16 bg-gradient-to-r from-[#140f1a] to-transparent sm:w-24" />
-        {/* Right edge fade */}
-        <div className="pointer-events-none absolute inset-y-0 right-0 z-40 w-16 bg-gradient-to-l from-[#140f1a] to-transparent sm:w-24" />
+        {/* Edge fades — match the glass panel so side cards dissolve smoothly */}
+        <div className="pointer-events-none absolute inset-y-0 left-0 z-40 w-14 bg-gradient-to-r from-white/70 to-transparent dark:from-card/75 sm:w-20" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 z-40 w-14 bg-gradient-to-l from-white/70 to-transparent dark:from-card/75 sm:w-20" />
 
         <div className="relative h-full">
           {VISIBLE_OFFSETS.map((offset) => {
