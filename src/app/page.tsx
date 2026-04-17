@@ -7,7 +7,7 @@ import InstagramGallerySection from "@/components/InstagramGallerySection";
 import ReservationOverlayClient from "@/components/ReservationOverlayClient";
 import ReserveButton from "@/components/ReserveButton";
 import FadeIn from "@/components/FadeIn";
-import { getInstagramGalleryItems, getInstagramProfileUrl } from "@/lib/instagram";
+import { instagramEmbedPosts, INSTAGRAM_PROFILE_URL } from "@/lib/instagram-embeds";
 import { siteData } from "@/lib/siteData";
 import { supabaseServer } from "@/lib/supabase/server";
 import { Suspense } from "react";
@@ -25,8 +25,6 @@ export default async function HomePage() {
 
   const homeContent =
     (contentRow?.content as typeof siteData) ?? siteData;
-  const instagramPosts = await getInstagramGalleryItems(8);
-  const instagramProfileUrl = getInstagramProfileUrl();
   const {
     brand,
     about,
@@ -119,8 +117,8 @@ export default async function HomePage() {
         </section>
 
         <InstagramGallerySection
-          items={instagramPosts}
-          profileUrl={instagramProfileUrl}
+          items={instagramEmbedPosts}
+          profileUrl={INSTAGRAM_PROFILE_URL}
         />
 
         <section id="ubicacion" className="mx-auto max-w-6xl px-6 py-14">

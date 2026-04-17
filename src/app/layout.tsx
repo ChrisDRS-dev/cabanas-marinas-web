@@ -3,6 +3,7 @@ import "./globals.css";
 import StickyCTA from "@/components/StickyCTA";
 import AuthGate from "@/components/AuthGate";
 import AuthProvider from "@/components/AuthProvider";
+import { INSTAGRAM_PROFILE_URL } from "@/lib/instagram-embeds";
 
 export const metadata: Metadata = {
   title: "Cabañas Marinas | Cabañas frente al mar",
@@ -44,6 +45,7 @@ export default function RootLayout({
             primaryLabel="Mi reserva"
             secondaryHref="https://wa.me/50762811651"
             secondaryLabel="WhatsApp"
+            instagramHref={INSTAGRAM_PROFILE_URL}
           />
           <AuthGate />
         </AuthProvider>

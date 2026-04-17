@@ -39,6 +39,11 @@ type InstagramProfileResponse = {
 const INSTAGRAM_USERNAME = "cabanasmarinas507";
 const INSTAGRAM_PROFILE_URL = `https://www.instagram.com/${INSTAGRAM_USERNAME}/`;
 
+function proxiedInstagramImage(url: string) {
+  if (!url.startsWith("http")) return url;
+  return `/api/instagram/image?src=${encodeURIComponent(url)}`;
+}
+
 function compactText(value: string | null | undefined, limit = 96) {
   const normalized = String(value ?? "")
     .replace(/\s+/g, " ")
@@ -92,7 +97,7 @@ function normalizeInstagramNode(node: InstagramMediaNode | undefined): Instagram
 
   return {
     id: node.id ?? node.shortcode,
-    image,
+    image: proxiedInstagramImage(image),
     text,
     link: `https://www.instagram.com/p/${node.shortcode}/`,
     isVideo: Boolean(node.is_video),

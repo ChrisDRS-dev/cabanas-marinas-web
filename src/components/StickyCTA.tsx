@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Instagram } from "lucide-react";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
@@ -11,6 +12,7 @@ type StickyCTAProps = {
   primaryLabel: string;
   secondaryHref: string;
   secondaryLabel: string;
+  instagramHref: string;
 };
 
 export default function StickyCTA({
@@ -18,6 +20,7 @@ export default function StickyCTA({
   primaryLabel,
   secondaryHref,
   secondaryLabel,
+  instagramHref,
 }: StickyCTAProps) {
   const pathname = usePathname();
   const [session, setSession] = useState<Session | null>(null);
@@ -69,6 +72,15 @@ export default function StickyCTA({
           className="flex items-center justify-center rounded-full bg-[#25D366] px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-[#25D366]/30 transition hover:bg-[#1ebe5b]"
         >
           {secondaryLabel}
+        </a>
+        <a
+          href={instagramHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Instagram"
+          className="flex h-12 w-12 items-center justify-center rounded-full bg-[linear-gradient(135deg,#f58529,#feda77,#dd2a7b,#8134af,#515bd4)] text-white shadow-lg shadow-[#dd2a7b]/25 transition hover:scale-[1.03]"
+        >
+          <Instagram className="h-5 w-5" />
         </a>
       </div>
     </div>
