@@ -4,10 +4,12 @@ import MapCard from "@/components/MapCard";
 import NavbarMobile from "@/components/NavbarMobile";
 import GalleryCarousel from "@/components/GalleryCarousel";
 import InstagramGallerySection from "@/components/InstagramGallerySection";
+import ReviewsSection from "@/components/ReviewsSection";
 import ReservationOverlayClient from "@/components/ReservationOverlayClient";
 import ReserveButton from "@/components/ReserveButton";
 import FadeIn from "@/components/FadeIn";
 import { instagramEmbedPosts, INSTAGRAM_PROFILE_URL } from "@/lib/instagram-embeds";
+import type { ApprovedReview } from "@/lib/reviews";
 import { siteData } from "@/lib/siteData";
 import { supabaseServer } from "@/lib/supabase/server";
 import { Suspense } from "react";
@@ -16,12 +18,22 @@ export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const supabase = await supabaseServer();
-  const { data: contentRow } = await supabase
-    .from("site_content")
-    .select("content")
-    .eq("key", "home")
-    .eq("is_active", true)
-    .maybeSingle();
+  const [{ data: contentRow }, { data: reviewsRows }] = await Promise.all([
+    supabase
+      .from("site_content")
+      .select("content")
+      .eq("key", "home")
+      .eq("is_active", true)
+      .maybeSingle(),
+    supabase
+      .from("reviews")
+      .select(
+        "id, rating, comment, stay_label, is_anonymous, display_name, guest_name, created_at",
+      )
+      .eq("status", "approved")
+      .order("created_at", { ascending: false })
+      .limit(12),
+  ]);
 
   const homeContent =
     (contentRow?.content as typeof siteData) ?? siteData;
@@ -34,8 +46,10 @@ export default async function HomePage() {
     activities,
     location,
     faq,
+    reviews,
     finalCta,
   } = homeContent;
+  const approvedReviews = (reviewsRows ?? []) as ApprovedReview[];
   const planGallery = plans.map((plan, index) => ({
     title: plan.name,
     price: plan.price,
@@ -119,6 +133,11 @@ export default async function HomePage() {
         <InstagramGallerySection
           items={instagramEmbedPosts}
           profileUrl={INSTAGRAM_PROFILE_URL}
+        />
+
+        <ReviewsSection
+          reviews={approvedReviews}
+          content={reviews ?? siteData.reviews}
         />
 
         <section id="ubicacion" className="mx-auto max-w-6xl px-6 py-14">

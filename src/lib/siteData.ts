@@ -164,6 +164,19 @@ export const siteData = {
       answer: "El horario general es de 8:00 a.m. a 10:00 p.m.",
     },
   ],
+  reviews: {
+    eyebrow: "Perspectivas de huéspedes",
+    title: "Bitácora de la Orilla",
+    subtitle:
+      "Comentarios reales de quienes vivieron la calma, la brisa y los momentos frente al mar.",
+    ctaLabel: "Dejar reseña",
+    modalTitle: "Comparte tu experiencia",
+    modalDescription:
+      "Tu comentario quedará pendiente de revisión antes de mostrarse públicamente.",
+    emptyTitle: "Aún no hay reseñas publicadas",
+    emptyDescription:
+      "Sé la primera persona en dejarnos una impresión sobre tu visita.",
+  },
   finalCta: {
     title: "Tu próxima escapada frente al mar empieza aquí.",
     button: "Reservar ahora",
