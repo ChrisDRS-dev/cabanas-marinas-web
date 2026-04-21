@@ -9,7 +9,7 @@ type InstagramGallerySectionProps = {
 
 export default function InstagramGallerySection({
   items,
-  profileUrl: _profileUrl,
+  profileUrl,
 }: InstagramGallerySectionProps) {
   return (
     <section id="instagram" className="mx-auto max-w-6xl px-6 py-18">
@@ -23,6 +23,15 @@ export default function InstagramGallerySection({
           </h2>
           <p className="text-sm text-muted-foreground sm:text-base">
             Síguenos en Instagram y descubre los momentos que vivimos frente al mar, cada día.
+            {" "}
+            <a
+              href={profileUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold text-primary transition hover:opacity-80"
+            >
+              Ver perfil
+            </a>
           </p>
         </div>
         <CircularGallery items={items} />

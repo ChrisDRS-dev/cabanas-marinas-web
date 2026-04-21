@@ -9,6 +9,64 @@ export type ApprovedReview = {
   created_at: string;
 };
 
+export const demoApprovedReviews: ApprovedReview[] = [
+  {
+    id: "demo-review-1",
+    rating: 5,
+    comment:
+      "Pasamos una tarde tranquila frente al mar. El lugar se sintió privado, limpio y con una vista que de verdad invita a bajar el ritmo.",
+    stay_label: "Marzo 2026",
+    is_anonymous: false,
+    display_name: "María González",
+    guest_name: "María González",
+    created_at: "2026-03-18T10:00:00.000Z",
+  },
+  {
+    id: "demo-review-2",
+    rating: 5,
+    comment:
+      "La experiencia del amanecer fue bellísima. Nos gustó mucho que todo se sintiera relajado y bien organizado desde que llegamos.",
+    stay_label: "Febrero 2026",
+    is_anonymous: false,
+    display_name: "Carlos y Elena",
+    guest_name: "Carlos y Elena",
+    created_at: "2026-02-22T09:15:00.000Z",
+  },
+  {
+    id: "demo-review-3",
+    rating: 4,
+    comment:
+      "Ideal para compartir con amigos y desconectarse unas horas. El entorno natural y la brisa hacen que uno quiera quedarse más tiempo.",
+    stay_label: "Enero 2026",
+    is_anonymous: true,
+    display_name: null,
+    guest_name: "Invitado",
+    created_at: "2026-01-10T17:45:00.000Z",
+  },
+  {
+    id: "demo-review-4",
+    rating: 5,
+    comment:
+      "Nos encantó la vista, el acceso al mar y la sensación de privacidad. El espacio se presta muchísimo para un plan familiar con calma.",
+    stay_label: "Diciembre 2025",
+    is_anonymous: false,
+    display_name: "Ana Rodríguez",
+    guest_name: "Ana Rodríguez",
+    created_at: "2025-12-14T14:20:00.000Z",
+  },
+  {
+    id: "demo-review-5",
+    rating: 4,
+    comment:
+      "Muy bonito para una escapada corta. El lugar transmite paz y el traslado se sintió parte de la experiencia, no solo logística.",
+    stay_label: "Noviembre 2025",
+    is_anonymous: false,
+    display_name: "Luis Herrera",
+    guest_name: "Luis Herrera",
+    created_at: "2025-11-05T12:30:00.000Z",
+  },
+];
+
 export function getReviewDisplayName(review: {
   is_anonymous: boolean;
   display_name: string | null;

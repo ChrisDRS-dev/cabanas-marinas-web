@@ -9,14 +9,44 @@ import ReservationOverlayClient from "@/components/ReservationOverlayClient";
 import ReserveButton from "@/components/ReserveButton";
 import FadeIn from "@/components/FadeIn";
 import { instagramEmbedPosts, INSTAGRAM_PROFILE_URL } from "@/lib/instagram-embeds";
-import type { ApprovedReview } from "@/lib/reviews";
+import { demoApprovedReviews, type ApprovedReview } from "@/lib/reviews";
 import { siteData } from "@/lib/siteData";
 import { supabaseServer } from "@/lib/supabase/server";
 import { Suspense } from "react";
 
 export const dynamic = "force-dynamic";
 
-export default async function HomePage() {
+function resolveLocation(
+  rawLocation: Partial<typeof siteData.location> | undefined,
+) {
+  const fallback = siteData.location;
+  const next = {
+    ...fallback,
+    ...(rawLocation ?? {}),
+  };
+
+  const incomingMapsUrl = String(rawLocation?.mapsUrl ?? "").trim();
+  const looksLikeEmbedUrl =
+    incomingMapsUrl.includes("/maps/embed") ||
+    incomingMapsUrl.includes("maps/embed?") ||
+    incomingMapsUrl.includes("google.com/maps/embed") ||
+    incomingMapsUrl.includes("googleusercontent.com/maps");
+
+  return {
+    ...next,
+    mapsUrl: looksLikeEmbedUrl || !incomingMapsUrl
+      ? fallback.mapsUrl
+      : incomingMapsUrl,
+  };
+}
+
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ reviews?: string }>;
+}) {
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const showDemoReviews = resolvedSearchParams?.reviews === "demo";
   const supabase = await supabaseServer();
   const [{ data: contentRow }, { data: reviewsRows }] = await Promise.all([
     supabase
@@ -35,8 +65,17 @@ export default async function HomePage() {
       .limit(12),
   ]);
 
-  const homeContent =
-    (contentRow?.content as typeof siteData) ?? siteData;
+  const rawHomeContent =
+    (contentRow?.content as Partial<typeof siteData> | null) ?? null;
+  const homeContent: typeof siteData = {
+    ...siteData,
+    ...(rawHomeContent ?? {}),
+    location: resolveLocation(rawHomeContent?.location),
+    reviews: {
+      ...siteData.reviews,
+      ...(rawHomeContent?.reviews ?? {}),
+    },
+  };
   const {
     brand,
     about,
@@ -49,7 +88,9 @@ export default async function HomePage() {
     reviews,
     finalCta,
   } = homeContent;
-  const approvedReviews = (reviewsRows ?? []) as ApprovedReview[];
+  const approvedReviews = showDemoReviews
+    ? demoApprovedReviews
+    : ((reviewsRows ?? []) as ApprovedReview[]);
   const planGallery = plans.map((plan, index) => ({
     title: plan.name,
     price: plan.price,

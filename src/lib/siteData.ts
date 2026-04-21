@@ -141,9 +141,12 @@ export const siteData = {
   ],
   location: {
     title: "Ubicación",
-    description: "Frente al mar, entorno natural y tranquilo.",
+    description:
+      "Punta Burica, 04015, Limones, Provincia de Chiriquí. Entorno natural, acceso frente al mar y ubicación fácil de abrir en tu app de mapas.",
+    latitude: 8.1013942,
+    longitude: -82.8644094,
     mapsUrl:
-      "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d15798.079761410658!2d-82.8785483!3d8.1502529!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x8fa51f988ba451ab%3A0x2f7c5ac7075bace6!2sCabanas%20Marinas%20(limones%20Punta%20Burica)!5e0!3m2!1ses!2spa!4v1768877790147!5m2!1ses!2spa",
+      "https://www.google.com/maps/place/Caba%C3%B1as+Marinas+(limones+Punta+Burica)/@8.1007185,-82.8645257,18.05z/data=!4m6!3m5!1s0x8fa51f988ba451ab:0x2f7c5ac7075bace6!8m2!3d8.1013942!4d-82.8644094!16s%2Fg%2F11w85t0z6j?entry=ttu&g_ep=EgoyMDI2MDQxNS4wIKXMDSoASAFQAw%3D%3D",
   },
   faq: [
     {
@@ -166,7 +169,7 @@ export const siteData = {
   ],
   reviews: {
     eyebrow: "Perspectivas de huéspedes",
-    title: "Bitácora de la Orilla",
+    title: "Reseñas",
     subtitle:
       "Comentarios reales de quienes vivieron la calma, la brisa y los momentos frente al mar.",
     ctaLabel: "Dejar reseña",

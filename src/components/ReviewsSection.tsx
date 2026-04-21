@@ -5,7 +5,7 @@ import { ArrowLeft, ArrowRight, Star, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import type { ApprovedReview } from "@/lib/reviews";
-import { getReviewDisplayName, getReviewInitials } from "@/lib/reviews";
+import { getReviewDisplayName } from "@/lib/reviews";
 import { cn } from "@/lib/utils";
 
 type ReviewsSectionContent = {
@@ -69,30 +69,26 @@ function ReviewStars({ rating, interactive = false, onChange }: { rating: number
 
 function ReviewCard({ review }: ReviewCardProps) {
   const name = getReviewDisplayName(review);
-  const initials = getReviewInitials(name);
-  const meta = review.stay_label ? `Huésped en ${review.stay_label}` : "Huésped de Cabañas Marinas";
+  const meta = review.stay_label
+    ? `Visitó en ${review.stay_label}`
+    : "Visitó Cabañas Marinas";
 
   return (
-    <article className="flex h-full flex-col justify-between rounded-[2rem] border border-white/6 bg-[#10171c]/95 p-6 shadow-[0_24px_80px_rgba(0,0,0,0.24)]">
+    <article className="flex h-full flex-col justify-between rounded-[1.75rem] border border-white/6 bg-[#10171c]/95 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
       <div>
         <ReviewStars rating={review.rating} />
-        <blockquote className="mt-6 font-display text-2xl italic leading-[1.45] tracking-[-0.02em] text-white/74 sm:text-[2rem]">
+        <blockquote className="mt-4 font-display text-[1.35rem] italic leading-[1.5] tracking-[-0.02em] text-white/74 sm:text-[1.55rem]">
           “{review.comment}”
         </blockquote>
       </div>
 
-      <div className="mt-8 flex items-center gap-4">
-        <div className="flex h-14 w-14 items-center justify-center rounded-full border border-white/8 bg-white/6 text-lg font-semibold text-[#59f0e8]">
-          {initials}
-        </div>
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-white/92">
-            {name}
-          </p>
-          <p className="mt-1 text-xs uppercase tracking-[0.16em] text-white/45">
-            {meta}
-          </p>
-        </div>
+      <div className="mt-6">
+        <p className="text-[13px] font-semibold uppercase tracking-[0.16em] text-white/92">
+          {name}
+        </p>
+        <p className="mt-1 text-[11px] uppercase tracking-[0.14em] text-white/45">
+          {meta}
+        </p>
       </div>
     </article>
   );
@@ -371,6 +367,14 @@ export default function ReviewsSection({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [visibleCount, setVisibleCount] = useState(1);
   const [activeIndex, setActiveIndex] = useState(0);
+  const sortedReviews = useMemo(
+    () =>
+      [...reviews].sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      ),
+    [reviews],
+  );
 
   useEffect(() => {
     const updateVisibleCount = () => {
@@ -390,12 +394,13 @@ export default function ReviewsSection({
     return () => window.removeEventListener("resize", updateVisibleCount);
   }, []);
 
-  const pageCount = Math.max(1, reviews.length - visibleCount + 1);
+  const pageCount = Math.max(1, sortedReviews.length - visibleCount + 1);
   const safeActiveIndex = Math.min(activeIndex, pageCount - 1);
 
   const visibleReviews = useMemo(
-    () => reviews.slice(safeActiveIndex, safeActiveIndex + visibleCount),
-    [reviews, safeActiveIndex, visibleCount],
+    () =>
+      sortedReviews.slice(safeActiveIndex, safeActiveIndex + visibleCount),
+    [safeActiveIndex, sortedReviews, visibleCount],
   );
 
   function handleOpenReviewForm() {
@@ -421,37 +426,35 @@ export default function ReviewsSection({
   }
 
   return (
-    <section
-      id="resenas"
-      className="relative overflow-hidden bg-[#071114] px-6 py-20 text-white sm:py-24"
-    >
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(16,39,44,0.9),transparent_56%)]" />
-      <div className="absolute left-1/2 top-8 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full border border-white/[0.03]" />
-      <div className="absolute left-1/2 top-24 h-[56rem] w-[56rem] -translate-x-1/2 rounded-full border border-white/[0.025]" />
+    <section id="resenas" className="mx-auto max-w-6xl px-6 py-10 sm:py-12">
+      <div className="relative overflow-hidden rounded-[2.25rem] border border-white/10 bg-[linear-gradient(180deg,rgba(16,27,30,0.96),rgba(12,20,23,0.98))] px-5 py-10 shadow-[0_24px_80px_rgba(0,0,0,0.24)] sm:px-7 sm:py-12">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(52,182,200,0.12),transparent_42%),radial-gradient(circle_at_bottom_right,rgba(255,179,71,0.08),transparent_34%)]" />
+        <div className="absolute left-1/2 top-8 h-[26rem] w-[26rem] -translate-x-1/2 rounded-full border border-white/[0.03]" />
+        <div className="absolute left-1/2 top-20 h-[42rem] w-[42rem] -translate-x-1/2 rounded-full border border-white/[0.025]" />
 
-      <div className="relative mx-auto max-w-6xl">
+        <div className="relative mx-auto max-w-6xl">
         <div className="mx-auto max-w-3xl text-center">
-          <p className="text-[11px] uppercase tracking-[0.38em] text-[#59f0e8]/88">
+          <p className="text-[11px] uppercase tracking-[0.38em] text-primary/90">
             {content.eyebrow}
           </p>
-          <h2 className="mt-6 font-display text-5xl italic tracking-[-0.04em] text-white/92 sm:text-6xl lg:text-[5.2rem]">
-            {content.title}
+          <h2 className="mt-4 font-display text-4xl italic tracking-[-0.04em] text-white/92 sm:text-5xl lg:text-[4.4rem]">
+            Reseñas
           </h2>
-          <div className="mx-auto mt-6 h-px w-28 bg-white/12" />
-          <p className="mx-auto mt-6 max-w-2xl text-sm leading-7 text-white/56 sm:text-base">
+          <div className="mx-auto mt-4 h-px w-24 bg-border" />
+          <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-white/56 sm:text-[15px]">
             {content.subtitle}
           </p>
           <button
             type="button"
             onClick={handleOpenReviewForm}
-            className="mt-8 rounded-full border border-[#59f0e8]/28 bg-[#59f0e8]/10 px-6 py-3 text-sm font-semibold text-[#59f0e8] transition hover:bg-[#59f0e8]/14"
+            className="mt-6 rounded-full border border-primary/25 bg-primary/10 px-5 py-2.5 text-sm font-semibold text-primary transition hover:bg-primary/15"
           >
             {content.ctaLabel}
           </button>
         </div>
 
-        <div className="mt-14">
-          {reviews.length ? (
+        <div className="mt-10">
+          {sortedReviews.length ? (
             <>
               <div
                 className={cn(
@@ -469,14 +472,14 @@ export default function ReviewsSection({
               </div>
 
               {pageCount > 1 ? (
-                <div className="mt-10 flex items-center justify-center gap-5">
+                <div className="mt-7 flex items-center justify-center gap-4">
                   <button
                     type="button"
                     onClick={showPrevious}
-                    className="flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-white/[0.02] text-white/70 transition hover:bg-white/[0.06] hover:text-white"
+                    className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card/70 text-muted-foreground transition hover:bg-secondary hover:text-foreground"
                     aria-label="Ver reseñas anteriores"
                   >
-                    <ArrowLeft className="h-5 w-5" />
+                    <ArrowLeft className="h-4 w-4" />
                   </button>
                   <div className="flex items-center gap-2">
                     {Array.from({ length: pageCount }, (_, index) => (
@@ -486,7 +489,7 @@ export default function ReviewsSection({
                         onClick={() => setActiveIndex(index)}
                         className={cn(
                           "h-2.5 w-2.5 rounded-full transition",
-                          index === safeActiveIndex ? "bg-[#59f0e8]" : "bg-white/12",
+                          index === safeActiveIndex ? "bg-primary" : "bg-border",
                         )}
                         aria-label={`Ir a la página ${index + 1} de reseñas`}
                       />
@@ -495,25 +498,26 @@ export default function ReviewsSection({
                   <button
                     type="button"
                     onClick={showNext}
-                    className="flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-white/[0.02] text-white/70 transition hover:bg-white/[0.06] hover:text-white"
+                    className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card/70 text-muted-foreground transition hover:bg-secondary hover:text-foreground"
                     aria-label="Ver siguientes reseñas"
                   >
-                    <ArrowRight className="h-5 w-5" />
+                    <ArrowRight className="h-4 w-4" />
                   </button>
                 </div>
               ) : null}
             </>
           ) : (
-            <div className="mx-auto max-w-2xl rounded-[2rem] border border-white/8 bg-[#10171c]/90 px-6 py-10 text-center shadow-[0_24px_80px_rgba(0,0,0,0.24)]">
-              <p className="font-display text-3xl italic text-white/86">
+            <div className="mx-auto max-w-2xl rounded-[1.8rem] border border-white/8 bg-[#10171c]/90 px-6 py-8 text-center shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
+              <p className="font-display text-[2rem] italic text-white/86">
                 {content.emptyTitle}
               </p>
-              <p className="mt-4 text-sm leading-7 text-white/54">
+              <p className="mt-3 text-sm leading-6 text-white/54">
                 {content.emptyDescription}
               </p>
             </div>
           )}
         </div>
+      </div>
       </div>
 
       <ReviewFormDialog
