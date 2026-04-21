@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getSessionSafe, supabase } from "@/lib/supabase/client";
+import { useAuth } from "@/components/AuthProvider";
+import { supabase } from "@/lib/supabase/client";
 
 type AuthModalProps = {
   open: boolean;
@@ -9,23 +10,14 @@ type AuthModalProps = {
 };
 
 export default function AuthModal({ open, onClose }: AuthModalProps) {
+  const { session } = useAuth();
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!open) return;
-
-    void getSessionSafe().then((session) => {
-      if (session) onClose();
-    });
-
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) onClose();
-    });
-
-    return () => {
-      sub.subscription.unsubscribe();
-    };
-  }, [open, onClose]);
+    if (open && session) {
+      onClose();
+    }
+  }, [open, onClose, session]);
 
   if (!open) return null;
 

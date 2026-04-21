@@ -296,7 +296,7 @@ export default function HomeReservationNotice({
           <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             <span>Hay una reserva en progreso. Continúa donde la dejaste.</span>
             <Link
-              href="/?reservar=1&draft=1"
+              href="/reservar?draft=1"
               className="rounded-full bg-primary px-4 py-2 text-xs font-semibold uppercase tracking-wide text-primary-foreground"
             >
               Continuar reserva

@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import type { Session } from "@supabase/supabase-js";
-import { getSessionSafe, supabase } from "@/lib/supabase/client";
+import Image from "next/image";
+import { useEffect, useRef } from "react";
+import { useAuth } from "@/components/AuthProvider";
+import useReserveAction from "@/hooks/useReserveAction";
 
 type GalleryItem = {
   title: string;
@@ -25,17 +26,8 @@ export default function GalleryCarousel({ items }: GalleryCarouselProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const directionRef = useRef<1 | -1>(1);
   const indexRef = useRef(0);
-  const [session, setSession] = useState<Session | null>(null);
-
-  useEffect(() => {
-    void getSessionSafe().then((session) => setSession(session));
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
-      setSession(next);
-    });
-    return () => {
-      sub.subscription.unsubscribe();
-    };
-  }, []);
+  const { session, openAuth } = useAuth();
+  const reserve = useReserveAction();
 
   useEffect(() => {
     const container = containerRef.current;
@@ -78,23 +70,29 @@ export default function GalleryCarousel({ items }: GalleryCarouselProps) {
       className="gallery-scroll flex snap-x snap-mandatory gap-4 overflow-x-auto overflow-y-visible pb-4 scroll-smooth lg:px-6 lg:py-3"
     >
       {items.map((item) => (
-        <a
+        <button
+          type="button"
           key={item.title}
-          href={item.href}
-          onClick={(event) => {
-            if (session) return;
-            event.preventDefault();
-            window.dispatchEvent(new Event("cm:auth:open"));
+          onClick={() => {
+            if (!session) {
+              openAuth();
+              return;
+            }
+            void reserve(item.href);
           }}
           data-gallery-card
-          className="group relative min-w-[78%] snap-center overflow-hidden rounded-[2rem] border border-border bg-card shadow-xl shadow-black/5 aspect-[4/5] transition hover:-translate-y-1 hover:scale-[1.02] hover:shadow-2xl sm:aspect-square sm:min-w-[48%] lg:min-w-[10%]"
+          className="group relative min-w-[78%] snap-center overflow-hidden rounded-[2rem] border border-border bg-card text-left shadow-xl shadow-black/5 aspect-[4/5] transition hover:-translate-y-1 hover:scale-[1.02] hover:shadow-2xl sm:aspect-square sm:min-w-[48%] lg:min-w-[10%]"
         >
-          <div
-            className="absolute inset-0 bg-cover bg-center brightness-50 transition duration-500 group-hover:scale-105"
-            style={{
-              backgroundImage: item.image ? `url(${item.image})` : "",
-            }}
-          />
+          {item.image ? (
+            <Image
+              src={item.image}
+              alt={item.title}
+              fill
+              sizes="(max-width: 640px) 78vw, (max-width: 1024px) 48vw, 28vw"
+              className="absolute inset-0 object-cover brightness-50 transition duration-500 group-hover:scale-105"
+              priority={item === items[0]}
+            />
+          ) : null}
           <div
             className="absolute inset-0 opacity-30"
             style={{ background: item.accent }}
@@ -130,7 +128,7 @@ export default function GalleryCarousel({ items }: GalleryCarouselProps) {
               </span>
             </div>
           </div>
-        </a>
+        </button>
       ))}
     </div>
   );

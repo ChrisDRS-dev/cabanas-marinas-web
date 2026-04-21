@@ -2,10 +2,8 @@
 
 import Link from "next/link";
 import { Instagram } from "lucide-react";
-import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import type { Session } from "@supabase/supabase-js";
-import { getSessionSafe, supabase } from "@/lib/supabase/client";
+import { useAuth } from "@/components/AuthProvider";
 
 type StickyCTAProps = {
   primaryHref: string;
@@ -23,33 +21,7 @@ export default function StickyCTA({
   instagramHref,
 }: StickyCTAProps) {
   const pathname = usePathname();
-  const [session, setSession] = useState<Session | null>(null);
-  const [dismissed, setDismissed] = useState(() =>
-    typeof window !== "undefined"
-      ? Boolean((window as { __cmAuthDismissed?: boolean }).__cmAuthDismissed)
-      : false
-  );
-
-  useEffect(() => {
-    void getSessionSafe().then((session) => setSession(session));
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
-      setSession(next);
-    });
-
-    const handleDismissed = () => {
-      const next =
-        typeof window !== "undefined"
-          ? (window as { __cmAuthDismissed?: boolean }).__cmAuthDismissed
-          : false;
-      setDismissed(Boolean(next));
-    };
-    window.addEventListener("cm:auth:dismissed", handleDismissed);
-
-    return () => {
-      sub.subscription.unsubscribe();
-      window.removeEventListener("cm:auth:dismissed", handleDismissed);
-    };
-  }, []);
+  const { session, dismissed } = useAuth();
 
   if (pathname?.startsWith("/reservar")) {
     return null;

@@ -9,12 +9,12 @@ import ReservationOverlayClient from "@/components/ReservationOverlayClient";
 import ReserveButton from "@/components/ReserveButton";
 import FadeIn from "@/components/FadeIn";
 import { instagramEmbedPosts, INSTAGRAM_PROFILE_URL } from "@/lib/instagram-embeds";
-import { demoApprovedReviews, type ApprovedReview } from "@/lib/reviews";
+import { type ApprovedReview } from "@/lib/reviews";
 import { siteData } from "@/lib/siteData";
-import { supabaseServer } from "@/lib/supabase/server";
+import { supabasePublic } from "@/lib/supabase/public";
 import { Suspense } from "react";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 function resolveLocation(
   rawLocation: Partial<typeof siteData.location> | undefined,
@@ -40,15 +40,9 @@ function resolveLocation(
   };
 }
 
-export default async function HomePage({
-  searchParams,
-}: {
-  searchParams?: Promise<{ reviews?: string }>;
-}) {
-  const resolvedSearchParams = searchParams ? await searchParams : undefined;
-  const showDemoReviews = resolvedSearchParams?.reviews === "demo";
-  const supabase = await supabaseServer();
-  const [{ data: contentRow }, { data: reviewsRows }] = await Promise.all([
+export default async function HomePage() {
+  const supabase = supabasePublic();
+  const [contentResult, reviewsResult] = await Promise.all([
     supabase
       .from("site_content")
       .select("content")
@@ -64,6 +58,10 @@ export default async function HomePage({
       .order("created_at", { ascending: false })
       .limit(12),
   ]);
+  const contentRow = contentResult.data as
+    | { content?: Partial<typeof siteData> | null }
+    | null;
+  const reviewsRows = reviewsResult.data;
 
   const rawHomeContent =
     (contentRow?.content as Partial<typeof siteData> | null) ?? null;
@@ -88,9 +86,7 @@ export default async function HomePage({
     reviews,
     finalCta,
   } = homeContent;
-  const approvedReviews = showDemoReviews
-    ? demoApprovedReviews
-    : ((reviewsRows ?? []) as ApprovedReview[]);
+  const approvedReviews = (reviewsRows ?? []) as ApprovedReview[];
   const planGallery = plans.map((plan, index) => ({
     title: plan.name,
     price: plan.price,
@@ -103,7 +99,7 @@ export default async function HomePage({
     accent:
       gallery[index]?.accent ??
       "linear-gradient(135deg, #0085a1 0%, #7fd7e4 100%)",
-    href: `/?reservar=1&package=${plan.id}`,
+    href: `/reservar?package=${plan.id}`,
   }));
 
   return (
@@ -228,7 +224,7 @@ export default async function HomePage({
                 {finalCta.title}
               </h2>
               <ReserveButton
-                href="/?reservar=1"
+                href="/reservar"
                 className="inline-flex items-center justify-center rounded-full bg-background px-8 py-3 text-sm font-semibold uppercase tracking-wide text-foreground transition hover:brightness-105"
               >
                 {finalCta.button}
@@ -238,7 +234,7 @@ export default async function HomePage({
           </FadeIn>
         </section>
 
-        <section id="faq" className="mx-auto max-w-4xl px-6 py-14">
+        <section id="faq" className="mx-auto max-w-4xl px-6 pt-14 pb-20">
           <FadeIn>
             <div className="space-y-3 text-center">
               <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">

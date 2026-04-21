@@ -3,13 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
+import { useAuth } from "@/components/AuthProvider";
 
 const ReservationWizard = dynamic(
   () => import("@/components/reservar/ReservationWizard"),
   { ssr: false }
 );
-import type { Session } from "@supabase/supabase-js";
-import { getSessionSafe, supabase } from "@/lib/supabase/client";
 import { siteData } from "@/lib/siteData";
 
 type ReservationItem = {
@@ -105,8 +104,7 @@ export default function ReservationOverlay() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const [session, setSession] = useState<Session | null>(null);
-  const [checkedSession, setCheckedSession] = useState(false);
+  const { session, openAuth } = useAuth();
   const [loadingReservation, setLoadingReservation] = useState(false);
   const [activeReservations, setActiveReservations] = useState<ReservationItem[]>([]);
   const [pastReservations, setPastReservations] = useState<ReservationItem[]>([]);
@@ -151,22 +149,9 @@ export default function ReservationOverlay() {
   }, [show]);
 
   useEffect(() => {
-    void getSessionSafe().then((s) => {
-      setSession(s);
-      setCheckedSession(true);
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
-      setSession(next);
-    });
-    return () => {
-      sub.subscription.unsubscribe();
-    };
-  }, []);
-
-  useEffect(() => {
     if (!show) return;
-    if (checkedSession && !session) {
-      window.dispatchEvent(new Event("cm:auth:open"));
+    if (!session) {
+      openAuth();
       const params = new URLSearchParams(searchParams.toString());
       params.delete("reservar");
       params.delete("package");
@@ -179,7 +164,7 @@ export default function ReservationOverlay() {
     return () => {
       document.body.style.overflow = original;
     };
-  }, [show, session, checkedSession, router, searchParams]);
+  }, [show, session, openAuth, router, searchParams]);
 
   useEffect(() => {
     if (!show || !session) return;

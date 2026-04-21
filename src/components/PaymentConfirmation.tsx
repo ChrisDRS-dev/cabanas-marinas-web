@@ -5,7 +5,6 @@ import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import YappyPaymentButton from "@/components/YappyPaymentButton";
 import YappyBalanceButton from "@/components/YappyBalanceButton";
-import PagueloFacilPayment from "@/components/PagueloFacilPayment";
 import { getSessionSafe } from "@/lib/supabase/client";
 import { siteData } from "@/lib/siteData";
 

@@ -18,12 +18,12 @@ type FAQAccordionProps = {
 
 export default function FAQAccordion({ items }: FAQAccordionProps) {
   return (
-    <Accordion type="single" collapsible className="w-full space-y-2">
+    <Accordion type="single" collapsible className="w-full space-y-2 pb-4">
       {items.map((item, index) => (
         <AccordionItem
           key={item.question}
           value={`item-${index}`}
-          className="rounded-2xl border border-border bg-card px-4"
+          className="rounded-2xl border border-border bg-card px-4 last:mb-2"
         >
           <AccordionTrigger className="text-left text-base font-semibold">
             {item.question}

@@ -24,8 +24,8 @@ declare global {
 
 const PRELOAD_OFFSETS = [-2, -1, 0, 1, 2] as const;
 const VISIBLE_OFFSETS = new Set([-1, 0, 1]);
-const SCALE_ACTIVE = 0.6;
-const SCALE_SIDE = 0.42;
+const SCALE_ACTIVE = 0.68;
+const SCALE_SIDE = 0.46;
 const SCALE_HIDDEN = 0.34;
 
 function wrapIndex(index: number, length: number) {
@@ -187,7 +187,7 @@ export default function CircularGallery({ items }: CircularGalleryProps) {
   return (
     <div className="space-y-6">
       <div
-        className="relative h-[24rem] overflow-hidden rounded-[2rem] border border-white/25 bg-white/55 shadow-[0_2px_32px_rgba(15,31,36,0.07),inset_0_1px_0_rgba(255,255,255,0.35)] backdrop-blur-xl backdrop-saturate-[165%] dark:border-white/10 dark:bg-card/60 dark:shadow-[0_2px_40px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.06)] sm:h-[26rem] lg:h-[28rem]"
+        className="relative h-[28rem] overflow-hidden rounded-[2rem] border border-white/25 bg-white/55 shadow-[0_2px_32px_rgba(15,31,36,0.07),inset_0_1px_0_rgba(255,255,255,0.35)] backdrop-blur-xl backdrop-saturate-[165%] dark:border-white/10 dark:bg-card/60 dark:shadow-[0_2px_40px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.06)] sm:h-[30rem] lg:h-[32rem]"
         onMouseEnter={() => setIsPaused(true)}
         onMouseLeave={() => setIsPaused(false)}
         onTouchStart={() => {

@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import "./globals.css";
 import "leaflet/dist/leaflet.css";
 import StickyCTA from "@/components/StickyCTA";
-import AuthGate from "@/components/AuthGate";
 import AuthProvider from "@/components/AuthProvider";
 import { INSTAGRAM_PROFILE_URL } from "@/lib/instagram-embeds";
 
@@ -32,8 +31,7 @@ export default function RootLayout({
             __html: `(() => {
   try {
     const stored = localStorage.getItem("theme");
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    const theme = stored || (prefersDark ? "dark" : "light");
+    const theme = stored === "light" || stored === "dark" ? stored : "dark";
     document.documentElement.classList.toggle("dark", theme === "dark");
   } catch (e) {}
 })();`,
@@ -42,13 +40,12 @@ export default function RootLayout({
         <AuthProvider>
           {children}
           <StickyCTA
-            primaryHref="/?reservar=1"
-            primaryLabel="Mi reserva"
+            primaryHref="/reservar"
+            primaryLabel="Reservar"
             secondaryHref="https://wa.me/50762811651"
             secondaryLabel="WhatsApp"
             instagramHref={INSTAGRAM_PROFILE_URL}
           />
-          <AuthGate />
         </AuthProvider>
       </body>
     </html>

@@ -4,14 +4,13 @@ import { useEffect, useSyncExternalStore } from "react";
 import { MoonStar, SunMedium } from "lucide-react";
 
 type ThemeMode = "light" | "dark";
+const DEFAULT_THEME: ThemeMode = "dark";
 
 function getThemeSnapshot(): ThemeMode {
-  if (typeof window === "undefined") return "light";
+  if (typeof window === "undefined") return DEFAULT_THEME;
   const stored = window.localStorage.getItem("theme") as ThemeMode | null;
   if (stored === "light" || stored === "dark") return stored;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dark"
-    : "light";
+  return DEFAULT_THEME;
 }
 
 function subscribe(onStoreChange: () => void) {
@@ -37,7 +36,7 @@ export default function ThemeToggle() {
   const theme = useSyncExternalStore(
     subscribe,
     getThemeSnapshot,
-    () => "light"
+    () => DEFAULT_THEME
   );
 
   useEffect(() => {

@@ -300,7 +300,14 @@ export default function YappyPaymentButton({
       element.removeEventListener("eventSuccess", handleSuccess as EventListener);
       element.removeEventListener("eventError", handleError as EventListener);
     };
-  }, [blockedReason, disabled, onPaymentStarted, reservationId, scriptReady]);
+  }, [
+    amountOverride,
+    blockedReason,
+    disabled,
+    onPaymentStarted,
+    reservationId,
+    scriptReady,
+  ]);
 
   const isBlocked = disabled || Boolean(blockedReason);
   const configBlocked = config && !config.enabled;
