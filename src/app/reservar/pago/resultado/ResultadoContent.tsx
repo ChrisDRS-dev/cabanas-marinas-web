@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { useLocale } from "next-intl";
+import { localizeHref, type AppLocale } from "@/i18n/routing";
 import { siteData } from "@/lib/siteData";
 
 function buildWhatsAppConfirmLink(reservationId: string, oper: string, totalPagado: string) {
@@ -16,6 +18,7 @@ function buildWhatsAppConfirmLink(reservationId: string, oper: string, totalPaga
 }
 
 export default function ResultadoContent() {
+  const locale = useLocale() as AppLocale;
   const searchParams = useSearchParams();
 
   const estado = searchParams.get("Estado") ?? searchParams.get("estado") ?? "";
@@ -42,7 +45,7 @@ export default function ResultadoContent() {
           Escribir por WhatsApp
         </a>
         <Link
-          href="/"
+          href={localizeHref(locale, "/")}
           className="rounded-full border border-border px-6 py-2 text-sm font-semibold"
         >
           Volver al inicio
@@ -107,7 +110,7 @@ export default function ResultadoContent() {
         </a>
 
         <Link
-          href="/"
+          href={localizeHref(locale, "/")}
           className="w-full rounded-full border border-border px-4 py-2 text-center text-sm font-semibold"
         >
           Volver al inicio
@@ -138,7 +141,7 @@ export default function ResultadoContent() {
         <div className="flex flex-col gap-2">
           {reservationId && (
             <Link
-              href={`/reservar/pago?method=CARD&rid=${reservationId}`}
+              href={localizeHref(locale, `/reservar/pago?method=CARD&rid=${reservationId}`)}
               className="w-full rounded-full bg-foreground px-4 py-2 text-center text-sm font-semibold text-background"
             >
               Intentar de nuevo
@@ -153,7 +156,7 @@ export default function ResultadoContent() {
             Contactar por WhatsApp
           </a>
           <Link
-            href="/"
+            href={localizeHref(locale, "/")}
             className="w-full rounded-full border border-border px-4 py-2 text-center text-sm font-semibold"
           >
             Volver al inicio

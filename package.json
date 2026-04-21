@@ -23,6 +23,7 @@
     "lucide-react": "^0.562.0",
     "motion": "^12.38.0",
     "next": "^16.1.6",
+    "next-intl": "^4.9.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-leaflet": "^5.0.0",

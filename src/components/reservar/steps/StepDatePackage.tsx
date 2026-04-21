@@ -2,10 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useLocale, useTranslations } from "next-intl";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { ReservationState } from "@/components/reservar/ReservationWizard";
+import { getMonthLocale } from "@/i18n/format";
 import type { PackageType } from "@/lib/calcTotal";
 import type { Package, TimeSlot } from "@/lib/supabase/catalog";
 import type { DatePackageStepConfig } from "@/lib/supabase/formConfig";
@@ -172,6 +174,8 @@ export default function StepDatePackage({
   timeSlotsByPackage,
   config,
 }: StepDatePackageProps) {
+  const locale = useLocale();
+  const t = useTranslations("booking.datePackage");
   const [monthOffset, setMonthOffset] = useState(0);
   const [showTimeModal, setShowTimeModal] = useState(false);
   const [pendingTimeSlot, setPendingTimeSlot] = useState<string | null>(
@@ -197,44 +201,45 @@ export default function StepDatePackage({
   const month = displayDate.getMonth();
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const monthLabel = displayDate.toLocaleString("es-ES", {
+  const monthLabel = displayDate.toLocaleString(getMonthLocale(locale as "es" | "en"), {
     month: "long",
     year: "numeric",
   });
   const activeDate = pendingDate ?? state.date;
 
-  const title = config?.title ?? "Elige tu paquete primero";
-  const packagesTitle = config?.packagesTitle ?? "Paquetes disponibles";
+  const localizedConfig = locale === "es" ? config : undefined;
+  const title = localizedConfig?.title ?? t("title");
+  const packagesTitle = localizedConfig?.packagesTitle ?? t("packagesTitle");
   const packagesEmpty =
-    config?.packagesEmpty ?? "Cargando paquetes disponibles...";
-  const selectedLabel = config?.selectedLabel ?? "Seleccionado";
-  const calendarTitle = config?.calendarTitle ?? "Selecciona fecha y hora";
+    localizedConfig?.packagesEmpty ?? t("packagesEmpty");
+  const selectedLabel = localizedConfig?.selectedLabel ?? t("selectedLabel");
+  const calendarTitle = localizedConfig?.calendarTitle ?? t("calendarTitle");
   const calendarEmpty =
-    config?.calendarEmpty ??
-    "Primero elige un paquete para desbloquear el calendario.";
+    localizedConfig?.calendarEmpty ?? t("calendarLocked");
   const calendarSelectedPrefix =
-    config?.calendarSelectedPrefix ?? "Seleccionado:";
+    localizedConfig?.calendarSelectedPrefix ?? t("calendarSelectedPrefix");
   const calendarHint =
-    config?.calendarHint ?? "Selecciona una fecha para elegir el horario.";
-  const changeTimeLabel = config?.changeTimeLabel ?? "Cambiar horario";
-  const modalKicker = config?.modalKicker ?? "Horarios";
-  const modalTitle = config?.modalTitle ?? "Selecciona tu hora de entrada";
-  const modalSubtitle = config?.modalSubtitle ?? "Horario seleccionado";
-  const morningLabel = config?.morningLabel ?? "Mañana";
-  const afternoonLabel = config?.afternoonLabel ?? "Mañana - Tarde";
-  const eveningLabel = "Tarde - Noche";
+    localizedConfig?.calendarHint ?? t("calendarHint");
+  const changeTimeLabel = localizedConfig?.changeTimeLabel ?? t("changeTimeLabel");
+  const modalKicker = localizedConfig?.modalKicker ?? t("modalKicker");
+  const modalTitle = localizedConfig?.modalTitle ?? t("modalTitle");
+  const modalSubtitle = localizedConfig?.modalSubtitle ?? t("modalSubtitle");
+  const morningLabel = localizedConfig?.morningLabel ?? t("morningLabel");
+  const afternoonLabel = localizedConfig?.afternoonLabel ?? t("afternoonLabel");
+  const eveningLabel = t("eveningLabel");
   const noMorningLabel =
-    config?.noMorningLabel ?? "Sin horarios en la mañana.";
+    localizedConfig?.noMorningLabel ?? t("noMorningLabel");
   const noAfternoonLabel =
-    config?.noAfternoonLabel ?? "Sin horarios en esta franja.";
-  const modalCancelLabel = config?.modalCancelLabel ?? "Cancelar / Volver";
-  const modalConfirmLabel = config?.modalConfirmLabel ?? "Confirmar horario";
+    localizedConfig?.noAfternoonLabel ?? t("noAfternoonLabel");
+  const noEveningLabel = t("noEveningLabel");
+  const modalCancelLabel = localizedConfig?.modalCancelLabel ?? t("modalCancelLabel");
+  const modalConfirmLabel = localizedConfig?.modalConfirmLabel ?? t("modalConfirmLabel");
   const customHelp =
-    config?.customHelp ?? "Hora de entrada entre 8:00 A.M. y 12:00 P.M.";
-  const customStartLabel = config?.customStartLabel ?? "Hora de entrada";
-  const customEndLabel = config?.customEndLabel ?? "Hora de salida";
+    localizedConfig?.customHelp ?? t("customHelp");
+  const customStartLabel = localizedConfig?.customStartLabel ?? t("customStartLabel");
+  const customEndLabel = localizedConfig?.customEndLabel ?? t("customEndLabel");
   const customErrorCopy =
-    config?.customError ?? "La salida debe ser 10, 11 o 12 horas después.";
+    localizedConfig?.customError ?? t("customError");
 
   const timeSlots = useMemo(() => {
     if (!state.packageId) return [];
@@ -296,7 +301,7 @@ export default function StepDatePackage({
   const formatDisplayDate = (dateValue: string) => {
     const [yearValue, monthValue, dayValue] = dateValue.split("-").map(Number);
     const date = new Date(yearValue, monthValue - 1, dayValue);
-    return date.toLocaleDateString("es-ES", {
+    return date.toLocaleDateString(getMonthLocale(locale as "es" | "en"), {
       weekday: "long",
       day: "numeric",
       month: "long",
@@ -410,21 +415,21 @@ export default function StepDatePackage({
           const code = String(result?.error ?? "");
           const message =
             code === "CM_NO_CABIN_AVAILABLE"
-              ? "No hay cabañas disponibles para ese horario."
+              ? t("availabilityErrors.noCabin")
               : code === "CM_MAX_PEOPLE_EXCEEDED"
-              ? "La capacidad maxima por reserva es de 16 personas."
+              ? t("availabilityErrors.maxPeople")
               : code === "CM_INVALID_PEOPLE_COUNT"
-              ? "Indica la cantidad de personas para continuar."
+              ? t("availabilityErrors.invalidPeople")
               : code === "CM_INVALID_TIME_RANGE"
-              ? "El horario seleccionado no es valido."
-              : "No hay disponibilidad para ese horario.";
+              ? t("availabilityErrors.invalidRange")
+              : t("availabilityErrors.generic");
           setAvailabilityError(message);
           return;
         }
         dispatch({ type: "setTimeSlot", value: pendingTimeSlot });
         setShowTimeModal(false);
       } catch {
-        setAvailabilityError("No se pudo validar la disponibilidad.");
+        setAvailabilityError(t("availabilityErrors.validation"));
       } finally {
         setIsCheckingAvailability(false);
       }
@@ -445,7 +450,7 @@ export default function StepDatePackage({
       : slot.label;
     const endLabel = range
       ? formatTimeLabel(range.end.hour, range.end.minute)
-      : "Por definir";
+      : t("timePending");
 
     return (
       <button
@@ -466,7 +471,7 @@ export default function StepDatePackage({
                 selected ? "text-primary-foreground/70" : "text-muted-foreground"
               }`}
             >
-              Entrada
+              {customStartLabel}
             </p>
             <p className="mt-1 text-base font-semibold">{startLabel}</p>
           </div>
@@ -481,7 +486,7 @@ export default function StepDatePackage({
                 selected ? "text-primary-foreground/70" : "text-muted-foreground"
               }`}
             >
-              Salida
+              {customEndLabel}
             </p>
             <p className="mt-1 text-base font-semibold">{endLabel}</p>
           </div>
@@ -546,7 +551,7 @@ export default function StepDatePackage({
                           onChange={(event) => setCustomStart(event.target.value)}
                           className="w-full rounded-2xl border border-border/70 bg-background px-4 py-3 text-sm font-semibold"
                         >
-                          <option value="">Selecciona</option>
+                          <option value="">{t("selectedLabel")}</option>
                           {startHourOptionsWithAvailability.map((option) => (
                             <option
                               key={option.value}
@@ -566,7 +571,7 @@ export default function StepDatePackage({
                           disabled={!customStart}
                           className="w-full rounded-2xl border border-border/70 bg-background px-4 py-3 text-sm font-semibold"
                         >
-                          <option value="">Selecciona</option>
+                          <option value="">{t("selectedLabel")}</option>
                           {endHourOptions.map((option) => (
                             <option key={option.value} value={option.value}>
                               {option.label}
@@ -628,7 +633,7 @@ export default function StepDatePackage({
                     isCheckingAvailability
                   }
                 >
-                  {isCheckingAvailability ? "Verificando..." : modalConfirmLabel}
+                  {isCheckingAvailability ? t("checking") : modalConfirmLabel}
                 </Button>
               </div>
             </div>
@@ -673,7 +678,7 @@ export default function StepDatePackage({
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-                      Paquete
+                      {t("packagesTitle")}
                     </p>
                     <h4 className="mt-1 text-lg font-semibold">{pkg.label}</h4>
                     <p className="mt-1 text-sm text-muted-foreground">
@@ -682,7 +687,7 @@ export default function StepDatePackage({
                   </div>
                   <div className="text-right">
                     <p className="text-xl font-semibold">${pkg.pricePerAdult}</p>
-                    <p className="text-xs text-muted-foreground">por adulto</p>
+                    <p className="text-xs text-muted-foreground">{t("perAdult")}</p>
                   </div>
                 </div>
               </button>
@@ -702,7 +707,7 @@ export default function StepDatePackage({
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-muted-foreground">
-                Calendario
+                {calendarTitle}
               </p>
               <div className="flex items-center gap-2">
                 <Button
@@ -711,7 +716,7 @@ export default function StepDatePackage({
                   size="icon-sm"
                   onClick={() => setMonthOffset((value) => value - 1)}
                   className="rounded-full"
-                  aria-label="Mes anterior"
+                  aria-label={t("previousMonth")}
                   disabled={!state.packageId}
                 >
                   ←
@@ -722,7 +727,7 @@ export default function StepDatePackage({
                   size="icon-sm"
                   onClick={() => setMonthOffset((value) => value + 1)}
                   className="rounded-full"
-                  aria-label="Mes siguiente"
+                  aria-label={t("nextMonth")}
                   disabled={!state.packageId}
                 >
                   →
@@ -738,7 +743,7 @@ export default function StepDatePackage({
               )}
             </div>
             <div className="grid grid-cols-7 gap-2 text-xs text-muted-foreground">
-              {["DO", "LU", "MA", "MI", "JU", "VI", "SA"].map((label) => (
+              {t.raw("days").map((label: string) => (
                 <span key={label} className="text-center">
                   {label}
                 </span>
@@ -782,9 +787,9 @@ export default function StepDatePackage({
           {state.date ? (
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span>
-                Horario seleccionado:{" "}
+                {t("modalSubtitle")}:{" "}
                 <span className="font-semibold text-foreground">
-                  {formattedTimeSlot ?? "Por definir"}
+                  {formattedTimeSlot ?? t("timePending")}
                 </span>
               </span>
               <button

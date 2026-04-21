@@ -1,3 +1,6 @@
+"use client";
+
+import { useTranslations } from "next-intl";
 import LeafletLocationMap from "@/components/LeafletLocationMap";
 
 type MapCardProps = {
@@ -15,6 +18,8 @@ export default function MapCard({
   latitude,
   longitude,
 }: MapCardProps) {
+  const t = useTranslations("home.sections");
+
   return (
     <div className="grid gap-6 rounded-3xl border border-border bg-card p-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
       <div className="space-y-3">
@@ -22,7 +27,7 @@ export default function MapCard({
           {title}
         </p>
         <h3 className="font-display text-2xl font-semibold">
-          Frente al mar y fácil de ubicar
+          {t("locationTitle")}
         </h3>
         <p className="text-sm text-muted-foreground">{description}</p>
         <a
@@ -31,7 +36,7 @@ export default function MapCard({
           rel="noopener noreferrer"
           className="inline-flex items-center justify-center rounded-full border border-border px-4 py-2 text-sm font-semibold text-foreground transition hover:bg-secondary"
         >
-          Ver en Google Maps
+          {t("locationCta")}
         </a>
       </div>
       <div className="relative h-56 overflow-hidden rounded-2xl border border-border bg-muted sm:h-64">
@@ -41,7 +46,7 @@ export default function MapCard({
           title="Cabañas Marinas · Punta Burica"
         />
         <div className="absolute bottom-4 left-4 rounded-full bg-background/80 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-foreground">
-          Mapa
+          {t("locationTitle")}
         </div>
       </div>
     </div>

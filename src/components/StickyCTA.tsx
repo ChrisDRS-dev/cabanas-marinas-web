@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { Instagram } from "lucide-react";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useAuth } from "@/components/AuthProvider";
+import { stripLocaleFromPathname } from "@/i18n/routing";
 
 type StickyCTAProps = {
   primaryHref: string;
@@ -21,9 +23,10 @@ export default function StickyCTA({
   instagramHref,
 }: StickyCTAProps) {
   const pathname = usePathname();
+  const t = useTranslations("stickyCta");
   const { session, dismissed } = useAuth();
 
-  if (pathname?.startsWith("/reservar")) {
+  if (pathname && stripLocaleFromPathname(pathname).startsWith("/reservar")) {
     return null;
   }
   if (!session || dismissed) {
@@ -49,7 +52,7 @@ export default function StickyCTA({
           href={instagramHref}
           target="_blank"
           rel="noopener noreferrer"
-          aria-label="Instagram"
+          aria-label={t("instagramAria")}
           className="flex h-12 w-12 items-center justify-center rounded-full bg-[linear-gradient(135deg,#f58529,#feda77,#dd2a7b,#8134af,#515bd4)] text-white shadow-lg shadow-[#dd2a7b]/25 transition hover:scale-[1.03]"
         >
           <Instagram className="h-5 w-5" />

@@ -3,6 +3,7 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { ArrowLeft, ArrowRight, Star, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useAuth } from "@/components/AuthProvider";
 import type { ApprovedReview } from "@/lib/reviews";
 import { getReviewDisplayName } from "@/lib/reviews";
@@ -29,6 +30,7 @@ type ReviewCardProps = {
 };
 
 function ReviewStars({ rating, interactive = false, onChange }: { rating: number; interactive?: boolean; onChange?: (value: number) => void; }) {
+  const t = useTranslations("reviews");
   return (
     <div className="flex items-center gap-1">
       {Array.from({ length: 5 }, (_, index) => {
@@ -52,7 +54,10 @@ function ReviewStars({ rating, interactive = false, onChange }: { rating: number
             type="button"
             onClick={() => onChange?.(value)}
             className="transition hover:scale-105"
-            aria-label={`${value} estrella${value > 1 ? "s" : ""}`}
+            aria-label={t("starsAria", {
+              value,
+              plural: value > 1 ? "s" : "",
+            })}
           >
             <Star
               className={cn(
@@ -68,10 +73,11 @@ function ReviewStars({ rating, interactive = false, onChange }: { rating: number
 }
 
 function ReviewCard({ review }: ReviewCardProps) {
+  const t = useTranslations("reviews");
   const name = getReviewDisplayName(review);
   const meta = review.stay_label
-    ? `Visitó en ${review.stay_label}`
-    : "Visitó Cabañas Marinas";
+    ? t("visitedOn", { label: review.stay_label })
+    : t("visitedBrand");
 
   return (
     <article className="flex h-full flex-col justify-between rounded-[1.75rem] border border-white/6 bg-[#10171c]/95 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
@@ -103,6 +109,7 @@ function ReviewFormDialog({
   onOpenChange: (next: boolean) => void;
   content: ReviewsSectionContent;
 }) {
+  const t = useTranslations("reviews");
   const { session } = useAuth();
   const suggestedName =
     (session?.user.user_metadata?.full_name as string | undefined) ??
@@ -161,14 +168,12 @@ function ReviewFormDialog({
 
       if (!response.ok) {
         throw new Error(
-          payload?.error ??
-            "No pudimos enviar tu reseña. Inténtalo de nuevo.",
+          payload?.error ?? t("submitError"),
         );
       }
 
       setSuccess(
-        payload?.message ??
-          "Gracias. Tu reseña quedó enviada y pasará por revisión.",
+        payload?.message ?? t("submitSuccess"),
       );
       setRating(0);
       setComment("");
@@ -180,7 +185,7 @@ function ReviewFormDialog({
       setError(
         submissionError instanceof Error
           ? submissionError.message
-          : "No pudimos enviar tu reseña. Inténtalo de nuevo.",
+          : t("submitError"),
       );
     } finally {
       setIsSubmitting(false);
@@ -197,7 +202,7 @@ function ReviewFormDialog({
             <div className="flex items-start justify-between gap-4">
               <div className="space-y-3">
                 <p className="text-[11px] uppercase tracking-[0.35em] text-[#59f0e8]/80">
-                  Comentario del huésped
+                  {t("guestComment")}
                 </p>
                 <Dialog.Title className="font-display text-3xl italic tracking-[-0.03em] text-white/92 sm:text-[3.2rem]">
                   {content.modalTitle}
@@ -210,7 +215,7 @@ function ReviewFormDialog({
                 <button
                   type="button"
                   className="rounded-full border border-white/10 bg-white/5 p-2 text-white/70 transition hover:bg-white/10 hover:text-white"
-                  aria-label="Cerrar formulario"
+                  aria-label={t("closeForm")}
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -220,7 +225,7 @@ function ReviewFormDialog({
             <form onSubmit={handleSubmit} className="mt-8 space-y-5">
               <div className="space-y-2">
                 <label className="text-xs font-semibold uppercase tracking-[0.22em] text-white/56">
-                  Calificación
+                  {t("rating")}
                 </label>
                 <ReviewStars rating={rating} interactive onChange={setRating} />
               </div>
@@ -230,14 +235,14 @@ function ReviewFormDialog({
                   htmlFor="review-comment"
                   className="text-xs font-semibold uppercase tracking-[0.22em] text-white/56"
                 >
-                  Comentario
+                  {t("comment")}
                 </label>
                 <textarea
                   id="review-comment"
                   value={comment}
                   onChange={(event) => setComment(event.target.value)}
                   rows={5}
-                  placeholder="¿Qué fue lo que más disfrutaste de tu visita?"
+                  placeholder={t("commentPlaceholder")}
                   className="w-full rounded-[1.4rem] border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/26 focus:border-[#59f0e8]/45"
                 />
               </div>
@@ -253,9 +258,9 @@ function ReviewFormDialog({
                       : "border-white/10 bg-white/[0.03] text-white/68 hover:bg-white/[0.06]",
                   )}
                 >
-                  <p className="text-sm font-semibold">Mostrar mi nombre</p>
+                  <p className="text-sm font-semibold">{t("showMyName")}</p>
                   <p className="mt-1 text-xs text-white/48">
-                    Se mostrará el nombre público que escribas abajo.
+                    {t("showMyNameDescription")}
                   </p>
                 </button>
                 <button
@@ -268,9 +273,9 @@ function ReviewFormDialog({
                       : "border-white/10 bg-white/[0.03] text-white/68 hover:bg-white/[0.06]",
                   )}
                 >
-                  <p className="text-sm font-semibold">Aparecer como anónimo</p>
+                  <p className="text-sm font-semibold">{t("anonymous")}</p>
                   <p className="mt-1 text-xs text-white/48">
-                    Publicaremos la reseña sin mostrar tu identidad.
+                    {t("anonymousDescription")}
                   </p>
                 </button>
               </div>
@@ -281,13 +286,13 @@ function ReviewFormDialog({
                     htmlFor="review-display-name"
                     className="text-xs font-semibold uppercase tracking-[0.22em] text-white/56"
                   >
-                    Nombre público
+                    {t("publicName")}
                   </label>
                   <input
                     id="review-display-name"
                     value={displayName}
                     onChange={(event) => setDisplayName(event.target.value)}
-                    placeholder="Ej. Ana Rodríguez"
+                    placeholder={t("publicNamePlaceholder")}
                     className="w-full rounded-[1.4rem] border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/26 focus:border-[#59f0e8]/45"
                   />
                 </div>
@@ -298,13 +303,13 @@ function ReviewFormDialog({
                   htmlFor="review-stay-label"
                   className="text-xs font-semibold uppercase tracking-[0.22em] text-white/56"
                 >
-                  Referencia de visita
+                  {t("stayReference")}
                 </label>
                 <input
                   id="review-stay-label"
                   value={stayLabel}
                   onChange={(event) => setStayLabel(event.target.value)}
-                  placeholder="Ej. Agosto 2024"
+                  placeholder={t("stayReferencePlaceholder")}
                   className="w-full rounded-[1.4rem] border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/26 focus:border-[#59f0e8]/45"
                 />
               </div>
@@ -317,8 +322,7 @@ function ReviewFormDialog({
                   className="mt-1 h-4 w-4 rounded border-white/20 bg-transparent"
                 />
                 <span>
-                  Autorizo a Cabañas Marinas a publicar esta reseña en el sitio
-                  una vez sea aprobada.
+                  {t("consent")}
                 </span>
               </label>
 
@@ -337,10 +341,10 @@ function ReviewFormDialog({
               <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
                 <Dialog.Close asChild>
                   <button
-                    type="button"
-                    className="rounded-full border border-white/12 px-5 py-3 text-sm font-semibold text-white/76 transition hover:bg-white/6 hover:text-white"
-                  >
-                    Cerrar
+                  type="button"
+                  className="rounded-full border border-white/12 px-5 py-3 text-sm font-semibold text-white/76 transition hover:bg-white/6 hover:text-white"
+                >
+                    {t("closeForm")}
                   </button>
                 </Dialog.Close>
                 <button
@@ -348,7 +352,7 @@ function ReviewFormDialog({
                   disabled={isSubmitting}
                   className="rounded-full bg-[#59f0e8] px-6 py-3 text-sm font-semibold text-[#031215] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {isSubmitting ? "Enviando..." : "Enviar reseña"}
+                  {isSubmitting ? t("submitting") : t("submit")}
                 </button>
               </div>
             </form>
@@ -363,6 +367,7 @@ export default function ReviewsSection({
   reviews,
   content,
 }: ReviewsSectionProps) {
+  const t = useTranslations("reviews");
   const { session, openAuth } = useAuth();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [visibleCount, setVisibleCount] = useState(1);
@@ -438,7 +443,7 @@ export default function ReviewsSection({
             {content.eyebrow}
           </p>
           <h2 className="mt-4 font-display text-4xl italic tracking-[-0.04em] text-white/92 sm:text-5xl lg:text-[4.4rem]">
-            Reseñas
+            {content.title}
           </h2>
           <div className="mx-auto mt-4 h-px w-24 bg-border" />
           <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-white/56 sm:text-[15px]">
@@ -477,7 +482,7 @@ export default function ReviewsSection({
                     type="button"
                     onClick={showPrevious}
                     className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card/70 text-muted-foreground transition hover:bg-secondary hover:text-foreground"
-                    aria-label="Ver reseñas anteriores"
+                    aria-label={t("prevAria")}
                   >
                     <ArrowLeft className="h-4 w-4" />
                   </button>
@@ -491,7 +496,9 @@ export default function ReviewsSection({
                           "h-2.5 w-2.5 rounded-full transition",
                           index === safeActiveIndex ? "bg-primary" : "bg-border",
                         )}
-                        aria-label={`Ir a la página ${index + 1} de reseñas`}
+                        aria-label={t("pageAria", {
+                          page: index + 1,
+                        })}
                       />
                     ))}
                   </div>
@@ -499,7 +506,7 @@ export default function ReviewsSection({
                     type="button"
                     onClick={showNext}
                     className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card/70 text-muted-foreground transition hover:bg-secondary hover:text-foreground"
-                    aria-label="Ver siguientes reseñas"
+                    aria-label={t("nextAria")}
                   >
                     <ArrowRight className="h-4 w-4" />
                   </button>

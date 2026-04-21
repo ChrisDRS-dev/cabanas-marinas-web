@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { Card, CardContent } from "@/components/ui/card";
 import type { ReservationState } from "@/components/reservar/ReservationWizard";
 import type { Extra } from "@/lib/supabase/catalog";
@@ -21,14 +22,7 @@ type StepExtrasProps = {
 };
 
 function formatExtraUnit(value: Extra["pricingUnit"]) {
-  switch (value) {
-    case "PER_HOUR":
-      return "por hora";
-    case "PER_PERSON":
-      return "por persona";
-    default:
-      return "por reserva";
-  }
+  return value;
 }
 
 export default function StepExtras({
@@ -39,17 +33,31 @@ export default function StepExtras({
   durationHours,
   totalPeople,
 }: StepExtrasProps) {
+  const locale = useLocale();
+  const t = useTranslations("booking.extras");
   const titleRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     titleRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
 
-  const title = config?.title ?? "Extras para el plan";
+  const localizedConfig = locale === "es" ? config : undefined;
+
+  const getPricingUnitLabel = (value: Extra["pricingUnit"]) => {
+  switch (value) {
+    case "PER_HOUR":
+      return t("perHour");
+    case "PER_PERSON":
+      return t("perPerson");
+    default:
+      return t("perReservation");
+  }
+  };
+
+  const title = localizedConfig?.title ?? t("title");
   const subtitle =
-    config?.subtitle ??
-    "Suma equipamiento si quieres una experiencia más completa.";
-  const emptyLabel = config?.emptyLabel ?? "Cargando extras disponibles...";
+    localizedConfig?.subtitle ?? t("subtitle");
+  const emptyLabel = localizedConfig?.emptyLabel ?? t("emptyLabel");
 
   const getMaxQuantity = (extra: Extra) => {
     const functionalLimit =
@@ -68,12 +76,12 @@ export default function StepExtras({
 
   const getUnitLabel = (extra: Extra, quantity: number) => {
     if (extra.pricingUnit === "PER_HOUR") {
-      return quantity === 1 ? "hora" : "horas";
+      return quantity === 1 ? t("unitHour") : t("unitHourPlural");
     }
     if (extra.pricingUnit === "PER_PERSON") {
-      return quantity === 1 ? "persona" : "personas";
+      return quantity === 1 ? t("unitPerson") : t("unitPersonPlural");
     }
-    return quantity === 1 ? "reserva" : "reservas";
+    return quantity === 1 ? t("unitReservation") : t("unitReservationPlural");
   };
 
   return (
@@ -83,7 +91,7 @@ export default function StepExtras({
         <p className="text-sm text-muted-foreground">{subtitle}</p>
       </div>
       <div className="rounded-2xl border border-border/70 bg-secondary/30 px-4 py-3 text-sm text-muted-foreground">
-        También puedes agregar extras al llegar.
+        {t("arrivalNote")}
       </div>
       <Card className="border-border/70 py-4">
         <CardContent className="space-y-3">
@@ -100,7 +108,7 @@ export default function StepExtras({
             const priceLabel =
               extra.pricingUnit === "PER_HOUR"
                 ? `$${extra.price}/hr`
-                : `$${extra.price} ${formatExtraUnit(extra.pricingUnit)}`;
+                : `$${extra.price} ${getPricingUnitLabel(extra.pricingUnit)}`;
             return (
               <div
                 key={extra.id}
@@ -118,7 +126,7 @@ export default function StepExtras({
                   </p>
                   {extra.stock != null && (
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      Disponibles: {extra.stock}
+                      {t("available", { stock: extra.stock })}
                     </p>
                   )}
                 </div>
@@ -136,7 +144,7 @@ export default function StepExtras({
                           })
                         }
                         disabled={!canIncrease}
-                        aria-label={`Sumar ${extra.label}`}
+                        aria-label={t("addAria", { label: extra.label })}
                         className="flex h-9 w-full items-center justify-center text-lg font-semibold text-foreground transition hover:bg-background disabled:cursor-not-allowed disabled:opacity-35"
                       >
                         +
@@ -149,7 +157,7 @@ export default function StepExtras({
                           <p className="text-[9px] uppercase tracking-[0.22em] text-muted-foreground">
                             {quantity > 0
                               ? getUnitLabel(extra, quantity)
-                              : "Agregar"}
+                              : t("add")}
                           </p>
                         </div>
                       </div>
@@ -164,7 +172,7 @@ export default function StepExtras({
                           })
                         }
                         disabled={!canDecrease}
-                        aria-label={`Restar ${extra.label}`}
+                        aria-label={t("subtractAria", { label: extra.label })}
                         className="flex h-9 w-full items-center justify-center text-lg font-semibold text-foreground transition hover:bg-background disabled:cursor-not-allowed disabled:opacity-35"
                       >
                         −
@@ -173,8 +181,11 @@ export default function StepExtras({
                   </div>
                   <p className="min-h-4 max-w-24 text-center text-[11px] text-muted-foreground">
                     {maxQuantity > 0
-                      ? `Máximo ${maxQuantity} ${getUnitLabel(extra, maxQuantity)}`
-                      : "No disponible para esta reserva"}
+                      ? t("max", {
+                          count: maxQuantity,
+                          unit: getUnitLabel(extra, maxQuantity),
+                        })
+                      : t("notAvailable")}
                   </p>
                 </div>
               </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/lib/supabase/client";
 
@@ -11,6 +12,8 @@ type AuthModalProps = {
 
 export default function AuthModal({ open, onClose }: AuthModalProps) {
   const { session } = useAuth();
+  const locale = useLocale();
+  const t = useTranslations("auth");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -27,7 +30,9 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
       await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(
+            window.location.pathname + window.location.search,
+          )}&locale=${locale}`,
         },
       });
     } finally {
@@ -39,7 +44,7 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
       <button
         type="button"
-        aria-label="Cerrar"
+        aria-label={t("closeLabel")}
         onClick={onClose}
         className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm"
       />
@@ -51,13 +56,13 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
 
           <div className="relative text-slate-900 dark:text-slate-100">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-600 dark:text-slate-300">
-              Acceso seguro
+              {t("secureAccess")}
             </p>
             <h2 className="mt-2 font-display text-2xl font-semibold">
-              Iniciar sesion
+              {t("title")}
             </h2>
             <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-              Usa Google para continuar con tu reserva.
+              {t("description")}
             </p>
 
             <button
@@ -66,14 +71,14 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
               disabled={loading}
               className="mt-6 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-60 dark:bg-white dark:text-slate-900"
             >
-              {loading ? "Abriendo Google..." : "Continuar con Google"}
+              {loading ? t("openingGoogle") : t("continueWithGoogle")}
             </button>
             <button
               type="button"
               onClick={onClose}
               className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 dark:border-white/15 dark:bg-white/10 dark:text-slate-100"
             >
-              Cancelar
+              {t("closeLabel")}
             </button>
           </div>
         </div>

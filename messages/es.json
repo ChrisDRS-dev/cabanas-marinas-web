@@ -1,0 +1,473 @@
+{
+  "metadata": {
+    "title": "Cabañas Marinas | Cabañas frente al mar",
+    "description": "Cabañas frente al mar para desconectarte de verdad. Reservas por horas o día completo."
+  },
+  "common": {
+    "brand": "Cabañas Marinas",
+    "bookNow": "Reservar",
+    "whatsapp": "WhatsApp",
+    "instagram": "Instagram",
+    "close": "Cerrar",
+    "cancel": "Cancelar",
+    "continue": "Continuar",
+    "loading": "Cargando...",
+    "comingSoon": "Próximamente",
+    "map": "Mapa",
+    "back": "Volver",
+    "backToHome": "Volver al inicio",
+    "themeToggle": "Cambiar tema",
+    "themeToLight": "Cambiar a modo claro",
+    "themeToDark": "Cambiar a modo oscuro"
+  },
+  "language": {
+    "label": "Idioma",
+    "es": "ES",
+    "en": "EN"
+  },
+  "navbar": {
+    "login": "Iniciar sesión",
+    "defaultUser": "Usuario",
+    "account": "Cuenta",
+    "name": "Nombre",
+    "email": "Email",
+    "phone": "Teléfono",
+    "add": "Agregar",
+    "change": "Cambiar",
+    "logout": "Cerrar sesión",
+    "logoAlt": "Logo Cabañas Marinas"
+  },
+  "auth": {
+    "secureAccess": "Acceso seguro",
+    "title": "Iniciar sesión",
+    "description": "Usa Google para continuar con tu reserva.",
+    "continueWithGoogle": "Continuar con Google",
+    "openingGoogle": "Abriendo Google...",
+    "closeLabel": "Cerrar"
+  },
+  "phoneDialog": {
+    "title": "¿Cuál es tu número?",
+    "eyebrow": "Número de contacto",
+    "description": "Lo usaremos para coordinar tu llegada y confirmar la reserva por WhatsApp.",
+    "yappyNotice": "Si pagas con Yappy, la solicitud de pago se enviará a este número.",
+    "country": "País",
+    "localNumber": "Número local ({digits} dígitos)",
+    "fullNumber": "Número completo:",
+    "enterPhone": "Ingresa tu número de teléfono.",
+    "numberTooShort": "El número para {country} debe tener {digits} dígitos.",
+    "numberTooLong": "El número para {country} no puede tener más de {digits} dígitos.",
+    "saveError": "No se pudo guardar el teléfono.",
+    "saveRetryError": "No se pudo guardar el teléfono. Intenta de nuevo.",
+    "saving": "Guardando..."
+  },
+  "stickyCta": {
+    "instagramAria": "Instagram"
+  },
+  "home": {
+    "sections": {
+      "plansEyebrow": "Planes de reserva",
+      "plansTitle": "Planes de reserva",
+      "plansSubtitle": "Elige entre 4 horas, 8 horas o la experiencia especial de amanecer.",
+      "activitiesEyebrow": "Actividades",
+      "activitiesTitle": "Experiencias para tu grupo",
+      "activitiesSubtitle": "Descubre opciones para disfrutar el mar y el descanso.",
+      "aboutEyebrow": "Conoce el lugar",
+      "finalEyebrow": "Listo para reservar",
+      "faqEyebrow": "Preguntas frecuentes",
+      "faqTitle": "Todo lo esencial antes de reservar",
+      "locationCta": "Ver en Google Maps",
+      "locationTitle": "Frente al mar y fácil de ubicar",
+      "footerPlans": "Planes",
+      "footerLocation": "Ubicación",
+      "footerFaq": "FAQ",
+      "socialEyebrow": "Contenido social",
+      "socialTitle": "Lo más reciente en Instagram",
+      "socialDescription": "Síguenos en Instagram y descubre los momentos que vivimos frente al mar, cada día.",
+      "socialProfile": "Ver perfil"
+    },
+    "brand": {
+      "headline": "Cabañas frente al mar para desconectarte de verdad",
+      "subtitle": "Horas inolvidables junto al mar para tu plan favorito.",
+      "ctaPrimary": "Ver disponibilidad",
+      "ctaSecondary": "Conocer el lugar"
+    },
+    "about": {
+      "title": "¿Qué es Cabañas Marinas?",
+      "description": "Un espacio privado frente al mar para desconectarte unas horas o el día completo."
+    },
+    "benefits": [
+      {
+        "title": "Frente al mar",
+        "description": "Vista abierta, brisa constante y ambiente costero real."
+      },
+      {
+        "title": "Espacio privado",
+        "description": "Un lugar reservado para tu grupo, sin ruido ni multitudes."
+      },
+      {
+        "title": "Ideal para grupos",
+        "description": "Flexible para familias, parejas o amigos."
+      },
+      {
+        "title": "Ambiente natural",
+        "description": "Rodeado de naturaleza con ritmo lento y relajante."
+      },
+      {
+        "title": "Capacidad amplia",
+        "description": "Hasta 16 personas con comodidad y privacidad."
+      }
+    ],
+    "plans": [
+      {
+        "id": "4H",
+        "name": "4 horas",
+        "price": "$12",
+        "unit": "por persona",
+        "duration": "4 horas por reserva",
+        "rule": "Incluye lancha ida y vuelta + asador completo.",
+        "schedule": "Elige tu bloque entre 8:00 a.m. y 10:00 p.m.",
+        "note": "Perfecto para una escapada rápida frente al mar."
+      },
+      {
+        "id": "8H",
+        "name": "8 horas",
+        "price": "$24",
+        "unit": "por persona",
+        "duration": "8 horas por reserva",
+        "rule": "Terraza equipada con cojines y juegos de mesa.",
+        "schedule": "Día completo con horario amplio",
+        "note": "Para disfrutar con calma y tiempo de sobra."
+      },
+      {
+        "id": "AMANECER",
+        "name": "Ver el amanecer",
+        "price": "$12",
+        "unit": "por persona",
+        "duration": "6:00 a.m. - 9:00 a.m.",
+        "rule": "Traslado en lancha + espacio privado al amanecer.",
+        "schedule": "Horario fijo para ver la salida del sol",
+        "note": "Experiencia tranquila, ideal para fotos y relax."
+      }
+    ],
+    "activities": [
+      {
+        "title": "Kayak frente al mar",
+        "description": "Salida directa desde la playa para explorar la costa."
+      },
+      {
+        "title": "Amanecer y café",
+        "description": "Los primeros rayos con vista abierta al océano."
+      },
+      {
+        "title": "Tardes de descanso",
+        "description": "Espacios amplios para descansar y compartir en grupo."
+      }
+    ],
+    "location": {
+      "title": "Ubicación",
+      "description": "Punta Burica, 04015, Limones, Provincia de Chiriquí. Entorno natural, acceso frente al mar y ubicación fácil de abrir en tu app de mapas."
+    },
+    "faq": [
+      {
+        "question": "¿Cuál es el mínimo de personas?",
+        "answer": "Puedes reservar desde 2 personas."
+      },
+      {
+        "question": "¿Cómo funciona el cobro mínimo?",
+        "answer": "Se cobra un mínimo equivalente a 4 personas entre semana y 6 en domingos o festivos."
+      },
+      {
+        "question": "¿Hay horarios especiales para amanecer?",
+        "answer": "Sí, el paquete amanecer es de 6:00 a.m. a 9:00 a.m."
+      },
+      {
+        "question": "¿Cuál es el horario general?",
+        "answer": "El horario general es de 8:00 a.m. a 10:00 p.m."
+      }
+    ],
+    "reviews": {
+      "eyebrow": "Perspectivas de huéspedes",
+      "title": "Reseñas",
+      "subtitle": "Comentarios reales de quienes vivieron la calma, la brisa y los momentos frente al mar.",
+      "ctaLabel": "Dejar reseña",
+      "modalTitle": "Comparte tu experiencia",
+      "modalDescription": "Tu comentario quedará pendiente de revisión antes de mostrarse públicamente.",
+      "emptyTitle": "Aún no hay reseñas publicadas",
+      "emptyDescription": "Sé la primera persona en dejarnos una impresión sobre tu visita."
+    },
+    "finalCta": {
+      "title": "Tu próxima escapada frente al mar empieza aquí.",
+      "button": "Reservar ahora"
+    }
+  },
+  "reviews": {
+    "guestComment": "Comentario del huésped",
+    "closeForm": "Cerrar formulario",
+    "rating": "Calificación",
+    "comment": "Comentario",
+    "commentPlaceholder": "¿Qué fue lo que más disfrutaste de tu visita?",
+    "showMyName": "Mostrar mi nombre",
+    "showMyNameDescription": "Se mostrará el nombre público que escribas abajo.",
+    "anonymous": "Aparecer como anónimo",
+    "anonymousDescription": "Publicaremos la reseña sin mostrar tu identidad.",
+    "publicName": "Nombre público",
+    "publicNamePlaceholder": "Ej. Ana Rodríguez",
+    "stayReference": "Referencia de visita",
+    "stayReferencePlaceholder": "Ej. Agosto 2024",
+    "consent": "Autorizo a Cabañas Marinas a publicar esta reseña en el sitio una vez sea aprobada.",
+    "submit": "Enviar reseña",
+    "submitting": "Enviando...",
+    "submitError": "No pudimos enviar tu reseña. Inténtalo de nuevo.",
+    "submitSuccess": "Gracias. Tu reseña quedó enviada y pasará por revisión.",
+    "visitedOn": "Visitó en {label}",
+    "visitedBrand": "Visitó Cabañas Marinas",
+    "prevAria": "Ver reseñas anteriores",
+    "nextAria": "Ver siguientes reseñas",
+    "pageAria": "Ir a la página {page} de reseñas",
+    "starsAria": "{value} estrella{plural}"
+  },
+  "social": {
+    "activePost": "Post activo: {title}",
+    "viewPost": "Ver {title}"
+  },
+  "booking": {
+    "page": {
+      "eyebrow": "Reserva online",
+      "title": "Elige tu fecha, horario y plan en un solo flujo",
+      "description": "Esta vista está enfocada solo en reservar. Si ya tienes una reserva pendiente o necesitas seguimiento, aún puedes volver al inicio para ver su estado."
+    },
+    "wizard": {
+      "header": "Reserva tu cabaña",
+      "backAria": "Volver",
+      "backHomeAria": "Volver al inicio",
+      "stepFallback": "Paso",
+      "ok": "OK",
+      "pending": "...",
+      "continue": "Continuar",
+      "requestReservation": "Solicitar reserva",
+      "sending": "Enviando...",
+      "summaryTitle": "Costo total",
+      "stepGuests": "adultos, niños",
+      "stepDatePending": "Por definir",
+      "stepExtras": "{count} extras",
+      "stepReview": "Revisar y solicitar",
+      "loadCatalogError": "No se pudo cargar el catálogo.",
+      "loadFormError": "No se pudo cargar el formulario.",
+      "submitSuccess": "Reserva solicitada. Completa el pago para confirmar.",
+      "errors": {
+        "notAuthenticated": "Inicia sesión para completar la reserva.",
+        "missingFields": "Completa todos los campos obligatorios.",
+        "invalidTimeRange": "El horario seleccionado no es válido.",
+        "invalidPeopleCount": "Indica la cantidad de personas para continuar.",
+        "minPeopleRequired": "El cobro mínimo para esta fecha aplica aunque vengan menos personas.",
+        "noCabinAvailable": "No hay cabañas disponibles para ese horario.",
+        "maxPeopleExceeded": "La capacidad máxima por reserva es de 16 personas.",
+        "invalidPackage": "Paquete inválido. Actualiza la página.",
+        "generic": "No se pudo completar la reserva."
+      },
+      "confirmation": {
+        "eyebrow": "Reserva pendiente",
+        "titleFallback": "Reserva pendiente",
+        "singleActive": "Solo puedes tener una reserva activa. Si quieres reservar otra fecha, contáctanos por WhatsApp.",
+        "pendingPayment": "Pago pendiente: la reserva se confirma cuando recibimos el pago. Puedes pagar aquí o acordar el pago por WhatsApp.",
+        "plan": "Plan",
+        "status": "Estado",
+        "date": "Fecha",
+        "time": "Horario",
+        "people": "Personas",
+        "extras": "Extras",
+        "estimatedTotal": "Total estimado",
+        "initialPayment": "Pago inicial (50%)",
+        "none": "Ninguno",
+        "pending": "Por confirmar",
+        "payHere": "Pagar aquí",
+        "cancelReservation": "Cancelar reserva",
+        "cancelling": "Cancelando..."
+      },
+      "statuses": {
+        "PENDING_PAYMENT": "Pago pendiente",
+        "CONFIRMED": "Confirmada",
+        "CANCELLED": "Cancelada",
+        "COMPLETED": "Completada",
+        "NO_SHOW": "No show",
+        "default": "Por confirmar"
+      },
+      "paymentMethod": {
+        "YAPPY": "Yappy",
+        "PAYPAL": "PayPal",
+        "CARD": "Tarjeta",
+        "CASH": "WhatsApp"
+      },
+      "whatsapp": {
+        "intro": "Hola, quiero coordinar el pago de mi reserva.",
+        "name": "Nombre: {value}",
+        "package": "Paquete: {value}",
+        "date": "Fecha: {value}",
+        "time": "Horario: {value}",
+        "people": "Personas: {total} (Adultos: {adults}, Niños: {kids})",
+        "extras": "Extras: {value}",
+        "extrasNone": "Extras: Ninguno",
+        "estimatedTotal": "Total estimado: {value}",
+        "deposit": "Pago inicial (50%): {value}",
+        "method": "Método de pago: {value}",
+        "final": "Para confirmar tu reserva, realiza el pago del 50% por el método indicado."
+      }
+    },
+    "guests": {
+      "title": "Cuántas personas vienen",
+      "subtitle": "Los niños pagan 50% del valor por adulto.",
+      "adultsLabel": "Adultos",
+      "adultsDescription": "13 años en adelante",
+      "kidsLabel": "Niños",
+      "kidsDescription": "3 a 12 años",
+      "totalLabel": "Total de personas",
+      "totalSuffix": "/ 16",
+      "minCopy": "Reserva desde 2 personas. El cobro mínimo es 4 entre semana y 6 en domingos o festivos.",
+      "minWarningTitle": "El cobro mínimo por esta fecha es de {minPeople} personas.",
+      "minWarningBody": "El precio mínimo cubre costos de mantenimiento, transporte y facilidades."
+    },
+    "datePackage": {
+      "title": "Elige tu paquete primero",
+      "packagesTitle": "Paquetes disponibles",
+      "packagesEmpty": "Cargando paquetes disponibles...",
+      "selectedLabel": "Seleccionado",
+      "calendarTitle": "Selecciona fecha y hora",
+      "calendarLocked": "Primero elige un paquete para desbloquear el calendario.",
+      "calendarSelectedPrefix": "Seleccionado:",
+      "calendarHint": "Selecciona una fecha para elegir el horario.",
+      "changeTimeLabel": "Cambiar horario",
+      "modalKicker": "Horarios",
+      "modalTitle": "Selecciona tu hora de entrada",
+      "modalSubtitle": "Horario seleccionado",
+      "morningLabel": "Mañana",
+      "afternoonLabel": "Mañana - Tarde",
+      "eveningLabel": "Tarde - Noche",
+      "noMorningLabel": "Sin horarios en la mañana.",
+      "noAfternoonLabel": "Sin horarios en esta franja.",
+      "noEveningLabel": "Sin horarios en la tarde o noche.",
+      "modalCancelLabel": "Cancelar / Volver",
+      "modalConfirmLabel": "Confirmar horario",
+      "customHelp": "Hora de entrada entre 8:00 A.M. y 12:00 P.M.",
+      "customStartLabel": "Hora de entrada",
+      "customEndLabel": "Hora de salida",
+      "customError": "La salida debe ser 10, 11 o 12 horas después.",
+      "timePending": "Por definir",
+      "previousMonth": "Mes anterior",
+      "nextMonth": "Mes siguiente",
+      "perAdult": "por adulto",
+      "days": ["DO", "LU", "MA", "MI", "JU", "VI", "SA"],
+      "checking": "Verificando...",
+      "availabilityErrors": {
+        "noCabin": "No hay cabañas disponibles para ese horario.",
+        "maxPeople": "La capacidad máxima por reserva es de 16 personas.",
+        "invalidPeople": "Indica la cantidad de personas para continuar.",
+        "invalidRange": "El horario seleccionado no es válido.",
+        "generic": "No hay disponibilidad para ese horario.",
+        "validation": "No se pudo validar la disponibilidad."
+      }
+    },
+    "extras": {
+      "title": "Extras para el plan",
+      "subtitle": "Suma equipamiento si quieres una experiencia más completa.",
+      "arrivalNote": "También puedes agregar extras al llegar.",
+      "emptyLabel": "Cargando extras disponibles...",
+      "perHour": "por hora",
+      "perPerson": "por persona",
+      "perReservation": "por reserva",
+      "available": "Disponibles: {stock}",
+      "addAria": "Sumar {label}",
+      "subtractAria": "Restar {label}",
+      "add": "Agregar",
+      "max": "Máximo {count} {unit}",
+      "notAvailable": "No disponible para esta reserva",
+      "unitHour": "hora",
+      "unitHourPlural": "horas",
+      "unitPerson": "persona",
+      "unitPersonPlural": "personas",
+      "unitReservation": "reserva",
+      "unitReservationPlural": "reservas"
+    },
+    "summary": {
+      "title": "Resumen",
+      "subtitle": "Confirma los datos antes de enviar la solicitud.",
+      "date": "Fecha",
+      "package": "Paquete",
+      "time": "Horario",
+      "people": "Personas",
+      "extras": "Extras",
+      "base": "Base",
+      "extrasTotal": "Extras",
+      "total": "Costo total",
+      "pending": "Por definir",
+      "noPackage": "Sin paquete",
+      "adultsKids": "{adults} adultos, {kids} niños",
+      "noExtras": "Sin extras",
+      "minWarning": "El cobro mínimo por esta fecha es de {minPeople} personas.",
+      "unitHour": "hora",
+      "unitHourPlural": "horas",
+      "unitPerson": "persona",
+      "unitPersonPlural": "personas",
+      "unitReservation": "reserva",
+      "unitReservationPlural": "reservas"
+    },
+    "paymentPage": {
+      "title": "Pago"
+    },
+    "paymentMethods": {
+      "title": "Método de pago",
+      "subtitle": "Selecciona cómo prefieres confirmar tu reserva.",
+      "yappyDescription": "Pago rápido desde el celular.",
+      "paypalDescription": "Pago seguro en línea.",
+      "cardDescription": "Visa, Mastercard, CLAVE, Nequi.",
+      "cashDescription": "Ver opciones de pago por WhatsApp.",
+      "yappyInstructions": "Instrucciones Yappy",
+      "sendInitial": "Envía el pago inicial al número Yappy:",
+      "amountToSend": "Monto a enviar:",
+      "halfTotal": "(50% del total)",
+      "qrSoon": "QR próximamente",
+      "afterPayment": "Después de realizar el pago, escríbenos por WhatsApp con el comprobante para confirmar tu reserva."
+    }
+  },
+  "payment": {
+    "loading": "Cargando pago...",
+    "statusPending": "Pago pendiente",
+    "statusConfirmed": "Confirmada",
+    "statusCancelled": "Cancelada",
+    "statusCompleted": "Completada",
+    "statusNoShow": "No show",
+    "pending": "Por confirmar",
+    "noResult": "No encontramos el resultado del pago. Si completaste el pago, envíanos el comprobante por WhatsApp para confirmarlo.",
+    "writeWhatsapp": "Escribir por WhatsApp",
+    "processed": "Pago procesado",
+    "notProcessed": "Pago no procesado",
+    "amount": "Monto:",
+    "operationCode": "Código de operación:",
+    "reservationId": "ID de reserva",
+    "saveCode": "Guarda este código; lo necesitarás para identificar tu pago.",
+    "finalStep": "Último paso: envíanos el comprobante",
+    "finalStepBody": "Tu reserva quedará confirmada cuando nuestro equipo verifique el pago. Envíanos la captura de pantalla del comprobante por WhatsApp con el ID de reserva.",
+    "sendProof": "Enviar comprobante por WhatsApp",
+    "reason": "Razón:",
+    "retry": "Intentar de nuevo",
+    "contactWhatsapp": "Contactar por WhatsApp",
+    "tryAgainBody": "Puedes intentar de nuevo o contactarnos por WhatsApp para coordinar otro método de pago.",
+    "confirmWhatsapp": {
+      "intro": "Hola, realicé mi pago con tarjeta y adjunto el comprobante para confirmar mi reserva.",
+      "reservationId": "ID de reserva: {value}",
+      "operationCode": "Código de operación: {value}",
+      "paidAmount": "Monto pagado: ${value}"
+    },
+    "reservationWhatsapp": {
+      "intro": "Hola, quiero confirmar mi reserva con el pago.",
+      "date": "Fecha: {value}",
+      "time": "Horario: {value}",
+      "package": "Paquete: {value}",
+      "status": "Estado: {value}",
+      "people": "Personas: {total} (Adultos: {adults}, Niños: {kids})",
+      "estimatedTotal": "Total estimado: {value}",
+      "deposit": "Pago inicial (50%): {value}",
+      "method": "Método de pago: {value}",
+      "final": "Para confirmar tu reserva, realiza el pago del 50% por el método indicado."
+    }
+  }
+}

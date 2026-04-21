@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import type { ReservationState } from "@/components/reservar/ReservationWizard";
@@ -72,6 +73,7 @@ export default function StepSummary({
   weekend,
   extrasCatalog,
 }: StepSummaryProps) {
+  const t = useTranslations("booking.summary");
   const selectedExtras = extrasCatalog
     .map((extra) => ({
       extra,
@@ -79,18 +81,18 @@ export default function StepSummary({
     }))
     .filter(({ quantity }) => quantity > 0)
     .map(({ extra, quantity }) => {
-      const unitLabel =
-        extra.pricingUnit === "PER_HOUR"
-          ? quantity === 1
-            ? "hora"
-            : "horas"
+        const unitLabel =
+          extra.pricingUnit === "PER_HOUR"
+            ? quantity === 1
+            ? t("unitHour")
+            : t("unitHourPlural")
           : extra.pricingUnit === "PER_PERSON"
             ? quantity === 1
-              ? "persona"
-              : "personas"
+              ? t("unitPerson")
+              : t("unitPersonPlural")
             : quantity === 1
-              ? "reserva"
-              : "reservas";
+              ? t("unitReservation")
+              : t("unitReservationPlural");
       return `${extra.label} x ${quantity} ${unitLabel}`;
     })
     .join(", ");
@@ -102,51 +104,54 @@ export default function StepSummary({
           id="reservation-summary-title"
           className="font-display text-2xl font-semibold"
         >
-          Resumen
+          {t("title")}
         </h2>
         <p className="text-sm text-muted-foreground">
-          Confirma los datos antes de enviar la solicitud.
+          {t("subtitle")}
         </p>
       </div>
       <Card className="border-border/70 py-4">
         <CardContent className="space-y-4 text-sm">
           <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">Fecha</span>
+            <span className="text-muted-foreground">{t("date")}</span>
             <span className="font-semibold">
-              {state.date ?? "Por definir"}
+              {state.date ?? t("pending")}
             </span>
           </div>
           <Separator />
           <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">Paquete</span>
+            <span className="text-muted-foreground">{t("package")}</span>
             <span className="font-semibold">
-              {selectedPackage?.label ?? "Sin paquete"}
+              {selectedPackage?.label ?? t("noPackage")}
             </span>
           </div>
           <Separator />
           <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">Horario</span>
+            <span className="text-muted-foreground">{t("time")}</span>
             <span className="font-semibold">
               {state.timeSlot
                 ? formatTimeRange12h(
                     state.timeSlot,
                     selectedPackage?.durationMinutes ?? null
                   )
-                : "Por definir"}
+                : t("pending")}
             </span>
           </div>
           <Separator />
           <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">Personas</span>
+            <span className="text-muted-foreground">{t("people")}</span>
             <span className="font-semibold">
-              {state.adults} adultos, {state.kids} niños
+              {t("adultsKids", {
+                adults: state.adults,
+                kids: state.kids,
+              })}
             </span>
           </div>
           <Separator />
           <div className="flex items-start justify-between gap-6">
-            <span className="text-muted-foreground">Extras</span>
+            <span className="text-muted-foreground">{t("extras")}</span>
             <span className="text-right font-semibold">
-              {selectedExtras || "Sin extras"}
+              {selectedExtras || t("noExtras")}
             </span>
           </div>
           <Separator />
@@ -156,18 +161,18 @@ export default function StepSummary({
       <Card className="border-border/70 py-4">
         <CardContent className="space-y-3 text-sm">
           <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">Base</span>
+            <span className="text-muted-foreground">{t("base")}</span>
             <span className="font-semibold">{formatCurrency(totals.base)}</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">Extras</span>
+            <span className="text-muted-foreground">{t("extrasTotal")}</span>
             <span className="font-semibold">
               {formatCurrency(totals.extrasTotal)}
             </span>
           </div>
           <Separator />
           <div className="flex items-center justify-between text-base font-semibold">
-            <span>Costo total</span>
+            <span>{t("total")}</span>
             <span>{formatCurrency(totals.total)}</span>
           </div>
         </CardContent>
@@ -175,9 +180,7 @@ export default function StepSummary({
 
       {showMinWarning && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          {weekend
-            ? `El cobro mínimo por esta fecha es de ${minPeople} personas.`
-            : `El cobro mínimo por esta fecha es de ${minPeople} personas.`}
+          {t("minWarning", { minPeople })}
         </div>
       )}
     </section>

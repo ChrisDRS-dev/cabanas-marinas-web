@@ -1,3 +1,6 @@
+"use client";
+
+import { useTranslations } from "next-intl";
 import CircularGallery from "@/components/CircularGallery";
 import FadeIn from "@/components/FadeIn";
 import type { InstagramEmbedPost } from "@/lib/instagram-embeds";
@@ -11,18 +14,20 @@ export default function InstagramGallerySection({
   items,
   profileUrl,
 }: InstagramGallerySectionProps) {
+  const t = useTranslations("home.sections");
+
   return (
     <section id="instagram" className="mx-auto max-w-6xl px-6 py-18">
       <FadeIn className="space-y-8">
         <div className="max-w-2xl space-y-3">
           <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-            Contenido social
+            {t("socialEyebrow")}
           </p>
           <h2 className="font-display text-3xl font-semibold sm:text-4xl">
-            Lo más reciente en Instagram
+            {t("socialTitle")}
           </h2>
           <p className="text-sm text-muted-foreground sm:text-base">
-            Síguenos en Instagram y descubre los momentos que vivimos frente al mar, cada día.
+            {t("socialDescription")}
             {" "}
             <a
               href={profileUrl}
@@ -30,7 +35,7 @@ export default function InstagramGallerySection({
               rel="noopener noreferrer"
               className="font-semibold text-primary transition hover:opacity-80"
             >
-              Ver perfil
+              {t("socialProfile")}
             </a>
           </p>
         </div>

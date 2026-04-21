@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import { localizeHref, type AppLocale } from "@/i18n/routing";
 import { calcTotal, PackageType } from "@/lib/calcTotal";
 import StepDatePackage from "@/components/reservar/steps/StepDatePackage";
 import StepGuests from "@/components/reservar/steps/StepGuests";
@@ -184,6 +186,8 @@ export default function ReservationWizard({
   prefill?: Partial<ReservationState>;
   startStepId?: string;
 }) {
+  const locale = useLocale() as AppLocale;
+  const t = useTranslations("booking.wizard");
   const [state, dispatch] = useReducer(reducer, initialState);
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -237,22 +241,22 @@ export default function ReservationWizard({
   const formatStatus = (value: string | null | undefined) => {
     switch (value) {
       case "PENDING_PAYMENT":
-        return "Pago pendiente";
+        return t("statuses.PENDING_PAYMENT");
       case "CONFIRMED":
-        return "Confirmada";
+        return t("statuses.CONFIRMED");
       case "CANCELLED":
-        return "Cancelada";
+        return t("statuses.CANCELLED");
       case "COMPLETED":
-        return "Completada";
+        return t("statuses.COMPLETED");
       case "NO_SHOW":
-        return "No show";
+        return t("statuses.NO_SHOW");
       default:
-        return value ?? "Por confirmar";
+        return value ?? t("statuses.default");
     }
   };
 
   const formatTime12h = (value: string | null) => {
-    if (!value) return "Por confirmar";
+    if (!value) return t("confirmation.pending");
     const [hourText, minuteText = "0"] = value.split(":");
     const hour = Number(hourText);
     const minute = Number(minuteText);
@@ -314,7 +318,7 @@ export default function ReservationWizard({
         setCatalogError(
           error instanceof Error
             ? error.message
-            : "No se pudo cargar el catalogo."
+            : t("loadCatalogError")
         );
       }
     };
@@ -426,7 +430,7 @@ export default function ReservationWizard({
         setFormConfigError(
           error instanceof Error
             ? error.message
-            : "No se pudo cargar el formulario."
+            : t("loadFormError")
         );
       }
     };
@@ -628,7 +632,7 @@ export default function ReservationWizard({
   };
 
   const primaryLabel =
-    state.step === totalSteps ? "Solicitar reserva" : "Continuar";
+    state.step === totalSteps ? t("requestReservation") : t("continue");
 
   const submitReservation = async () => {
     setIsSubmitting(true);
@@ -656,28 +660,28 @@ export default function ReservationWizard({
       const result = await response.json();
       if (!response.ok) {
         const code = String(result?.error ?? "");
-        const message =
-          code === "not_authenticated" || code === "CM_NOT_AUTHENTICATED"
-            ? "Inicia sesion para completar la reserva."
+          const message =
+            code === "not_authenticated" || code === "CM_NOT_AUTHENTICATED"
+            ? t("errors.notAuthenticated")
             : code === "missing_fields"
-            ? "Completa todos los campos obligatorios."
+            ? t("errors.missingFields")
             : code === "CM_INVALID_TIME_RANGE"
-            ? "El horario seleccionado no es valido."
+            ? t("errors.invalidTimeRange")
             : code === "CM_INVALID_PEOPLE_COUNT"
-            ? "Indica la cantidad de personas para continuar."
+            ? t("errors.invalidPeopleCount")
             : code === "CM_MIN_PEOPLE_REQUIRED"
-            ? "El cobro mínimo para esta fecha aplica aunque vengan menos personas."
+            ? t("errors.minPeopleRequired")
             : code === "CM_NO_CABIN_AVAILABLE"
-            ? "No hay cabañas disponibles para ese horario."
+            ? t("errors.noCabinAvailable")
             : code === "CM_MAX_PEOPLE_EXCEEDED"
-            ? "La capacidad maxima por reserva es de 16 personas."
+            ? t("errors.maxPeopleExceeded")
             : code === "CM_INVALID_PACKAGE" || code === "invalid_package"
-            ? "Paquete invalido. Actualiza la pagina."
-            : "No se pudo completar la reserva.";
+            ? t("errors.invalidPackage")
+            : t("errors.generic");
         throw new Error(message);
       }
 
-      setSubmitSuccess("Reserva solicitada. Completa el pago para confirmar.");
+      setSubmitSuccess(t("submitSuccess"));
       const resolvedExtras = Object.entries(state.extras)
         .filter(([, quantity]) => quantity > 0)
         .map(([id, quantity]) => {
@@ -734,26 +738,38 @@ export default function ReservationWizard({
           ? "Tarjeta"
           : "WhatsApp";
       const messageLines = [
-        "Hola, quiero coordinar el pago de mi reserva.",
+        t("whatsapp.intro"),
         payload.id ? `ID: ${String(payload.id).slice(0, 8)}` : null,
-        payload.name ? `Nombre: ${payload.name}` : null,
-        payload.packageLabel ? `Paquete: ${payload.packageLabel}` : null,
-        payload.date ? `Fecha: ${payload.date}` : null,
+        payload.name ? t("whatsapp.name", { value: payload.name }) : null,
+        payload.packageLabel ? t("whatsapp.package", { value: payload.packageLabel }) : null,
+        payload.date ? t("whatsapp.date", { value: payload.date }) : null,
         messageTimeRange
-          ? `Horario: ${formatTime12h(messageTimeRange.start)} - ${formatTime12h(
-              messageTimeRange.end
-            )}`
+          ? t("whatsapp.time", {
+              value: `${formatTime12h(messageTimeRange.start)} - ${formatTime12h(
+                messageTimeRange.end
+              )}`,
+            })
           : null,
-        `Personas: ${payload.adults + payload.kids} (Adultos: ${payload.adults}, Niños: ${payload.kids})`,
-        payload.extras.length ? `Extras: ${payload.extras.join(", ")}` : "Extras: Ninguno",
+        t("whatsapp.people", {
+          total: payload.adults + payload.kids,
+          adults: payload.adults,
+          kids: payload.kids,
+        }),
+        payload.extras.length
+          ? t("whatsapp.extras", { value: payload.extras.join(", ") })
+          : t("whatsapp.extrasNone"),
         payload.totalAmount != null
-          ? `Total estimado: ${formatCurrency(payload.totalAmount)}`
+          ? t("whatsapp.estimatedTotal", {
+              value: formatCurrency(payload.totalAmount),
+            })
           : null,
         payload.depositAmount != null
-          ? `Pago inicial (50%): ${formatCurrency(payload.depositAmount)}`
+          ? t("whatsapp.deposit", {
+              value: formatCurrency(payload.depositAmount),
+            })
           : null,
-        `Método de pago: ${paymentMethodLabel}`,
-        "Para confirmar tu reserva, realiza el pago del 50% por el método indicado.",
+        t("whatsapp.method", { value: paymentMethodLabel }),
+        t("whatsapp.final"),
       ].filter(Boolean) as string[];
       const message = messageLines.join("\n");
       const whatsappLink = `${whatsappBase}?text=${encodeURIComponent(message)}`;
@@ -762,11 +778,16 @@ export default function ReservationWizard({
       if (!profilePhone) {
         setShowPhonePrompt(true);
       } else {
-        router.push(`/reservar/pago?method=${state.paymentMethod ?? "YAPPY"}&rid=${rid ?? ""}`);
+        router.push(
+          localizeHref(
+            locale,
+            `/reservar/pago?method=${state.paymentMethod ?? "YAPPY"}&rid=${rid ?? ""}`,
+          ),
+        );
       }
     } catch (error) {
       setSubmitError(
-        error instanceof Error ? error.message : "No se pudo completar la reserva."
+        error instanceof Error ? error.message : t("errors.generic")
       );
     } finally {
       setIsSubmitting(false);
@@ -805,7 +826,7 @@ export default function ReservationWizard({
         window.localStorage.removeItem(`cm_last_reservation:${profileUserId}`);
       }
       setShowConfirmation(false);
-      router.push("/");
+      router.push(localizeHref(locale, "/"));
     } finally {
       setIsCancelling(false);
     }
@@ -845,14 +866,17 @@ export default function ReservationWizard({
               asChild
               className="rounded-full"
             >
-              <Link href="/" aria-label="Volver al inicio">
+              <Link
+                href={localizeHref(locale, "/")}
+                aria-label={t("backHomeAria")}
+              >
                 ←
               </Link>
             </Button>
           )}
           <div className="text-center">
             <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-              Reserva tu cabaña
+              {t("header")}
             </p>
           </div>
           <div className="h-10 w-10" />
@@ -1009,17 +1033,19 @@ export default function ReservationWizard({
             {formSteps.map((step, index) => {
               const stepIndex = index + 1;
               const stepId = step.id;
-              const summaryTitle = step.summary ?? step.label ?? "Paso";
+              const summaryTitle = step.summary ?? step.label ?? t("stepFallback");
               const stepValue =
                 stepId === "guests"
-                  ? `${state.adults} adultos, ${state.kids} niños`
+                  ? `${state.adults} / ${state.kids}`
                   : stepId === "date_package"
                   ? state.date
-                    ? `${state.date} · ${state.timeSlot ?? "Por definir"}`
-                    : "Por definir"
+                    ? `${state.date} · ${state.timeSlot ?? t("stepDatePending")}`
+                    : t("stepDatePending")
                   : stepId === "extras"
-                  ? `${Object.values(state.extras).filter((quantity) => quantity > 0).length} extras`
-                  : "Revisar y solicitar";
+                  ? t("stepExtras", {
+                      count: Object.values(state.extras).filter((quantity) => quantity > 0).length,
+                    })
+                  : t("stepReview");
               const stepComplete =
                 stepId === "guests"
                   ? totalPeople >= 1
@@ -1055,7 +1081,7 @@ export default function ReservationWizard({
                         : "bg-secondary text-muted-foreground"
                     }`}
                   >
-                    {stepComplete ? "OK" : "..."}
+                    {stepComplete ? t("ok") : t("pending")}
                   </span>
                 </button>
               );
@@ -1067,10 +1093,15 @@ export default function ReservationWizard({
       <PhoneDialog
         open={showPhonePrompt}
         onClose={() => setShowPhonePrompt(false)}
-        submitLabel="Continuar al pago"
+        submitLabel={t("confirmation.payHere")}
         onSaved={(phone) => {
           setProfilePhone(phone);
-          router.push(`/reservar/pago?method=${state.paymentMethod ?? "YAPPY"}&rid=${confirmationId ?? ""}`);
+          router.push(
+            localizeHref(
+              locale,
+              `/reservar/pago?method=${state.paymentMethod ?? "YAPPY"}&rid=${confirmationId ?? ""}`,
+            ),
+          );
         }}
       />
 
@@ -1089,13 +1120,13 @@ export default function ReservationWizard({
                     Reserva pendiente
                   </p>
                   <h3 className="mt-1 text-xl font-semibold text-foreground">
-                    {confirmationData?.name ?? profileName ?? "Reserva pendiente"}
+                    {confirmationData?.name ?? profileName ?? t("confirmation.titleFallback")}
                   </h3>
                 </div>
                 <button
                   type="button"
-                  onClick={() => router.push("/")}
-                  aria-label="Cerrar"
+                  onClick={() => router.push(localizeHref(locale, "/"))}
+                  aria-label={t("backHomeAria")}
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border/70 bg-background/80 text-base font-semibold text-foreground shadow-sm transition hover:brightness-105"
                 >
                   ×
@@ -1106,51 +1137,49 @@ export default function ReservationWizard({
               <div className="mt-4 space-y-2">
                 {isRepeatConfirmation && (
                   <p className="rounded-xl border border-border/60 bg-muted/50 px-4 py-3 text-xs text-muted-foreground">
-                    Solo puedes tener una reserva activa. Si quieres reservar
-                    otra fecha, contáctanos por WhatsApp.
+                    {t("confirmation.singleActive")}
                   </p>
                 )}
                 <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
-                  Pago pendiente: la reserva se confirma cuando recibimos el
-                  pago. Puedes pagar aquí o acordar el pago por WhatsApp.
+                  {t("confirmation.pendingPayment")}
                 </p>
               </div>
 
               {/* Details grid */}
               <div className="mt-4 divide-y divide-border/50 rounded-2xl border border-border/60 bg-background px-4 text-sm">
                 <div className="flex items-center justify-between py-3">
-                  <span className="text-muted-foreground">Plan</span>
+                  <span className="text-muted-foreground">{t("confirmation.plan")}</span>
                   <span className="max-w-[55%] text-right font-medium text-foreground">
                     {confirmationData?.packageLabel ??
                       selectedPackage?.label ??
-                      "Por confirmar"}
+                      t("confirmation.pending")}
                   </span>
                 </div>
                 <div className="flex items-center justify-between py-3">
-                  <span className="text-muted-foreground">Estado</span>
+                  <span className="text-muted-foreground">{t("confirmation.status")}</span>
                   <span className="font-medium text-foreground">
                     {formatStatus(confirmationData?.status)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between py-3">
-                  <span className="text-muted-foreground">Fecha</span>
+                  <span className="text-muted-foreground">{t("confirmation.date")}</span>
                   <span className="font-medium text-foreground">
-                    {confirmationData?.date ?? state.date ?? "Por confirmar"}
+                    {confirmationData?.date ?? state.date ?? t("confirmation.pending")}
                   </span>
                 </div>
                 <div className="flex items-center justify-between py-3">
-                  <span className="text-muted-foreground">Horario</span>
+                  <span className="text-muted-foreground">{t("confirmation.time")}</span>
                   <span className="font-medium text-foreground">
                     {confirmationRange?.start
                       ? formatTime12h(confirmationRange.start)
-                      : "Por confirmar"}
+                      : t("confirmation.pending")}
                     {confirmationRange?.end
                       ? ` – ${formatTime12h(confirmationRange.end)}`
                       : ""}
                   </span>
                 </div>
                 <div className="flex items-center justify-between py-3">
-                  <span className="text-muted-foreground">Personas</span>
+                  <span className="text-muted-foreground">{t("confirmation.people")}</span>
                   <span className="font-medium text-foreground">
                     {(confirmationData?.adults ?? state.adults) +
                       (confirmationData?.kids ?? state.kids)}{" "}
@@ -1162,7 +1191,7 @@ export default function ReservationWizard({
                   </span>
                 </div>
                 <div className="flex items-start justify-between gap-4 py-3">
-                  <span className="shrink-0 text-muted-foreground">Extras</span>
+                  <span className="shrink-0 text-muted-foreground">{t("confirmation.extras")}</span>
                   <span className="text-right font-medium text-foreground">
                     {confirmationData?.extras?.length
                       ? confirmationData.extras.join(", ")
@@ -1174,11 +1203,11 @@ export default function ReservationWizard({
                               ? formatExtraSelection(extra, quantity)
                               : `${id} x ${quantity}`;
                           })
-                          .join(", ") || "Ninguno"}
+                          .join(", ") || t("confirmation.none")}
                   </span>
                 </div>
                 <div className="flex items-center justify-between py-3">
-                  <span className="text-muted-foreground">Total estimado</span>
+                  <span className="text-muted-foreground">{t("confirmation.estimatedTotal")}</span>
                   <span className="font-medium text-foreground">
                     {formatCurrency(
                       confirmationData?.totalAmount ?? totals.total
@@ -1187,7 +1216,7 @@ export default function ReservationWizard({
                 </div>
                 <div className="flex items-center justify-between py-3">
                   <span className="font-semibold text-foreground">
-                    Pago inicial (50%)
+                    {t("confirmation.initialPayment")}
                   </span>
                   <span className="font-semibold text-primary">
                     {formatCurrency(
@@ -1201,10 +1230,13 @@ export default function ReservationWizard({
               {/* Actions */}
               <div className="mt-5 flex flex-col gap-2">
                 <Link
-                  href={`/reservar/pago?method=${confirmationData?.paymentMethod ?? "YAPPY"}&rid=${confirmationId ?? ""}`}
+                  href={localizeHref(
+                    locale,
+                    `/reservar/pago?method=${confirmationData?.paymentMethod ?? "YAPPY"}&rid=${confirmationId ?? ""}`,
+                  )}
                   className="w-full rounded-full bg-primary px-4 py-2.5 text-center text-sm font-semibold text-primary-foreground transition hover:opacity-90"
                 >
-                  Pagar aquí
+                  {t("confirmation.payHere")}
                 </Link>
                 <div className="flex gap-2">
                   {whatsAppLink && (
@@ -1223,7 +1255,7 @@ export default function ReservationWizard({
                     onClick={handleCancelReservation}
                     className={`rounded-full text-sm font-semibold ${whatsAppLink ? "flex-1" : "w-full"}`}
                   >
-                    {isCancelling ? "Cancelando..." : "Cancelar reserva"}
+                    {isCancelling ? t("confirmation.cancelling") : t("confirmation.cancelReservation")}
                   </Button>
                 </div>
               </div>
@@ -1240,7 +1272,7 @@ export default function ReservationWizard({
         <div className="flex w-full max-w-3xl items-center gap-3 rounded-full border border-border/70 bg-card/95 p-2 shadow-lg backdrop-blur">
           {state.packageId && (
             <div className="hidden flex-1 flex-col pl-4 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground sm:flex">
-              <span>Costo total</span>
+              <span>{t("summaryTitle")}</span>
               <span className="text-lg font-semibold text-foreground">
                 {formatCurrency(totals.total)}
               </span>
@@ -1253,7 +1285,7 @@ export default function ReservationWizard({
             disabled={!isStepComplete() || isSubmitting || showConfirmation || showPhonePrompt}
           >
             <span className="flex w-full items-center justify-between">
-              {isSubmitting ? "Enviando..." : primaryLabel}
+              {isSubmitting ? t("sending") : primaryLabel}
               {state.packageId && (
                 <span className="text-sm font-medium opacity-80 sm:hidden">
                   {formatCurrency(totals.total)}

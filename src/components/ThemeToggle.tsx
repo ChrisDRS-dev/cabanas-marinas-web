@@ -2,6 +2,7 @@
 
 import { useEffect, useSyncExternalStore } from "react";
 import { MoonStar, SunMedium } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 type ThemeMode = "light" | "dark";
 const DEFAULT_THEME: ThemeMode = "dark";
@@ -33,6 +34,7 @@ function subscribe(onStoreChange: () => void) {
 }
 
 export default function ThemeToggle() {
+  const t = useTranslations("common");
   const theme = useSyncExternalStore(
     subscribe,
     getThemeSnapshot,
@@ -53,8 +55,8 @@ export default function ThemeToggle() {
         document.documentElement.classList.toggle("dark", nextTheme === "dark");
         window.dispatchEvent(new Event("cm:theme-change"));
       }}
-      aria-label="Cambiar tema"
-      title={`Cambiar a modo ${theme === "dark" ? "claro" : "oscuro"}`}
+      aria-label={t("themeToggle")}
+      title={theme === "dark" ? t("themeToLight") : t("themeToDark")}
       className="group flex h-10 w-10 items-center justify-center rounded-full border border-border/70 bg-background shadow-sm transition hover:-translate-y-0.5 hover:border-primary/50 hover:text-primary"
     >
       <span className="relative flex h-5 w-5 items-center justify-center">

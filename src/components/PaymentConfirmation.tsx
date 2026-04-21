@@ -3,8 +3,11 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import YappyPaymentButton from "@/components/YappyPaymentButton";
 import YappyBalanceButton from "@/components/YappyBalanceButton";
+import { getDateLocale } from "@/i18n/format";
+import { localizeHref, type AppLocale } from "@/i18n/routing";
 import { getSessionSafe } from "@/lib/supabase/client";
 import { siteData } from "@/lib/siteData";
 
@@ -63,11 +66,11 @@ function parsePanamaDate(value: string) {
   return new Date(value);
 }
 
-function formatDate(value: string | null) {
-  if (!value) return "Por confirmar";
+function formatDate(value: string | null, locale: AppLocale) {
+  if (!value) return locale === "es" ? "Por confirmar" : "To be confirmed";
   const date = parsePanamaDate(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString("es-PA", {
+  return date.toLocaleDateString(getDateLocale(locale), {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -82,8 +85,8 @@ function formatCurrency(value: number | string | null | undefined) {
   return `$${rounded}`;
 }
 
-function formatTimeOfDay(value: string | null) {
-  if (!value) return "Por confirmar";
+function formatTimeOfDay(value: string | null, locale: AppLocale) {
+  if (!value) return locale === "es" ? "Por confirmar" : "To be confirmed";
   const [hourText, minuteText = "0"] = value.split(":");
   const hour = Number(hourText);
   const minute = Number(minuteText);
@@ -94,11 +97,11 @@ function formatTimeOfDay(value: string | null) {
   return `${displayHour}:${displayMinute} ${period}`;
 }
 
-function formatTimeRange12h(value: string | null) {
-  if (!value) return "Por confirmar";
+function formatTimeRange12h(value: string | null, locale: AppLocale) {
+  if (!value) return locale === "es" ? "Por confirmar" : "To be confirmed";
   const [startRaw, endRaw] = value.split("-");
-  const start = formatTimeOfDay(startRaw ?? null);
-  const end = formatTimeOfDay(endRaw ?? null);
+  const start = formatTimeOfDay(startRaw ?? null, locale);
+  const end = formatTimeOfDay(endRaw ?? null, locale);
   return `${start} - ${end}`;
 }
 
@@ -116,7 +119,7 @@ function toPanamaTime(value: string) {
   return `${hour}:${minute}`;
 }
 
-function buildWhatsAppLink(data: ConfirmationData | null) {
+function buildWhatsAppLink(data: ConfirmationData | null, locale: AppLocale) {
   const base = siteData.links.whatsapp;
   if (!data) return base;
   const paymentMethodLabel =
@@ -136,8 +139,8 @@ function buildWhatsAppLink(data: ConfirmationData | null) {
   const messageLines = [
     "Hola, quiero confirmar mi reserva con el pago.",
     data.id ? `ID: ${String(data.id).slice(0, 8)}` : null,
-    data.date ? `Fecha: ${formatDate(data.date)}` : null,
-    data.timeSlot ? `Horario: ${formatTimeRange12h(data.timeSlot)}` : null,
+    data.date ? `Fecha: ${formatDate(data.date, locale)}` : null,
+    data.timeSlot ? `Horario: ${formatTimeRange12h(data.timeSlot, locale)}` : null,
     data.packageLabel ? `Paquete: ${data.packageLabel}` : null,
     data.status ? `Estado: ${STATUS_LABEL[data.status] ?? data.status}` : null,
     `Personas: ${(data.adults ?? 0) + (data.kids ?? 0)} (Adultos: ${data.adults ?? 0
@@ -159,6 +162,8 @@ const YAPPY_STATIC_LINK =
   "https://link.yappy.com.pa/stc/GXqG1kCpTLfAbMHmc7E9nxSk16Vdr9BZvaim7nGhYrA%3D";
 
 export default function PaymentConfirmation() {
+  const locale = useLocale() as AppLocale;
+  const t = useTranslations("payment");
   const searchParams = useSearchParams();
   const [data, setData] = useState<ConfirmationData | null>(null);
   type PayStep = "amount" | "pay";
@@ -406,11 +411,11 @@ export default function PaymentConfirmation() {
           </p>
           <p>
             <span className="font-semibold text-foreground">Fecha:</span>{" "}
-            {formatDate(data?.date ?? null)}
+            {formatDate(data?.date ?? null, locale)}
           </p>
           <p>
             <span className="font-semibold text-foreground">Horario:</span>{" "}
-            {formatTimeRange12h(data?.timeSlot ?? null)}
+            {formatTimeRange12h(data?.timeSlot ?? null, locale)}
           </p>
           <p>
             <span className="font-semibold text-foreground">Personas:</span>{" "}
@@ -451,7 +456,7 @@ export default function PaymentConfirmation() {
             Tu reserva está completamente pagada
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Nos vemos el {formatDate(data?.date ?? null)}. ¡Que lo disfrutes!
+            Nos vemos el {formatDate(data?.date ?? null, locale)}. ¡Que lo disfrutes!
           </p>
         </div>
       ) : isBalancePending ? (
@@ -476,7 +481,7 @@ export default function PaymentConfirmation() {
           <p className="mt-4 text-xs text-muted-foreground">
             ¿Tienes dudas? Escríbenos por{" "}
             <a
-              href={buildWhatsAppLink(data)}
+              href={buildWhatsAppLink(data, locale)}
               target="_blank"
               rel="noopener noreferrer"
               className="font-medium text-[#25D366] underline-offset-2 hover:underline"
@@ -637,7 +642,7 @@ export default function PaymentConfirmation() {
                   Contáctanos para coordinar el pago o si necesitas ayuda.
                 </p>
                 <a
-                  href={buildWhatsAppLink(data)}
+                  href={buildWhatsAppLink(data, locale)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="mt-4 flex items-center justify-center gap-2 rounded-full bg-[#25D366] px-6 py-3 text-sm font-semibold text-white"
@@ -658,7 +663,7 @@ export default function PaymentConfirmation() {
       ) : null}
 
       <Link
-        href="/"
+        href={localizeHref(locale, "/")}
         className="w-full rounded-full border border-border/70 px-4 py-2 text-center text-sm font-semibold"
       >
         Volver al inicio

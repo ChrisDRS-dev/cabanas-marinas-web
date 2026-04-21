@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 
 const DIAL_COUNTRIES = [
@@ -31,6 +32,7 @@ export default function PhoneDialog({
   onSaved,
   submitLabel = "Guardar",
 }: Props) {
+  const t = useTranslations("phoneDialog");
   const [dialCode, setDialCode] = useState("+507");
   const [localNumber, setLocalNumber] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -48,15 +50,25 @@ export default function PhoneDialog({
     if (saving) return;
     setError(null);
     if (!localDigits) {
-      setError("Ingresa tu número de teléfono.");
+      setError(t("enterPhone"));
       return;
     }
     if (localDigits.length < selectedCountry.min) {
-      setError(`El número para ${selectedCountry.name} debe tener ${selectedCountry.min} dígitos.`);
+      setError(
+        t("numberTooShort", {
+          country: selectedCountry.name,
+          digits: selectedCountry.min,
+        }),
+      );
       return;
     }
     if (localDigits.length > selectedCountry.max) {
-      setError(`El número para ${selectedCountry.name} no puede tener más de ${selectedCountry.max} dígitos.`);
+      setError(
+        t("numberTooLong", {
+          country: selectedCountry.name,
+          digits: selectedCountry.max,
+        }),
+      );
       return;
     }
     const fullPhone = `${dialCode}${localDigits}`;
@@ -69,7 +81,7 @@ export default function PhoneDialog({
       });
       const result = await response.json();
       if (!response.ok) {
-        throw new Error("No se pudo guardar el teléfono. Intenta de nuevo.");
+        throw new Error(t("saveRetryError"));
       }
       const saved = result?.phone ?? fullPhone;
       setLocalNumber("");
@@ -77,7 +89,7 @@ export default function PhoneDialog({
       onSaved?.(saved);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo guardar el teléfono.");
+      setError(err instanceof Error ? err.message : t("saveError"));
     } finally {
       setSaving(false);
     }
@@ -90,24 +102,24 @@ export default function PhoneDialog({
         <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-border sm:hidden" />
 
         <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-          Número de contacto
+          {t("eyebrow")}
         </p>
         <h3 className="mt-1 text-xl font-semibold text-foreground">
-          ¿Cuál es tu número?
+          {t("title")}
         </h3>
         <p className="mt-2 text-sm text-muted-foreground">
-          Lo usaremos para coordinar tu llegada y confirmar la reserva por WhatsApp.
+          {t("description")}
         </p>
 
         {/* Yappy notice */}
         <div className="mt-3 rounded-2xl border border-sky-400/30 bg-sky-500/10 px-3 py-2.5 text-xs text-sky-700 dark:text-sky-400">
-          Si pagas con <span className="font-semibold">Yappy</span>, la solicitud de pago se enviará a este número.
+          {t("yappyNotice")}
         </div>
 
         {/* Country selector */}
         <div className="mt-5">
           <label className="mb-1.5 block text-[11px] uppercase tracking-widest text-muted-foreground">
-            País
+            {t("country")}
           </label>
           <select
             value={`${selectedCountry.code}|${selectedCountry.dial}`}
@@ -131,7 +143,7 @@ export default function PhoneDialog({
         {/* Local number input */}
         <div className="mt-3">
           <label className="mb-1.5 block text-[11px] uppercase tracking-widest text-muted-foreground">
-            Número local ({selectedCountry.min} dígitos)
+            {t("localNumber", { digits: selectedCountry.min })}
           </label>
           <div className="flex items-center gap-2">
             <span className="shrink-0 rounded-2xl border border-border/70 bg-background/60 px-3 py-3 text-sm font-semibold text-muted-foreground">
@@ -162,7 +174,7 @@ export default function PhoneDialog({
         {/* Preview */}
         {previewNumber && (
           <p className="mt-2 text-xs text-muted-foreground">
-            Número completo:{" "}
+            {t("fullNumber")}{" "}
             <span className="font-semibold text-foreground">{previewNumber}</span>
             {isValid && <span className="ml-2 text-emerald-500">✓</span>}
           </p>
@@ -179,7 +191,7 @@ export default function PhoneDialog({
             onClick={() => void handleSave()}
             disabled={saving || !isValid}
           >
-            {saving ? "Guardando..." : submitLabel}
+            {saving ? t("saving") : submitLabel}
           </Button>
           <button
             type="button"
@@ -187,7 +199,7 @@ export default function PhoneDialog({
             disabled={saving}
             className="w-full rounded-full border border-border px-4 py-2 text-sm font-semibold text-muted-foreground"
           >
-            Cancelar
+            {t("cancel")}
           </button>
         </div>
       </div>

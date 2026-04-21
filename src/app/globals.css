@@ -193,3 +193,39 @@
     radial-gradient(circle at top, rgba(52, 182, 200, 0.18), transparent 42%),
     linear-gradient(135deg, rgba(7, 18, 21, 0.58), rgba(255, 179, 71, 0.1)) !important;
 }
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 280ms;
+  animation-timing-function: ease;
+}
+
+::view-transition-old(root) {
+  animation-name: locale-fade-out;
+}
+
+::view-transition-new(root) {
+  animation-name: locale-fade-in;
+}
+
+@keyframes locale-fade-out {
+  from {
+    opacity: 1;
+    filter: blur(0);
+  }
+  to {
+    opacity: 0.84;
+    filter: blur(4px);
+  }
+}
+
+@keyframes locale-fade-in {
+  from {
+    opacity: 0.92;
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}

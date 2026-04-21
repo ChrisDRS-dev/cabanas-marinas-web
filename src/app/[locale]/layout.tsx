@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
-import "./globals.css";
+import { NextIntlClientProvider } from 'next-intl';
+import { getMessages } from 'next-intl/server';
+import { notFound } from 'next/navigation';
+import { routing } from '@/i18n/routing';
+import "../globals.css";
 import "leaflet/dist/leaflet.css";
 import StickyCTA from "@/components/StickyCTA";
 import AuthProvider from "@/components/AuthProvider";
@@ -16,13 +20,21 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
+  params,
 }: Readonly<{
   children: React.ReactNode;
+  params: Promise<{ locale: string }>;
 }>) {
+  const { locale } = await params;
+  if (!routing.locales.includes(locale as any)) {
+    notFound();
+  }
+  const messages = await getMessages();
+
   return (
-    <html lang="es" suppressHydrationWarning>
+    <html lang={locale} suppressHydrationWarning>
       <body
         className="min-h-screen bg-background text-foreground antialiased"
       >
@@ -37,16 +49,18 @@ export default function RootLayout({
 })();`,
           }}
         />
-        <AuthProvider>
-          {children}
-          <StickyCTA
-            primaryHref="/reservar"
-            primaryLabel="Reservar"
-            secondaryHref="https://wa.me/50762811651"
-            secondaryLabel="WhatsApp"
-            instagramHref={INSTAGRAM_PROFILE_URL}
-          />
-        </AuthProvider>
+        <NextIntlClientProvider messages={messages} locale={locale}>
+          <AuthProvider>
+            {children}
+            <StickyCTA
+              primaryHref={`/${locale}/reservar`}
+              primaryLabel="Reservar"
+              secondaryHref="https://wa.me/50762811651"
+              secondaryLabel="WhatsApp"
+              instagramHref={INSTAGRAM_PROFILE_URL}
+            />
+          </AuthProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   );

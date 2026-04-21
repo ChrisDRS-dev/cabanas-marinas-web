@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 
 export type CircularGalleryItem = {
   id: string;
@@ -147,6 +148,7 @@ function InstagramEmbedCard({
 }
 
 export default function CircularGallery({ items }: CircularGalleryProps) {
+  const t = useTranslations("social");
   const [activeIndex, setActiveIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const resumeTimeoutRef = useRef<number | null>(null);
@@ -251,8 +253,8 @@ export default function CircularGallery({ items }: CircularGalleryProps) {
                 }}
                 aria-label={
                   isActive
-                    ? `Post activo: ${item.title}`
-                    : `Ver ${item.title}`
+                    ? t("activePost", { title: item.title })
+                    : t("viewPost", { title: item.title })
                 }
               >
                 <div

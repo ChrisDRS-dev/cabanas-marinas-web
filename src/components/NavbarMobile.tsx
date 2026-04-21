@@ -2,6 +2,8 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
+import LanguageSelector from "@/components/LanguageSelector";
 import PhoneDialog from "@/components/PhoneDialog";
 import ThemeToggle from "@/components/ThemeToggle";
 import { useAuth } from "@/components/AuthProvider";
@@ -12,6 +14,8 @@ type NavbarMobileProps = {
 };
 
 export default function NavbarMobile({ brand }: NavbarMobileProps) {
+  const t = useTranslations("navbar");
+  const common = useTranslations("common");
   const { session, openAuth } = useAuth();
   const [userOpen, setUserOpen] = useState(false);
   const [phoneDialogOpen, setPhoneDialogOpen] = useState(false);
@@ -66,7 +70,7 @@ export default function NavbarMobile({ brand }: NavbarMobileProps) {
             <div className="flex h-10 w-10 min-h-10 min-w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white shadow-sm">
               <Image
                 src="/logo/navbar-logo.png"
-                alt="Logo Cabañas Marinas"
+                alt={t("logoAlt")}
                 width={56}
                 height={56}
                 className="h-14 w-14 max-w-none object-cover object-center"
@@ -77,6 +81,7 @@ export default function NavbarMobile({ brand }: NavbarMobileProps) {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <LanguageSelector />
             <ThemeToggle />
             {session ? (
               <button
@@ -84,7 +89,7 @@ export default function NavbarMobile({ brand }: NavbarMobileProps) {
                 onClick={() => setUserOpen(true)}
                 className="rounded-full border border-border bg-background px-4 py-2 text-xs font-semibold"
               >
-                {userName ?? "Usuario"}
+                {userName ?? t("defaultUser")}
               </button>
             ) : (
               <button
@@ -92,7 +97,7 @@ export default function NavbarMobile({ brand }: NavbarMobileProps) {
                 onClick={openAuth}
                 className="rounded-full bg-foreground px-4 py-2 text-xs font-semibold text-background"
               >
-                Iniciar sesion
+                {t("login")}
               </button>
             )}
           </div>
@@ -106,23 +111,23 @@ export default function NavbarMobile({ brand }: NavbarMobileProps) {
       {userOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-sm rounded-3xl bg-background p-5 shadow-xl">
-            <p className="text-sm font-semibold">Cuenta</p>
+            <p className="text-sm font-semibold">{t("account")}</p>
             <div className="mt-3 space-y-2 text-xs text-muted-foreground">
               <p>
-                <span className="text-muted-foreground/70">Nombre:</span>{" "}
+                <span className="text-muted-foreground/70">{t("name")}:</span>{" "}
                 <span className="font-semibold text-foreground">
-                  {userName ?? "Usuario"}
+                  {userName ?? t("defaultUser")}
                 </span>
               </p>
               <p>
-                <span className="text-muted-foreground/70">Email:</span>{" "}
+                <span className="text-muted-foreground/70">{t("email")}:</span>{" "}
                 <span className="font-semibold text-foreground">
                   {userEmail ?? "-"}
                 </span>
               </p>
               <div className="flex items-center justify-between gap-2">
                 <p>
-                  <span className="text-muted-foreground/70">Teléfono:</span>{" "}
+                  <span className="text-muted-foreground/70">{t("phone")}:</span>{" "}
                   <span className="font-semibold text-foreground">
                     {userPhone ?? "-"}
                   </span>
@@ -132,7 +137,7 @@ export default function NavbarMobile({ brand }: NavbarMobileProps) {
                   onClick={() => setPhoneDialogOpen(true)}
                   className="shrink-0 rounded-full border border-border px-2.5 py-1 text-[10px] font-semibold text-muted-foreground hover:text-foreground"
                 >
-                  {userPhone ? "Cambiar" : "Agregar"}
+                  {userPhone ? t("change") : t("add")}
                 </button>
               </div>
             </div>
@@ -142,7 +147,7 @@ export default function NavbarMobile({ brand }: NavbarMobileProps) {
                 onClick={() => setUserOpen(false)}
                 className="flex-1 rounded-full border border-border px-4 py-2 text-xs font-semibold"
               >
-                Cerrar
+                {common("close")}
               </button>
               <button
                 type="button"
@@ -152,7 +157,7 @@ export default function NavbarMobile({ brand }: NavbarMobileProps) {
                 }}
                 className="flex-1 rounded-full bg-foreground px-4 py-2 text-xs font-semibold text-background"
               >
-                Cerrar sesión
+                {t("logout")}
               </button>
             </div>
           </div>

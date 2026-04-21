@@ -1,5 +1,6 @@
 "use client";
 
+import { useLocale, useTranslations } from "next-intl";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import type { ReservationState } from "@/components/reservar/ReservationWizard";
@@ -92,22 +93,26 @@ export default function StepGuests({
   showMinWarning,
   config,
 }: StepGuestsProps) {
+  const locale = useLocale();
+  const t = useTranslations("booking.guests");
   const totalPeople = state.adults + state.kids;
   const maxReached = totalPeople >= 16;
   const maxKids = 16 - state.adults;
 
-  const title = config?.title ?? "Cuantas personas vienen";
+  const localizedConfig = locale === "es" ? config : undefined;
+  const title = localizedConfig?.title ?? t("title");
   const subtitle =
-    config?.subtitle ?? "Los niños pagan 50% del valor por adulto.";
-  const adultsLabel = config?.adultsLabel ?? "Adultos";
-  const adultsDescription = config?.adultsDescription ?? "13 años en adelante";
-  const kidsLabel = config?.kidsLabel ?? "Ninos";
-  const kidsDescription = config?.kidsDescription ?? "3 a 12 años";
-  const totalLabel = config?.totalLabel ?? "Total de personas";
-  const totalSuffix = config?.totalSuffix ?? "/ 16";
+    localizedConfig?.subtitle ?? t("subtitle");
+  const adultsLabel = localizedConfig?.adultsLabel ?? t("adultsLabel");
+  const adultsDescription =
+    localizedConfig?.adultsDescription ?? t("adultsDescription");
+  const kidsLabel = localizedConfig?.kidsLabel ?? t("kidsLabel");
+  const kidsDescription =
+    localizedConfig?.kidsDescription ?? t("kidsDescription");
+  const totalLabel = localizedConfig?.totalLabel ?? t("totalLabel");
+  const totalSuffix = localizedConfig?.totalSuffix ?? t("totalSuffix");
   const minCopy =
-    config?.minCopy ??
-    "Reserva desde 2 personas. El cobro mínimo es 4 entre semana y 6 en domingos o festivos.";
+    localizedConfig?.minCopy ?? t("minCopy");
 
   return (
     <section className="space-y-4">
@@ -156,11 +161,8 @@ export default function StepGuests({
       </div>
       {showMinWarning && (
         <div className="space-y-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          <p>El cobro mínimo por esta fecha es de {minPeople} personas.</p>
-          <p>
-            El precio mínimo cubre costos de mantenimiento, transporte y
-            facilidades.
-          </p>
+          <p>{t("minWarningTitle", { minPeople })}</p>
+          <p>{t("minWarningBody")}</p>
         </div>
       )}
     </section>
