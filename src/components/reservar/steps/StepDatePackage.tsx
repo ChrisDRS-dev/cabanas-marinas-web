@@ -2,13 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useLocale, useTranslations } from "next-intl";
+import { useLocale, useMessages, useTranslations } from "next-intl";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { ReservationState } from "@/components/reservar/ReservationWizard";
 import { getMonthLocale } from "@/i18n/format";
 import type { PackageType } from "@/lib/calcTotal";
+import { getCatalogMessages, getLocalizedPackage } from "@/lib/localized-catalog";
 import type { Package, TimeSlot } from "@/lib/supabase/catalog";
 import type { DatePackageStepConfig } from "@/lib/supabase/formConfig";
 import type React from "react";
@@ -175,7 +176,11 @@ export default function StepDatePackage({
   config,
 }: StepDatePackageProps) {
   const locale = useLocale();
+  const messages = useMessages();
   const t = useTranslations("booking.datePackage");
+  const catalog = getCatalogMessages(
+    (messages as { booking?: { catalog?: unknown } }).booking?.catalog,
+  );
   const [monthOffset, setMonthOffset] = useState(0);
   const [showTimeModal, setShowTimeModal] = useState(false);
   const [pendingTimeSlot, setPendingTimeSlot] = useState<string | null>(
@@ -650,7 +655,7 @@ export default function StepDatePackage({
           <h3 className="text-lg font-semibold">{packagesTitle}</h3>
           {selectedPackage && (
             <Badge variant="secondary">
-              {selectedLabel}: {selectedPackage.label}
+              {selectedLabel}: {getLocalizedPackage(selectedPackage, catalog)?.label}
             </Badge>
           )}
         </div>
@@ -661,6 +666,7 @@ export default function StepDatePackage({
             </div>
           )}
           {packages.map((pkg) => {
+            const localizedPackage = getLocalizedPackage(pkg, catalog) ?? pkg;
             const selected = state.packageId === pkg.id;
             return (
               <button
@@ -680,10 +686,12 @@ export default function StepDatePackage({
                     <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
                       {t("packagesTitle")}
                     </p>
-                    <h4 className="mt-1 text-lg font-semibold">{pkg.label}</h4>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {pkg.note}
-                    </p>
+                    <h4 className="mt-1 text-lg font-semibold">{localizedPackage.label}</h4>
+                    {localizedPackage.note ? (
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {localizedPackage.note}
+                      </p>
+                    ) : null}
                   </div>
                   <div className="text-right">
                     <p className="text-xl font-semibold">${pkg.pricePerAdult}</p>

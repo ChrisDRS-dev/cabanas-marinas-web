@@ -61,6 +61,10 @@
     "saving": "Guardando..."
   },
   "stickyCta": {
+    "reserve": "Reservar",
+    "whatsapp": "WhatsApp",
+    "instagram": "Instagram",
+    "whatsappAria": "Abrir WhatsApp",
     "instagramAria": "Instagram"
   },
   "home": {
@@ -234,7 +238,8 @@
     "page": {
       "eyebrow": "Reserva online",
       "title": "Elige tu fecha, horario y plan en un solo flujo",
-      "description": "Esta vista está enfocada solo en reservar. Si ya tienes una reserva pendiente o necesitas seguimiento, aún puedes volver al inicio para ver su estado."
+      "description": "Esta vista está enfocada solo en reservar. Si ya tienes una reserva pendiente o necesitas seguimiento, aún puedes volver al inicio para ver su estado.",
+      "loading": "Cargando tus reservas..."
     },
     "wizard": {
       "header": "Reserva tu cabaña",
@@ -251,6 +256,15 @@
       "stepDatePending": "Por definir",
       "stepExtras": "{count} extras",
       "stepReview": "Revisar y solicitar",
+      "stepLabels": {
+        "guests": "Personas",
+        "datePackage": "Fecha y hora",
+        "extras": "Extras",
+        "review": "Resumen"
+      },
+      "cta": {
+        "whatsapp": "WhatsApp"
+      },
       "loadCatalogError": "No se pudo cargar el catálogo.",
       "loadFormError": "No se pudo cargar el formulario.",
       "submitSuccess": "Reserva solicitada. Completa el pago para confirmar.",
@@ -275,6 +289,7 @@
         "date": "Fecha",
         "time": "Horario",
         "people": "Personas",
+        "peopleValue": "{total} personas ({adults} adultos, {kids} niños)",
         "extras": "Extras",
         "estimatedTotal": "Total estimado",
         "initialPayment": "Pago inicial (50%)",
@@ -311,6 +326,52 @@
         "deposit": "Pago inicial (50%): {value}",
         "method": "Método de pago: {value}",
         "final": "Para confirmar tu reserva, realiza el pago del 50% por el método indicado."
+      }
+    },
+    "catalog": {
+      "packages": {
+        "4H": {
+          "label": "4 horas",
+          "note": "Ideal para escapadas cortas frente al mar."
+        },
+        "8H": {
+          "label": "8 horas",
+          "note": "Un día completo para disfrutar con calma."
+        },
+        "AMANECER": {
+          "label": "Ver el amanecer",
+          "note": "Madruga en grupo para vivir la salida del sol frente al mar."
+        },
+        "EVENTO": {
+          "label": "Evento especial",
+          "note": "Horario personalizado de 10 a 12 horas."
+        }
+      },
+      "extras": {
+        "paddleboard": {
+          "label": "Paddleboard",
+          "description": "Tabla de remo para paseos tranquilos cerca de la costa."
+        },
+        "kayak": {
+          "label": "Kayak",
+          "description": "Kayak individual para remar y explorar el área marina."
+        },
+        "mascara_bucear": {
+          "label": "Máscara de bucear",
+          "description": "Máscara para snorkel y observar peces en la orilla."
+        },
+        "cana_pesca": {
+          "label": "Caña de pesca",
+          "description": "Caña lista para pesca recreativa desde la orilla."
+        },
+        "sofa_marino": {
+          "label": "Sofá marino",
+          "description": "Sofá inflable para flotar y relajarse en el agua."
+        },
+        "wakeboarding": {
+          "label": "Wakeboarding",
+          "description": "Tabla con cuerda para deslizarse en lancha a velocidad."
+        }
       }
     },
     "guests": {
@@ -416,6 +477,8 @@
     "paymentMethods": {
       "title": "Método de pago",
       "subtitle": "Selecciona cómo prefieres confirmar tu reserva.",
+      "cardLabel": "Tarjeta / CLAVE",
+      "comingSoon": "Próximamente",
       "yappyDescription": "Pago rápido desde el celular.",
       "paypalDescription": "Pago seguro en línea.",
       "cardDescription": "Visa, Mastercard, CLAVE, Nequi.",
@@ -426,6 +489,53 @@
       "halfTotal": "(50% del total)",
       "qrSoon": "QR próximamente",
       "afterPayment": "Después de realizar el pago, escríbenos por WhatsApp con el comprobante para confirmar tu reserva."
+    }
+  },
+  "account": {
+    "welcome": "Bienvenido",
+    "welcomeNamed": "Bienvenido, {name}",
+    "subtitle": "Aquí verás el estado de tus reservas y las opciones disponibles.",
+    "errors": {
+      "loadExtras": "No se pudieron cargar los extras.",
+      "submitRequest": "No se pudo enviar la solicitud."
+    },
+    "draft": {
+      "message": "Hay una reserva en progreso. Continúa donde la dejaste.",
+      "cta": "Continuar reserva"
+    },
+    "reservations": {
+      "eyebrow": "Mis reservas",
+      "manage": "Ver flujo de reserva",
+      "id": "Reserva {value}",
+      "fallbackPackage": "Paquete",
+      "requestChanges": "Solicitar cambios",
+      "pay": "Pagar reserva",
+      "allConfirmed": "Tus reservas están confirmadas o completadas."
+    },
+    "changeRequest": {
+      "eyebrow": "Solicitud de cambio",
+      "close": "Cerrar",
+      "help": "Solo puedes agregar personas o extras. Para cambiar fecha u horario, contáctanos por WhatsApp.",
+      "adults": "Adultos (actual: {count})",
+      "kids": "Niños (actual: {count})",
+      "extras": "Extras adicionales",
+      "noExtras": "No hay extras disponibles.",
+      "note": "Nota adicional (opcional)",
+      "notePlaceholder": "Escribe detalles para el equipo.",
+      "cancel": "Cancelar",
+      "submit": "Enviar solicitud",
+      "sending": "Enviando...",
+      "success": "Solicitud enviada. Te confirmaremos por WhatsApp.",
+      "whatsapp": "Coordinar por WhatsApp"
+    },
+    "whatsapp": {
+      "intro": "Hola, tengo una reserva pendiente de pago.",
+      "id": "ID: {value}",
+      "date": "Fecha: {value}",
+      "time": "Horario: {value}",
+      "package": "Paquete: {value}",
+      "total": "Total estimado: {value}",
+      "status": "Estado: {value}"
     }
   },
   "payment": {
@@ -468,6 +578,125 @@
       "deposit": "Pago inicial (50%): {value}",
       "method": "Método de pago: {value}",
       "final": "Para confirmar tu reserva, realiza el pago del 50% por el método indicado."
+    },
+    "header": {
+      "completedEyebrow": "Reserva completada",
+      "completedTitle": "Reserva pagada al 100%",
+      "completedBody": "Tu reserva está confirmada y pagada por completo. Te esperamos.",
+      "depositBadge": "Depósito confirmado",
+      "paymentEyebrow": "Pago de reserva",
+      "balanceTitle": "Paga el saldo restante",
+      "balanceBody": "El depósito del 50% ya está confirmado. Paga el saldo restante para completar tu reserva.",
+      "chooseTitle": "Elige cómo pagar",
+      "chooseBody": "Selecciona un método para completar el depósito del 50% y confirmar tu reserva."
+    },
+    "summary": {
+      "eyebrow": "Resumen de reserva",
+      "package": "Paquete:",
+      "status": "Estado:",
+      "date": "Fecha:",
+      "time": "Horario:",
+      "people": "Personas:",
+      "peopleValue": "{total} (Adultos: {adults}, Niños: {kids})",
+      "total": "Costo total:",
+      "paid": "Pagado:",
+      "balanceDue": "Saldo pendiente (50%):",
+      "deposit": "Depósito a pagar (50%):"
+    },
+    "states": {
+      "fullyPaidTitle": "Tu reserva está completamente pagada",
+      "fullyPaidBody": "Nos vemos el {date}. Que lo disfrutes.",
+      "balanceBodyPrefix": "Usa el botón de Yappy para enviar el saldo restante de",
+      "balanceBodySuffix": "directamente a tu número Yappy registrado.",
+      "balancePolling": "El flujo de pago del saldo fue iniciado. En cuanto Yappy confirme, actualizaremos tu reserva.",
+      "helpPrefix": "¿Tienes dudas? Escríbenos por",
+      "helpSuffix": "y te ayudamos."
+    },
+    "steps": {
+      "amount": "Monto",
+      "pay": "Pagar"
+    },
+    "amountSelector": {
+      "question": "¿Cuánto quieres pagar ahora?",
+      "depositTitle": "Depósito inicial (50%)",
+      "depositBody": "Confirma tu reserva con el mínimo requerido",
+      "fullTitle": "Pago completo (100%)",
+      "fullBody": "Saldo total saldado desde el inicio"
+    },
+    "paying": "Pagando",
+    "recommended": "Recomendado",
+    "officialButtonBody": "Ingresa tu número Yappy y tu nombre como comentario para identificar tu pago.",
+    "officialButtonPolling": "El flujo de Yappy fue iniciado. En cuanto Yappy confirme el pago, actualizaremos tu reserva.",
+    "manual": {
+      "title": "Yappy manual, desde la app",
+      "subtitle": "Si el botón no funciona, usa el link estático. El equipo confirmará el pago manualmente.",
+      "show": "Ver datos",
+      "hide": "Ocultar",
+      "preparing": "Preparando link...",
+      "openLink": "Abrir link estático de Yappy",
+      "amount": "Monto a enviar:",
+      "phone": "Número de teléfono:",
+      "alias": "Alias / Directorio:",
+      "reminder": "Recuerda enviarnos la captura de pantalla del comprobante por WhatsApp para confirmar tu reserva.",
+      "noReservation": "No encontramos una reserva pendiente para asociar el pago manual.",
+      "prepareError": "No se pudo preparar la referencia manual de este pago.",
+      "opened": "Abrimos el link de Yappy y dejamos el pago marcado como manual en el sistema. Cuando lo completes, envía el comprobante por WhatsApp.",
+      "openError": "No se pudo abrir el flujo manual de Yappy."
+    },
+    "whatsappCard": {
+      "body": "Contáctanos para coordinar el pago o si necesitas ayuda.",
+      "cta": "Abrir WhatsApp"
+    },
+    "cta": {
+      "whatsapp": "WhatsApp",
+      "backHome": "Volver al inicio"
+    },
+    "polling": {
+      "fullyPaid": "Tu reserva está pagada al 100%. Te esperamos el día de tu visita.",
+      "depositConfirmed": "Depósito confirmado. Tu reserva ya está confirmada. Ahora puedes pagar el saldo restante."
+    },
+    "yappyBlocked": {
+      "noReservation": "No encontramos una reserva pendiente para iniciar el pago.",
+      "notYappy": "Esta reserva no fue creada con Yappy como método de pago.",
+      "notPending": "La reserva ya no está pendiente de pago."
+    },
+    "yappyButton": {
+      "loadConfigError": "No se pudo cargar la configuración del botón de Yappy.",
+      "missingReservation": "No encontramos una reserva pendiente para pagar.",
+      "preparing": "Preparando tu pago en Yappy...",
+      "opening": "Yappy está abriendo el flujo de pago.",
+      "started": "Pago iniciado. Estamos verificando la confirmación de Yappy.",
+      "providerError": "Yappy reportó un error al procesar el pago.",
+      "unavailable": "El botón de Yappy no está disponible en este momento.",
+      "ctaUnavailable": "Botón Yappy no disponible",
+      "blocked": "Esta reserva no está disponible para pago ahora mismo.",
+      "loading": "Cargando botón oficial de Yappy...",
+      "loadError": "No se pudo preparar el botón de Yappy.",
+      "creatingOrder": "Creando orden de pago...",
+      "merchantValidationFailed": "Yappy rechazó la validación del comercio. Revisa el dominio y las credenciales.",
+      "orderCreationFailed": "Yappy no pudo crear la orden de pago para esta reserva.",
+      "notPending": "Esta reserva ya no está disponible para pago.",
+      "missingPanamaPhone": "Necesitas un número panameño válido para recibir la solicitud de pago por Yappy.",
+      "startError": "No se pudo iniciar el pago con Yappy."
+    },
+    "yappyBalance": {
+      "loadConfigError": "No se pudo cargar la configuración de Yappy.",
+      "loadError": "Error al cargar Yappy.",
+      "missingReservation": "No hay reserva activa para pagar el saldo.",
+      "preparing": "Preparando el pago del saldo en Yappy...",
+      "opening": "Yappy está abriendo el flujo de pago del saldo.",
+      "started": "Pago del saldo iniciado. Estamos verificando la confirmación.",
+      "providerError": "Yappy reportó un error al procesar el pago.",
+      "unavailable": "El botón de Yappy no está disponible en este momento.",
+      "blocked": "No disponible en este momento.",
+      "balanceToPay": "Saldo a pagar:",
+      "loading": "Cargando botón de Yappy...",
+      "creatingOrder": "Creando orden de pago...",
+      "notConfirmed": "La reserva aún no está confirmada.",
+      "balanceUnavailable": "El saldo no está disponible para pagar.",
+      "noBalanceDue": "No hay saldo pendiente para esta reserva.",
+      "missingPanamaPhone": "Necesitas un número panameño en tu perfil.",
+      "startError": "No se pudo iniciar el pago del saldo con Yappy."
     }
   }
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { applyYappyDialogCentering, ensureYappyScript, type BtnYappyElement } from "@/lib/yappy-script";
 
 type BalanceOrderResponse = {
@@ -34,15 +35,6 @@ function formatCurrency(value: number | null | undefined) {
   return `$${Number.isInteger(value) ? value.toFixed(0) : value.toFixed(2)}`;
 }
 
-function normalizeErrorMessage(error: string | null | undefined, detail: string | null | undefined) {
-  if (detail) return detail;
-  if (error === "reservation_not_confirmed") return "La reserva aún no está confirmada.";
-  if (error === "invoice_not_partially_paid") return detail ?? "El saldo no está disponible para pagar.";
-  if (error === "no_balance_due") return "No hay saldo pendiente para esta reserva.";
-  if (error === "missing_panama_phone") return detail ?? "Necesitas un número panameño en tu perfil.";
-  return "No se pudo iniciar el pago del saldo con Yappy.";
-}
-
 export default function YappyBalanceButton({
   reservationId,
   balanceDue,
@@ -50,12 +42,21 @@ export default function YappyBalanceButton({
   blockedReason = null,
   onPaymentStarted,
 }: Props) {
+  const t = useTranslations("payment.yappyBalance");
   const buttonRef = useRef<BtnYappyElement | null>(null);
   const [config, setConfig] = useState<ButtonConfigResponse | null>(null);
   const [scriptReady, setScriptReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
   const [hint, setHint] = useState<string | null>(null);
+  const normalizeRuntimeError = (error: string | null | undefined, detail: string | null | undefined) => {
+    if (detail) return detail;
+    if (error === "reservation_not_confirmed") return t("notConfirmed");
+    if (error === "invoice_not_partially_paid") return t("balanceUnavailable");
+    if (error === "no_balance_due") return t("noBalanceDue");
+    if (error === "missing_panama_phone") return t("missingPanamaPhone");
+    return t("startError");
+  };
 
   useEffect(() => {
     let active = true;
@@ -63,7 +64,7 @@ export default function YappyBalanceButton({
       .then((r) => r.json() as Promise<ButtonConfigResponse>)
       .then((result) => { if (active) setConfig(result); })
       .catch(() => {
-        if (active) setConfig({ enabled: false, cdnUrl: "", detail: "No se pudo cargar la configuración de Yappy." });
+        if (active) setConfig({ enabled: false, cdnUrl: "", detail: t("loadConfigError") });
       });
     return () => { active = false; };
   }, []);
@@ -73,7 +74,7 @@ export default function YappyBalanceButton({
     let active = true;
     void ensureYappyScript(config.cdnUrl)
       .then(() => { if (active) setScriptReady(true); })
-      .catch((err) => { if (active) setRuntimeError(err instanceof Error ? err.message : "Error al cargar Yappy."); });
+      .catch(() => { if (active) setRuntimeError(t("loadError")); });
     return () => { active = false; };
   }, [config]);
 
@@ -97,12 +98,12 @@ export default function YappyBalanceButton({
 
     const handleClick = async () => {
       if (!reservationId) {
-        setRuntimeError("No hay reserva activa para pagar el saldo.");
+        setRuntimeError(t("missingReservation"));
         return;
       }
       setBusy(true);
       setRuntimeError(null);
-      setHint("Preparando el pago del saldo en Yappy...");
+      setHint(t("preparing"));
 
       try {
         const response = await fetch("/api/payments/yappy/balance-order", {
@@ -113,7 +114,7 @@ export default function YappyBalanceButton({
         const result = (await response.json()) as BalanceOrderResponse;
 
         if (!response.ok || !result.body?.transactionId || !result.body?.token || !result.body?.documentName) {
-          throw new Error(normalizeErrorMessage(result.error, result.detail));
+          throw new Error(normalizeRuntimeError(result.error, result.detail));
         }
 
         element.eventPayment?.({
@@ -122,10 +123,10 @@ export default function YappyBalanceButton({
           documentName: result.body.documentName,
         });
 
-        setHint("Yappy está abriendo el flujo de pago del saldo.");
+        setHint(t("opening"));
         onPaymentStarted?.();
       } catch (err) {
-        setRuntimeError(err instanceof Error ? err.message : "No se pudo iniciar el pago del saldo.");
+        setRuntimeError(err instanceof Error ? err.message : t("startError"));
         setHint(null);
       } finally {
         setBusy(false);
@@ -133,7 +134,7 @@ export default function YappyBalanceButton({
     };
 
     const handleSuccess = () => {
-      setHint("Pago del saldo iniciado. Estamos verificando la confirmación.");
+      setHint(t("started"));
       setRuntimeError(null);
       onPaymentStarted?.();
     };
@@ -143,7 +144,7 @@ export default function YappyBalanceButton({
       const message =
         typeof detail === "string" ? detail
         : typeof detail?.message === "string" ? detail.message
-        : "Yappy reportó un error al procesar el pago.";
+        : t("providerError");
       setRuntimeError(message);
       setHint(null);
     };
@@ -162,35 +163,35 @@ export default function YappyBalanceButton({
 
   if (config && !config.enabled) {
     return (
-      <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-700 dark:text-amber-400">
-        {config.detail ?? "El botón de Yappy no está disponible en este momento."}
-      </div>
-    );
+        <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-700 dark:text-amber-400">
+        {config.detail ?? t("unavailable")}
+        </div>
+      );
   }
 
   return (
     <div className="space-y-3">
       {balanceDue != null && (
         <p className="text-sm text-muted-foreground">
-          Saldo a pagar:{" "}
+          {t("balanceToPay")}{" "}
           <span className="font-semibold text-foreground">{formatCurrency(balanceDue)}</span>
         </p>
       )}
 
       {isBlocked && (
         <div className="rounded-2xl border border-border/70 bg-muted/50 px-4 py-3 text-xs text-muted-foreground">
-          {blockedReason ?? "No disponible en este momento."}
+          {blockedReason ?? t("blocked")}
         </div>
       )}
 
-      <div className={["flex justify-center rounded-full", isBlocked || !scriptReady ? "pointer-events-none opacity-60" : ""].join(" ")}>
+      <div className={["flex justify-center rounded-full [transform:scale(1.05)]", isBlocked || !scriptReady ? "pointer-events-none opacity-60" : ""].join(" ")}>
         <btn-yappy ref={buttonRef} theme="sky" rounded="true" aria-disabled={isBlocked || !scriptReady} />
       </div>
 
       {!scriptReady && config?.enabled && (
-        <p className="text-center text-xs text-muted-foreground">Cargando botón de Yappy...</p>
+        <p className="text-center text-xs text-muted-foreground">{t("loading")}</p>
       )}
-      {busy && <p className="text-center text-xs text-muted-foreground">Creando orden de pago...</p>}
+      {busy && <p className="text-center text-xs text-muted-foreground">{t("creatingOrder")}</p>}
       {hint && <p className="text-center text-xs text-emerald-600 dark:text-emerald-400">{hint}</p>}
       {runtimeError && <p className="text-center text-xs text-rose-600 dark:text-rose-400">{runtimeError}</p>}
     </div>

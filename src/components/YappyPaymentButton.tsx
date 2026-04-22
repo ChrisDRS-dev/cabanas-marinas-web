@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 
 type ButtonConfigResponse = {
   enabled: boolean;
@@ -35,23 +36,6 @@ type Props = {
   blockedReason?: string | null;
   onPaymentStarted?: () => void;
 };
-
-function normalizeErrorMessage(error: string | null | undefined, detail: string | null | undefined) {
-  if (detail) return detail;
-  if (error === "merchant_validation_failed") {
-    return "Yappy rechazó la validación del comercio. Revisa el dominio y las credenciales.";
-  }
-  if (error === "order_creation_failed") {
-    return "Yappy no pudo crear la orden de pago para esta reserva.";
-  }
-  if (error === "reservation_not_pending_payment") {
-    return "Esta reserva ya no está disponible para pago.";
-  }
-  if (error === "missing_panama_phone") {
-    return detail ?? "Necesitas un número panameño válido para recibir la solicitud de pago por Yappy.";
-  }
-  return "No se pudo iniciar el pago con Yappy.";
-}
 
 function ensureYappyScript(cdnUrl: string) {
   return new Promise<void>((resolve, reject) => {
@@ -151,12 +135,21 @@ export default function YappyPaymentButton({
   blockedReason = null,
   onPaymentStarted,
 }: Props) {
+  const t = useTranslations("payment.yappyButton");
   const buttonRef = useRef<BtnYappyElement | null>(null);
   const [config, setConfig] = useState<ButtonConfigResponse | null>(null);
   const [scriptReady, setScriptReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
   const [hint, setHint] = useState<string | null>(null);
+  const normalizeRuntimeError = (error: string | null | undefined, detail: string | null | undefined) => {
+    if (detail) return detail;
+    if (error === "merchant_validation_failed") return t("merchantValidationFailed");
+    if (error === "order_creation_failed") return t("orderCreationFailed");
+    if (error === "reservation_not_pending_payment") return t("notPending");
+    if (error === "missing_panama_phone") return t("missingPanamaPhone");
+    return t("startError");
+  };
 
   useEffect(() => {
     let active = true;
@@ -175,7 +168,7 @@ export default function YappyPaymentButton({
           enabled: false,
           cdnUrl: "",
           reason: "configuration_error",
-          detail: "No se pudo cargar la configuración del botón de Yappy.",
+          detail: t("loadConfigError"),
         });
       }
     };
@@ -197,7 +190,7 @@ export default function YappyPaymentButton({
       })
       .catch((error) => {
         if (!active) return;
-        setRuntimeError(error instanceof Error ? error.message : "No se pudo preparar el botón.");
+        setRuntimeError(error instanceof Error ? t("loadError") : t("loadError"));
       });
 
     return () => {
@@ -233,13 +226,13 @@ export default function YappyPaymentButton({
 
     const handleClick = async () => {
       if (!reservationId) {
-        setRuntimeError("No encontramos una reserva pendiente para pagar.");
+        setRuntimeError(t("missingReservation"));
         return;
       }
 
       setBusy(true);
       setRuntimeError(null);
-      setHint("Preparando tu pago en Yappy...");
+      setHint(t("preparing"));
 
       try {
         const response = await fetch("/api/payments/yappy/button-order", {
@@ -252,7 +245,7 @@ export default function YappyPaymentButton({
         });
         const result = (await response.json()) as ButtonOrderResponse;
         if (!response.ok || !result.body?.transactionId || !result.body?.token || !result.body?.documentName) {
-          throw new Error(normalizeErrorMessage(result.error, result.detail));
+          throw new Error(normalizeRuntimeError(result.error, result.detail));
         }
 
         element.eventPayment?.({
@@ -261,11 +254,11 @@ export default function YappyPaymentButton({
           documentName: result.body.documentName,
         });
 
-        setHint("Yappy está abriendo el flujo de pago.");
+        setHint(t("opening"));
         onPaymentStarted?.();
       } catch (error) {
         setRuntimeError(
-          error instanceof Error ? error.message : "No se pudo iniciar el pago con Yappy."
+          error instanceof Error ? error.message : t("startError")
         );
         setHint(null);
       } finally {
@@ -274,7 +267,7 @@ export default function YappyPaymentButton({
     };
 
     const handleSuccess = () => {
-      setHint("Pago iniciado. Estamos verificando la confirmación de Yappy.");
+      setHint(t("started"));
       setRuntimeError(null);
       onPaymentStarted?.();
     };
@@ -286,7 +279,7 @@ export default function YappyPaymentButton({
           ? detail
           : typeof detail?.message === "string"
             ? detail.message
-            : "Yappy reportó un error al procesar el pago.";
+            : t("providerError");
       setRuntimeError(message);
       setHint(null);
     };
@@ -316,14 +309,14 @@ export default function YappyPaymentButton({
     return (
       <div className="space-y-3">
         <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-700 dark:text-amber-400">
-          {config?.detail ?? "El botón de Yappy no está disponible en este momento."}
+          {config?.detail ?? t("unavailable")}
         </div>
         <button
           type="button"
           disabled
           className="flex w-full items-center justify-center rounded-full bg-muted px-6 py-3 text-sm font-semibold text-muted-foreground opacity-70"
         >
-          Botón Yappy no disponible
+          {t("ctaUnavailable")}
         </button>
       </div>
     );
@@ -333,13 +326,13 @@ export default function YappyPaymentButton({
     <div className="space-y-3">
       {isBlocked ? (
         <div className="rounded-2xl border border-border/70 bg-muted/50 px-4 py-3 text-xs text-muted-foreground">
-          {blockedReason ?? "Esta reserva no está disponible para pago ahora mismo."}
+          {blockedReason ?? t("blocked")}
         </div>
       ) : null}
 
       <div
         className={[
-          "flex justify-center rounded-full",
+          "flex justify-center rounded-full [transform:scale(1.08)]",
           isBlocked || !scriptReady ? "pointer-events-none opacity-60" : "",
         ].join(" ")}
       >
@@ -352,10 +345,10 @@ export default function YappyPaymentButton({
       </div>
 
       {!scriptReady && !configBlocked ? (
-        <p className="text-center text-xs text-muted-foreground">Cargando botón oficial de Yappy...</p>
+        <p className="text-center text-xs text-muted-foreground">{t("loading")}</p>
       ) : null}
       {busy ? (
-        <p className="text-center text-xs text-muted-foreground">Creando orden de pago...</p>
+        <p className="text-center text-xs text-muted-foreground">{t("creatingOrder")}</p>
       ) : null}
       {hint ? <p className="text-center text-xs text-emerald-600 dark:text-emerald-400">{hint}</p> : null}
       {runtimeError ? (

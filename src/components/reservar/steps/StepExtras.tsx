@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useLocale, useTranslations } from "next-intl";
+import { useLocale, useMessages, useTranslations } from "next-intl";
 import { Card, CardContent } from "@/components/ui/card";
 import type { ReservationState } from "@/components/reservar/ReservationWizard";
+import { getCatalogMessages, getLocalizedExtra } from "@/lib/localized-catalog";
 import type { Extra } from "@/lib/supabase/catalog";
 import type { ExtrasStepConfig } from "@/lib/supabase/formConfig";
 import type React from "react";
@@ -34,7 +35,11 @@ export default function StepExtras({
   totalPeople,
 }: StepExtrasProps) {
   const locale = useLocale();
+  const messages = useMessages();
   const t = useTranslations("booking.extras");
+  const catalog = getCatalogMessages(
+    (messages as { booking?: { catalog?: unknown } }).booking?.catalog,
+  );
   const titleRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -101,6 +106,7 @@ export default function StepExtras({
             </div>
           )}
           {extras.map((extra) => {
+            const localizedExtra = getLocalizedExtra(extra, catalog) ?? extra;
             const quantity = Math.max(0, state.extras[extra.id] ?? 0);
             const maxQuantity = getMaxQuantity(extra);
             const canDecrease = quantity > 0;
@@ -115,10 +121,10 @@ export default function StepExtras({
                 className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 rounded-2xl border border-border/70 bg-background px-4 py-4"
               >
                 <div className="min-w-0">
-                  <p className="text-base font-semibold">{extra.label}</p>
-                  {extra.description && (
+                  <p className="text-base font-semibold">{localizedExtra.label}</p>
+                  {localizedExtra.description && (
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {extra.description}
+                      {localizedExtra.description}
                     </p>
                   )}
                   <p className="text-sm font-semibold text-foreground">
@@ -144,7 +150,7 @@ export default function StepExtras({
                           })
                         }
                         disabled={!canIncrease}
-                        aria-label={t("addAria", { label: extra.label })}
+                        aria-label={t("addAria", { label: localizedExtra.label })}
                         className="flex h-9 w-full items-center justify-center text-lg font-semibold text-foreground transition hover:bg-background disabled:cursor-not-allowed disabled:opacity-35"
                       >
                         +
@@ -172,7 +178,7 @@ export default function StepExtras({
                           })
                         }
                         disabled={!canDecrease}
-                        aria-label={t("subtractAria", { label: extra.label })}
+                        aria-label={t("subtractAria", { label: localizedExtra.label })}
                         className="flex h-9 w-full items-center justify-center text-lg font-semibold text-foreground transition hover:bg-background disabled:cursor-not-allowed disabled:opacity-35"
                       >
                         −

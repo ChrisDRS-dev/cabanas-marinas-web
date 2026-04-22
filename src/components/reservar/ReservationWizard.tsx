@@ -4,10 +4,11 @@ import Link from "next/link";
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useLocale, useTranslations } from "next-intl";
+import { useLocale, useMessages, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { localizeHref, type AppLocale } from "@/i18n/routing";
 import { calcTotal, PackageType } from "@/lib/calcTotal";
+import { getCatalogMessages, getLocalizedExtra, getLocalizedPackage } from "@/lib/localized-catalog";
 import StepDatePackage from "@/components/reservar/steps/StepDatePackage";
 import StepGuests from "@/components/reservar/steps/StepGuests";
 import StepExtras from "@/components/reservar/steps/StepExtras";
@@ -58,10 +59,10 @@ type Action =
   | { type: "prevStep" };
 
 const DEFAULT_STEPS: FormStepConfig[] = [
-  { id: "guests", label: "Personas", summary: "Personas" },
-  { id: "date_package", label: "Fecha y hora", summary: "Fecha y hora" },
-  { id: "extras", label: "Extras", summary: "Extras" },
-  { id: "payment", label: "Resumen", summary: "Resumen" },
+  { id: "guests" },
+  { id: "date_package" },
+  { id: "extras" },
+  { id: "payment" },
 ];
 
 const initialState: ReservationState = {
@@ -94,19 +95,31 @@ function normalizeExtrasRecord(
   return Object.fromEntries(entries) as Record<string, number>;
 }
 
-function formatExtraSelection(extra: Extra, quantity: number) {
+function formatExtraSelection(extra: Extra, quantity: number, locale: AppLocale) {
   const unitLabel =
     extra.pricingUnit === "PER_HOUR"
       ? quantity === 1
-        ? "hora"
-        : "horas"
+        ? locale === "es"
+          ? "hora"
+          : "hour"
+        : locale === "es"
+          ? "horas"
+          : "hours"
       : extra.pricingUnit === "PER_PERSON"
         ? quantity === 1
-          ? "persona"
-          : "personas"
+          ? locale === "es"
+            ? "persona"
+            : "person"
+          : locale === "es"
+            ? "personas"
+            : "people"
         : quantity === 1
-          ? "reserva"
-          : "reservas";
+          ? locale === "es"
+            ? "reserva"
+            : "reservation"
+          : locale === "es"
+            ? "reservas"
+            : "reservations";
   return `${extra.label} x ${quantity} ${unitLabel}`;
 }
 
@@ -187,7 +200,11 @@ export default function ReservationWizard({
   startStepId?: string;
 }) {
   const locale = useLocale() as AppLocale;
+  const messages = useMessages();
   const t = useTranslations("booking.wizard");
+  const catalog = getCatalogMessages(
+    (messages as { booking?: { catalog?: unknown } }).booking?.catalog,
+  );
   const [state, dispatch] = useReducer(reducer, initialState);
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -235,6 +252,19 @@ export default function ReservationWizard({
   const prefillRef = useRef(false);
   const packagePrefillRef = useRef(false);
   const topAnchorRef = useRef<HTMLDivElement>(null);
+  const defaultSteps = useMemo<FormStepConfig[]>(
+    () => [
+      { id: "guests", label: t("stepLabels.guests"), summary: t("stepLabels.guests") },
+      {
+        id: "date_package",
+        label: t("stepLabels.datePackage"),
+        summary: t("stepLabels.datePackage"),
+      },
+      { id: "extras", label: t("stepLabels.extras"), summary: t("stepLabels.extras") },
+      { id: "payment", label: t("stepLabels.review"), summary: t("stepLabels.review") },
+    ],
+    [t],
+  );
 
   const router = useRouter();
 
@@ -558,19 +588,39 @@ export default function ReservationWizard({
     prefillRef.current = true;
   }, [prefill]);
 
+  const effectiveSteps =
+    formSteps.length > 0
+      ? formSteps.map((step) => ({
+          ...step,
+          label:
+            step.label ??
+            defaultSteps.find((item) => item.id === step.id)?.label ??
+            t("stepFallback"),
+          summary:
+            step.summary ??
+            defaultSteps.find((item) => item.id === step.id)?.summary ??
+            t("stepFallback"),
+        }))
+      : defaultSteps;
+
   useEffect(() => {
-    if (formSteps.length === 0) return;
+    if (effectiveSteps.length === 0) return;
     const targetStep = startStepId ?? searchParams.get("step");
     if (!targetStep || stepOverrideRef.current) return;
-    const index = formSteps.findIndex((step) => step.id === targetStep);
+    const index = effectiveSteps.findIndex((step) => step.id === targetStep);
     if (index === -1) return;
-    const stepsCount = formSteps.length || DEFAULT_STEPS.length;
+    const stepsCount = effectiveSteps.length || DEFAULT_STEPS.length;
     stepOverrideRef.current = true;
     dispatch({ type: "setStep", value: index + 1, max: stepsCount });
-  }, [searchParams, formSteps, startStepId]);
+  }, [searchParams, effectiveSteps, startStepId]);
 
   const weekend = isWeekend(state.date);
   const selectedPackage = packages.find((item) => item.id === state.packageId);
+  const localizedSelectedPackage = getLocalizedPackage(selectedPackage, catalog);
+  const localizedExtrasCatalog = useMemo(
+    () => extrasCatalog.map((extra) => getLocalizedExtra(extra, catalog) ?? extra),
+    [catalog, extrasCatalog],
+  );
   const durationHours = selectedPackage
     ? Math.round(selectedPackage.durationMinutes / 60)
     : undefined;
@@ -587,7 +637,7 @@ export default function ReservationWizard({
         kids: state.kids,
         extras: state.extras,
         packages,
-        extrasCatalog,
+        extrasCatalog: localizedExtrasCatalog,
         minPeopleForDate: minPeople || undefined,
       }),
     [
@@ -596,14 +646,14 @@ export default function ReservationWizard({
       state.kids,
       state.extras,
       packages,
-      extrasCatalog,
+      localizedExtrasCatalog,
       minPeople,
     ]
   );
   const totalPeople = state.adults + state.kids;
   const showMinWarning = minPeople > 0 && totalPeople < minPeople;
-  const totalSteps = formSteps.length || DEFAULT_STEPS.length;
-  const activeStep = formSteps[state.step - 1]?.id ?? "guests";
+  const totalSteps = effectiveSteps.length || DEFAULT_STEPS.length;
+  const activeStep = effectiveSteps[state.step - 1]?.id ?? "guests";
 
   useEffect(() => {
     if (state.step > totalSteps) {
@@ -685,9 +735,9 @@ export default function ReservationWizard({
       const resolvedExtras = Object.entries(state.extras)
         .filter(([, quantity]) => quantity > 0)
         .map(([id, quantity]) => {
-          const extra = extrasCatalog.find((item) => item.id === id);
+          const extra = localizedExtrasCatalog.find((item) => item.id === id);
           return extra
-            ? formatExtraSelection(extra, quantity)
+            ? formatExtraSelection(extra, quantity, locale)
             : `${id} x ${quantity}`;
         });
       const totalAmount =
@@ -702,7 +752,7 @@ export default function ReservationWizard({
         status: "PENDING_PAYMENT",
         adults: state.adults,
         kids: state.kids,
-        packageLabel: selectedPackage?.label ?? null,
+        packageLabel: localizedSelectedPackage?.label ?? null,
         date: state.date,
         timeSlot: state.timeSlot,
         extras: resolvedExtras,
@@ -731,12 +781,12 @@ export default function ReservationWizard({
       );
       const paymentMethodLabel =
         payload.paymentMethod === "YAPPY"
-          ? "Yappy"
+          ? t("paymentMethod.YAPPY")
           : payload.paymentMethod === "PAYPAL"
-          ? "PayPal"
+          ? t("paymentMethod.PAYPAL")
           : payload.paymentMethod === "CARD"
-          ? "Tarjeta"
-          : "WhatsApp";
+          ? t("paymentMethod.CARD")
+          : t("paymentMethod.CASH");
       const messageLines = [
         t("whatsapp.intro"),
         payload.id ? `ID: ${String(payload.id).slice(0, 8)}` : null,
@@ -998,7 +1048,7 @@ export default function ReservationWizard({
               <StepExtras
                 state={state}
                 dispatch={dispatch}
-                extras={extrasCatalog}
+                extras={localizedExtrasCatalog}
                 config={formConfig?.extras}
                 durationHours={durationHours}
                 totalPeople={totalPeople}
@@ -1007,12 +1057,12 @@ export default function ReservationWizard({
             {activeStep === "payment" && (
               <StepSummary
                 state={state}
-                selectedPackage={selectedPackage}
+                selectedPackage={localizedSelectedPackage ?? undefined}
                 totals={totals}
                 showMinWarning={showMinWarning}
                 minPeople={minPeople}
                 weekend={weekend}
-                extrasCatalog={extrasCatalog}
+                extrasCatalog={localizedExtrasCatalog}
               />
             )}
           </motion.div>
@@ -1030,7 +1080,7 @@ export default function ReservationWizard({
         )}
         {showSummary && (
           <section className="mt-2 flex flex-col gap-2">
-            {formSteps.map((step, index) => {
+            {effectiveSteps.map((step, index) => {
               const stepIndex = index + 1;
               const stepId = step.id;
               const summaryTitle = step.summary ?? step.label ?? t("stepFallback");
@@ -1117,7 +1167,7 @@ export default function ReservationWizard({
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-xs uppercase tracking-[0.3em] text-amber-600">
-                    Reserva pendiente
+                    {t("confirmation.eyebrow")}
                   </p>
                   <h3 className="mt-1 text-xl font-semibold text-foreground">
                     {confirmationData?.name ?? profileName ?? t("confirmation.titleFallback")}
@@ -1151,7 +1201,7 @@ export default function ReservationWizard({
                   <span className="text-muted-foreground">{t("confirmation.plan")}</span>
                   <span className="max-w-[55%] text-right font-medium text-foreground">
                     {confirmationData?.packageLabel ??
-                      selectedPackage?.label ??
+                      localizedSelectedPackage?.label ??
                       t("confirmation.pending")}
                   </span>
                 </div>
@@ -1181,13 +1231,13 @@ export default function ReservationWizard({
                 <div className="flex items-center justify-between py-3">
                   <span className="text-muted-foreground">{t("confirmation.people")}</span>
                   <span className="font-medium text-foreground">
-                    {(confirmationData?.adults ?? state.adults) +
-                      (confirmationData?.kids ?? state.kids)}{" "}
-                    ({confirmationData?.adults ?? state.adults} adultos
-                    {(confirmationData?.kids ?? state.kids) > 0
-                      ? `, ${confirmationData?.kids ?? state.kids} niños`
-                      : ""}
-                    )
+                    {t("confirmation.peopleValue", {
+                      total:
+                        (confirmationData?.adults ?? state.adults) +
+                        (confirmationData?.kids ?? state.kids),
+                      adults: confirmationData?.adults ?? state.adults,
+                      kids: confirmationData?.kids ?? state.kids,
+                    })}
                   </span>
                 </div>
                 <div className="flex items-start justify-between gap-4 py-3">
@@ -1198,9 +1248,9 @@ export default function ReservationWizard({
                       : Object.entries(state.extras)
                           .filter(([, quantity]) => quantity > 0)
                           .map(([id, quantity]) => {
-                            const extra = extrasCatalog.find((item) => item.id === id);
+                            const extra = localizedExtrasCatalog.find((item) => item.id === id);
                             return extra
-                              ? formatExtraSelection(extra, quantity)
+                              ? formatExtraSelection(extra, quantity, locale)
                               : `${id} x ${quantity}`;
                           })
                           .join(", ") || t("confirmation.none")}
@@ -1246,7 +1296,7 @@ export default function ReservationWizard({
                       rel="noopener noreferrer"
                       className="flex-1 rounded-full border border-[#25D366] px-4 py-2.5 text-center text-sm font-semibold text-[#25D366] transition hover:bg-[#25D366]/5"
                     >
-                      WhatsApp
+                      {t("cta.whatsapp")}
                     </a>
                   )}
                   <Button

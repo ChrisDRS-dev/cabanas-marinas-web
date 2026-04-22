@@ -1,10 +1,11 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useMessages, useTranslations } from "next-intl";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import type { ReservationState } from "@/components/reservar/ReservationWizard";
 import type { ReservationTotals } from "@/lib/calcTotal";
+import { getCatalogMessages, getLocalizedExtra, getLocalizedPackage } from "@/lib/localized-catalog";
 import type { Extra, Package } from "@/lib/supabase/catalog";
 
 type StepSummaryProps = {
@@ -73,10 +74,14 @@ export default function StepSummary({
   weekend,
   extrasCatalog,
 }: StepSummaryProps) {
+  const messages = useMessages();
   const t = useTranslations("booking.summary");
+  const catalog = getCatalogMessages(
+    (messages as { booking?: { catalog?: unknown } }).booking?.catalog,
+  );
   const selectedExtras = extrasCatalog
     .map((extra) => ({
-      extra,
+      extra: getLocalizedExtra(extra, catalog) ?? extra,
       quantity: Math.max(0, state.extras[extra.id] ?? 0),
     }))
     .filter(({ quantity }) => quantity > 0)
@@ -122,7 +127,7 @@ export default function StepSummary({
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground">{t("package")}</span>
             <span className="font-semibold">
-              {selectedPackage?.label ?? t("noPackage")}
+              {getLocalizedPackage(selectedPackage, catalog)?.label ?? t("noPackage")}
             </span>
           </div>
           <Separator />

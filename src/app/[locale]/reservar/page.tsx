@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import ReservationWizard from "@/components/reservar/ReservationWizard";
+import ReservationPageGate from "@/components/ReservationPageGate";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
 export default async function ReservarPage({
@@ -28,7 +28,7 @@ export default async function ReservarPage({
       </section>
 
       <Suspense>
-        <ReservationWizard mode="page" />
+        <ReservationPageGate />
       </Suspense>
     </main>
   );

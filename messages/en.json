@@ -61,6 +61,10 @@
     "saving": "Saving..."
   },
   "stickyCta": {
+    "reserve": "Book",
+    "whatsapp": "WhatsApp",
+    "instagram": "Instagram",
+    "whatsappAria": "Open WhatsApp",
     "instagramAria": "Instagram"
   },
   "home": {
@@ -234,7 +238,8 @@
     "page": {
       "eyebrow": "Online booking",
       "title": "Choose your date, time and plan in one flow",
-      "description": "This view is focused only on booking. If you already have a pending reservation or need follow-up, you can still go back to the home page to review its status."
+      "description": "This view is focused only on booking. If you already have a pending reservation or need follow-up, you can still go back to the home page to review its status.",
+      "loading": "Loading your reservations..."
     },
     "wizard": {
       "header": "Book your cabin",
@@ -251,6 +256,15 @@
       "stepDatePending": "To be defined",
       "stepExtras": "{count} extras",
       "stepReview": "Review and request",
+      "stepLabels": {
+        "guests": "Guests",
+        "datePackage": "Date and time",
+        "extras": "Extras",
+        "review": "Summary"
+      },
+      "cta": {
+        "whatsapp": "WhatsApp"
+      },
       "loadCatalogError": "Could not load the catalog.",
       "loadFormError": "Could not load the booking form.",
       "submitSuccess": "Reservation requested. Complete payment to confirm.",
@@ -275,6 +289,7 @@
         "date": "Date",
         "time": "Time",
         "people": "Guests",
+        "peopleValue": "{total} guests ({adults} adults, {kids} kids)",
         "extras": "Extras",
         "estimatedTotal": "Estimated total",
         "initialPayment": "Initial payment (50%)",
@@ -311,6 +326,52 @@
         "deposit": "Initial payment (50%): {value}",
         "method": "Payment method: {value}",
         "final": "To confirm your reservation, complete the 50% payment using the selected method."
+      }
+    },
+    "catalog": {
+      "packages": {
+        "4H": {
+          "label": "4 hours",
+          "note": "Ideal for a short oceanfront escape."
+        },
+        "8H": {
+          "label": "8 hours",
+          "note": "A full day to enjoy at a slower pace."
+        },
+        "AMANECER": {
+          "label": "Sunrise experience",
+          "note": "Wake up early with your group to enjoy sunrise by the sea."
+        },
+        "EVENTO": {
+          "label": "Special event",
+          "note": "Custom schedule from 10 to 12 hours."
+        }
+      },
+      "extras": {
+        "paddleboard": {
+          "label": "Paddleboard",
+          "description": "Paddle board for calm rides near the coast."
+        },
+        "kayak": {
+          "label": "Kayak",
+          "description": "Single kayak to paddle and explore the marine area."
+        },
+        "mascara_bucear": {
+          "label": "Snorkel mask",
+          "description": "Mask for snorkeling and watching fish near the shore."
+        },
+        "cana_pesca": {
+          "label": "Fishing rod",
+          "description": "Rod ready for recreational fishing from the shore."
+        },
+        "sofa_marino": {
+          "label": "Floating sofa",
+          "description": "Inflatable sofa to float and relax in the water."
+        },
+        "wakeboarding": {
+          "label": "Wakeboarding",
+          "description": "Board with tow rope to glide behind a boat at speed."
+        }
       }
     },
     "guests": {
@@ -416,6 +477,8 @@
     "paymentMethods": {
       "title": "Payment method",
       "subtitle": "Choose how you want to confirm your reservation.",
+      "cardLabel": "Card / CLAVE",
+      "comingSoon": "Coming soon",
       "yappyDescription": "Fast payment from your phone.",
       "paypalDescription": "Secure online payment.",
       "cardDescription": "Visa, Mastercard, CLAVE, Nequi.",
@@ -426,6 +489,53 @@
       "halfTotal": "(50% of total)",
       "qrSoon": "QR coming soon",
       "afterPayment": "After making the payment, message us on WhatsApp with the receipt to confirm your reservation."
+    }
+  },
+  "account": {
+    "welcome": "Welcome",
+    "welcomeNamed": "Welcome, {name}",
+    "subtitle": "Here you can review your booking status and the available options.",
+    "errors": {
+      "loadExtras": "Could not load extras.",
+      "submitRequest": "Could not send the request."
+    },
+    "draft": {
+      "message": "There is a booking in progress. Continue where you left off.",
+      "cta": "Continue booking"
+    },
+    "reservations": {
+      "eyebrow": "My bookings",
+      "manage": "Open booking flow",
+      "id": "Booking {value}",
+      "fallbackPackage": "Package",
+      "requestChanges": "Request changes",
+      "pay": "Pay booking",
+      "allConfirmed": "Your bookings are confirmed or completed."
+    },
+    "changeRequest": {
+      "eyebrow": "Change request",
+      "close": "Close",
+      "help": "You can only add guests or extras. To change the date or time, contact us on WhatsApp.",
+      "adults": "Adults (current: {count})",
+      "kids": "Kids (current: {count})",
+      "extras": "Additional extras",
+      "noExtras": "There are no extras available.",
+      "note": "Additional note (optional)",
+      "notePlaceholder": "Write details for the team.",
+      "cancel": "Cancel",
+      "submit": "Send request",
+      "sending": "Sending...",
+      "success": "Request sent. We will confirm through WhatsApp.",
+      "whatsapp": "Coordinate on WhatsApp"
+    },
+    "whatsapp": {
+      "intro": "Hi, I have a booking pending payment.",
+      "id": "ID: {value}",
+      "date": "Date: {value}",
+      "time": "Time: {value}",
+      "package": "Package: {value}",
+      "total": "Estimated total: {value}",
+      "status": "Status: {value}"
     }
   },
   "payment": {
@@ -468,6 +578,125 @@
       "deposit": "Initial payment (50%): {value}",
       "method": "Payment method: {value}",
       "final": "To confirm your reservation, complete the 50% payment using the selected method."
+    },
+    "header": {
+      "completedEyebrow": "Booking completed",
+      "completedTitle": "Booking paid in full",
+      "completedBody": "Your booking is confirmed and fully paid. We look forward to seeing you.",
+      "depositBadge": "Deposit confirmed",
+      "paymentEyebrow": "Booking payment",
+      "balanceTitle": "Pay the remaining balance",
+      "balanceBody": "The 50% deposit is already confirmed. Pay the remaining balance to complete your booking.",
+      "chooseTitle": "Choose how to pay",
+      "chooseBody": "Select a method to complete the 50% deposit and confirm your booking."
+    },
+    "summary": {
+      "eyebrow": "Booking summary",
+      "package": "Package:",
+      "status": "Status:",
+      "date": "Date:",
+      "time": "Time:",
+      "people": "Guests:",
+      "peopleValue": "{total} (Adults: {adults}, Kids: {kids})",
+      "total": "Total cost:",
+      "paid": "Paid:",
+      "balanceDue": "Balance due (50%):",
+      "deposit": "Deposit to pay (50%):"
+    },
+    "states": {
+      "fullyPaidTitle": "Your booking is fully paid",
+      "fullyPaidBody": "We will see you on {date}. Enjoy it.",
+      "balanceBodyPrefix": "Use the Yappy button to send the remaining balance of",
+      "balanceBodySuffix": "directly to your registered Yappy number.",
+      "balancePolling": "The balance payment flow has started. As soon as Yappy confirms it, we will update your booking.",
+      "helpPrefix": "Need help? Message us on",
+      "helpSuffix": "and we will help you."
+    },
+    "steps": {
+      "amount": "Amount",
+      "pay": "Pay"
+    },
+    "amountSelector": {
+      "question": "How much would you like to pay now?",
+      "depositTitle": "Initial deposit (50%)",
+      "depositBody": "Confirm your booking with the minimum required amount",
+      "fullTitle": "Full payment (100%)",
+      "fullBody": "Pay the entire balance from the start"
+    },
+    "paying": "Paying",
+    "recommended": "Recommended",
+    "officialButtonBody": "Enter your Yappy number and your name as a note so we can identify your payment.",
+    "officialButtonPolling": "The Yappy flow has started. As soon as Yappy confirms the payment, we will update your booking.",
+    "manual": {
+      "title": "Manual Yappy, from the app",
+      "subtitle": "If the button is not working, use the static link. The team will confirm the payment manually.",
+      "show": "Show details",
+      "hide": "Hide",
+      "preparing": "Preparing link...",
+      "openLink": "Open static Yappy link",
+      "amount": "Amount to send:",
+      "phone": "Phone number:",
+      "alias": "Alias / Directory:",
+      "reminder": "Remember to send us a screenshot of the receipt on WhatsApp to confirm your booking.",
+      "noReservation": "We could not find a pending booking to link the manual payment.",
+      "prepareError": "Could not prepare the manual reference for this payment.",
+      "opened": "We opened the Yappy link and marked the payment as manual in the system. Once you complete it, send the receipt on WhatsApp.",
+      "openError": "Could not open the manual Yappy flow."
+    },
+    "whatsappCard": {
+      "body": "Contact us to coordinate payment or if you need help.",
+      "cta": "Open WhatsApp"
+    },
+    "cta": {
+      "whatsapp": "WhatsApp",
+      "backHome": "Back to home"
+    },
+    "polling": {
+      "fullyPaid": "Your booking is paid in full. We will see you on the day of your visit.",
+      "depositConfirmed": "Deposit confirmed. Your booking is already confirmed. You can now pay the remaining balance."
+    },
+    "yappyBlocked": {
+      "noReservation": "We could not find a pending booking to start the payment.",
+      "notYappy": "This booking was not created with Yappy as the payment method.",
+      "notPending": "This booking is no longer pending payment."
+    },
+    "yappyButton": {
+      "loadConfigError": "Could not load the Yappy button configuration.",
+      "missingReservation": "We could not find a pending booking to pay.",
+      "preparing": "Preparing your Yappy payment...",
+      "opening": "Yappy is opening the payment flow.",
+      "started": "Payment started. We are verifying the Yappy confirmation.",
+      "providerError": "Yappy reported an error while processing the payment.",
+      "unavailable": "The Yappy button is not available right now.",
+      "ctaUnavailable": "Yappy button unavailable",
+      "blocked": "This booking is not available for payment right now.",
+      "loading": "Loading official Yappy button...",
+      "loadError": "Could not prepare the Yappy button.",
+      "creatingOrder": "Creating payment order...",
+      "merchantValidationFailed": "Yappy rejected the merchant validation. Review the domain and credentials.",
+      "orderCreationFailed": "Yappy could not create the payment order for this booking.",
+      "notPending": "This booking is no longer available for payment.",
+      "missingPanamaPhone": "You need a valid Panama phone number to receive the Yappy payment request.",
+      "startError": "Could not start the Yappy payment."
+    },
+    "yappyBalance": {
+      "loadConfigError": "Could not load the Yappy configuration.",
+      "loadError": "Error loading Yappy.",
+      "missingReservation": "There is no active booking to pay the balance.",
+      "preparing": "Preparing the Yappy balance payment...",
+      "opening": "Yappy is opening the balance payment flow.",
+      "started": "Balance payment started. We are verifying the confirmation.",
+      "providerError": "Yappy reported an error while processing the payment.",
+      "unavailable": "The Yappy button is not available right now.",
+      "blocked": "Not available right now.",
+      "balanceToPay": "Balance to pay:",
+      "loading": "Loading Yappy button...",
+      "creatingOrder": "Creating payment order...",
+      "notConfirmed": "The booking is not confirmed yet.",
+      "balanceUnavailable": "The balance is not available to pay yet.",
+      "noBalanceDue": "There is no pending balance for this booking.",
+      "missingPanamaPhone": "You need a Panama phone number in your profile.",
+      "startError": "Could not start the Yappy balance payment."
     }
   }
 }

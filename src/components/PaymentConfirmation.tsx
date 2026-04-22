@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { useLocale, useTranslations } from "next-intl";
+import { useLocale, useMessages, useTranslations } from "next-intl";
 import YappyPaymentButton from "@/components/YappyPaymentButton";
 import YappyBalanceButton from "@/components/YappyBalanceButton";
 import { getDateLocale } from "@/i18n/format";
 import { localizeHref, type AppLocale } from "@/i18n/routing";
+import { getCatalogMessages, getLocalizedPackage } from "@/lib/localized-catalog";
 import { getSessionSafe } from "@/lib/supabase/client";
 import { siteData } from "@/lib/siteData";
 
@@ -48,14 +49,6 @@ type ReservationApiItem = {
   adults_count?: number | null;
   kids_count?: number | null;
   packages?: { label?: string | null } | { label?: string | null }[] | null;
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  PENDING_PAYMENT: "Pago pendiente",
-  CONFIRMED: "Confirmada",
-  CANCELLED: "Cancelada",
-  COMPLETED: "Completada",
-  NO_SHOW: "No show",
 };
 
 function parsePanamaDate(value: string) {
@@ -119,7 +112,22 @@ function toPanamaTime(value: string) {
   return `${hour}:${minute}`;
 }
 
-function buildWhatsAppLink(data: ConfirmationData | null, locale: AppLocale) {
+function buildWhatsAppLink(
+  data: ConfirmationData | null,
+  locale: AppLocale,
+  copy: {
+    intro: string;
+    date: (value: string) => string;
+    time: (value: string) => string;
+    packageLabel: (value: string) => string;
+    status: (value: string) => string;
+    people: (total: number, adults: number, kids: number) => string;
+    estimatedTotal: (value: string) => string;
+    deposit: (value: string) => string;
+    method: (value: string) => string;
+    final: string;
+  },
+) {
   const base = siteData.links.whatsapp;
   if (!data) return base;
   const paymentMethodLabel =
@@ -128,7 +136,9 @@ function buildWhatsAppLink(data: ConfirmationData | null, locale: AppLocale) {
       : data.paymentMethod === "PAYPAL"
         ? "PayPal"
         : data.paymentMethod === "CARD"
-          ? "Tarjeta"
+          ? locale === "es"
+            ? "Tarjeta"
+            : "Card"
           : "WhatsApp";
   const depositAmount =
     data.depositAmount != null
@@ -137,22 +147,21 @@ function buildWhatsAppLink(data: ConfirmationData | null, locale: AppLocale) {
         ? Math.round(Number(data.totalAmount) * 0.5 * 100) / 100
         : null;
   const messageLines = [
-    "Hola, quiero confirmar mi reserva con el pago.",
+    copy.intro,
     data.id ? `ID: ${String(data.id).slice(0, 8)}` : null,
-    data.date ? `Fecha: ${formatDate(data.date, locale)}` : null,
-    data.timeSlot ? `Horario: ${formatTimeRange12h(data.timeSlot, locale)}` : null,
-    data.packageLabel ? `Paquete: ${data.packageLabel}` : null,
-    data.status ? `Estado: ${STATUS_LABEL[data.status] ?? data.status}` : null,
-    `Personas: ${(data.adults ?? 0) + (data.kids ?? 0)} (Adultos: ${data.adults ?? 0
-    }, Niños: ${data.kids ?? 0})`,
+    data.date ? copy.date(formatDate(data.date, locale)) : null,
+    data.timeSlot ? copy.time(formatTimeRange12h(data.timeSlot, locale)) : null,
+    data.packageLabel ? copy.packageLabel(data.packageLabel) : null,
+    data.status ? copy.status(data.status) : null,
+    copy.people((data.adults ?? 0) + (data.kids ?? 0), data.adults ?? 0, data.kids ?? 0),
     data.totalAmount != null
-      ? `Total estimado: ${formatCurrency(data.totalAmount)}`
+      ? copy.estimatedTotal(formatCurrency(data.totalAmount))
       : null,
     depositAmount != null
-      ? `Pago inicial (50%): ${formatCurrency(depositAmount)}`
+      ? copy.deposit(formatCurrency(depositAmount))
       : null,
-    `Método de pago: ${paymentMethodLabel}`,
-    "Para confirmar tu reserva, realiza el pago del 50% por el método indicado.",
+    copy.method(paymentMethodLabel),
+    copy.final,
   ].filter(Boolean) as string[];
   const message = messageLines.join("\n");
   return `${base}?text=${encodeURIComponent(message)}`;
@@ -163,7 +172,11 @@ const YAPPY_STATIC_LINK =
 
 export default function PaymentConfirmation() {
   const locale = useLocale() as AppLocale;
+  const messages = useMessages();
   const t = useTranslations("payment");
+  const catalog = getCatalogMessages(
+    (messages as { booking?: { catalog?: unknown } }).booking?.catalog,
+  );
   const searchParams = useSearchParams();
   const [data, setData] = useState<ConfirmationData | null>(null);
   type PayStep = "amount" | "pay";
@@ -171,8 +184,38 @@ export default function PaymentConfirmation() {
   const [selectedAmountType, setSelectedAmountType] = useState<"deposit" | "full" | null>(null);
   const [paymentNotice, setPaymentNotice] = useState<string | null>(null);
   const [manualLinkBusy, setManualLinkBusy] = useState(false);
+  const [manualExpanded, setManualExpanded] = useState(false);
   const [polling, setPolling] = useState(false);
   const requestedReservationId = searchParams.get("rid");
+  const whatsappLink = buildWhatsAppLink(data, locale, {
+    intro: t("reservationWhatsapp.intro"),
+    date: (value) => t("reservationWhatsapp.date", { value }),
+    time: (value) => t("reservationWhatsapp.time", { value }),
+    packageLabel: (value) => t("reservationWhatsapp.package", { value }),
+    status: (value) => t("reservationWhatsapp.status", { value: formatStatus(value) }),
+    people: (total, adults, kids) =>
+      t("reservationWhatsapp.people", { total, adults, kids }),
+    estimatedTotal: (value) => t("reservationWhatsapp.estimatedTotal", { value }),
+    deposit: (value) => t("reservationWhatsapp.deposit", { value }),
+    method: (value) => t("reservationWhatsapp.method", { value }),
+    final: t("reservationWhatsapp.final"),
+  });
+  const formatStatus = (status: string | null | undefined) => {
+    switch (status) {
+      case "PENDING_PAYMENT":
+        return t("statusPending");
+      case "CONFIRMED":
+        return t("statusConfirmed");
+      case "CANCELLED":
+        return t("statusCancelled");
+      case "COMPLETED":
+        return t("statusCompleted");
+      case "NO_SHOW":
+        return t("statusNoShow");
+      default:
+        return t("pending");
+    }
+  };
 
   const loadReservation = useCallback(async () => {
       let nextStatus: string | null = null;
@@ -218,6 +261,22 @@ export default function PaymentConfirmation() {
             const packageLabel = Array.isArray(activeReservation.packages)
               ? activeReservation.packages[0]?.label ?? null
               : activeReservation.packages?.label ?? null;
+            const localizedPackageLabel = activeReservation.package_id
+              ? getLocalizedPackage(
+                  {
+                    id: activeReservation.package_id,
+                    label: packageLabel ?? activeReservation.package_id,
+                    note: null,
+                    durationMinutes: 0,
+                    pricePerAdult: 0,
+                    kidDiscount: 0,
+                    minPeopleWeekday: 0,
+                    minPeopleWeekend: 0,
+                    minPeopleHoliday: 0,
+                  },
+                  catalog,
+                )?.label ?? packageLabel
+              : packageLabel;
             const start = toPanamaTime(activeReservation.start_at);
             const end = toPanamaTime(activeReservation.end_at);
             const timeSlot = start && end ? `${start}-${end}` : "";
@@ -227,7 +286,7 @@ export default function PaymentConfirmation() {
               status: activeReservation.status ?? null,
               adults: Number(activeReservation.adults_count ?? 0),
               kids: Number(activeReservation.kids_count ?? 0),
-              packageLabel,
+              packageLabel: localizedPackageLabel,
               date: activeReservation.reserved_date ?? null,
               timeSlot: timeSlot || null,
               extras: [],
@@ -265,10 +324,10 @@ export default function PaymentConfirmation() {
         const status = result?.status ?? null;
         const invoiceStatus = result?.invoiceStatus ?? null;
         if (status === "COMPLETED" || (status === "CONFIRMED" && invoiceStatus === "PAID")) {
-          setPaymentNotice("¡Tu reserva está pagada al 100%! Te esperamos el día de tu visita.");
+          setPaymentNotice(t("polling.fullyPaid"));
           setPolling(false);
         } else if (status === "CONFIRMED" && invoiceStatus !== "PAID") {
-          setPaymentNotice("Depósito confirmado. Tu reserva ya está confirmada. Ahora puedes pagar el saldo restante.");
+          setPaymentNotice(t("polling.depositConfirmed"));
           setPolling(false);
         } else if (attempts >= 18) {
           setPolling(false);
@@ -283,7 +342,7 @@ export default function PaymentConfirmation() {
 
   async function handleManualLinkClick() {
     if (!data?.id) {
-      setPaymentNotice("No encontramos una reserva pendiente para asociar el pago manual.");
+      setPaymentNotice(t("manual.noReservation"));
       return;
     }
 
@@ -302,20 +361,18 @@ export default function PaymentConfirmation() {
 
       if (!response.ok) {
         throw new Error(
-          result?.detail ?? "No se pudo preparar la referencia manual de este pago."
+          result?.detail ?? t("manual.prepareError")
         );
       }
 
       window.open(YAPPY_STATIC_LINK, "_blank", "noopener,noreferrer");
-      setPaymentNotice(
-        "Abrimos el link de Yappy y dejamos el pago marcado como manual en el sistema. Cuando lo completes, envía el comprobante por WhatsApp."
-      );
+      setPaymentNotice(t("manual.opened"));
       setPolling(true);
     } catch (error) {
       setPaymentNotice(
         error instanceof Error
           ? error.message
-          : "No se pudo abrir el flujo manual de Yappy."
+          : t("manual.openError")
       );
     } finally {
       setManualLinkBusy(false);
@@ -337,11 +394,11 @@ export default function PaymentConfirmation() {
 
   const yappyBlockedReason =
     !data?.id
-      ? "No encontramos una reserva pendiente para iniciar el pago."
+      ? t("yappyBlocked.noReservation")
       : data.paymentMethod !== "YAPPY"
-        ? "Esta reserva no fue creada con Yappy como método de pago."
+        ? t("yappyBlocked.notYappy")
         : data.status !== "PENDING_PAYMENT"
-          ? "La reserva ya no está pendiente de pago."
+          ? t("yappyBlocked.notPending")
           : null;
 
   const isFullyPaid =
@@ -356,41 +413,41 @@ export default function PaymentConfirmation() {
       {isFullyPaid ? (
         <div>
           <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-            Reserva completada
+            {t("header.completedEyebrow")}
           </p>
           <h1 className="mt-2 text-3xl font-semibold text-foreground">
-            ¡Reserva pagada al 100%!
+            {t("header.completedTitle")}
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Tu reserva está confirmada y pagada por completo. ¡Te esperamos!
+            {t("header.completedBody")}
           </p>
         </div>
       ) : isBalancePending ? (
         <div>
           <div className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
             <span>✓</span>
-            <span>Depósito confirmado</span>
+            <span>{t("header.depositBadge")}</span>
           </div>
           <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-            Pago de reserva
+            {t("header.paymentEyebrow")}
           </p>
           <h1 className="mt-2 text-3xl font-semibold text-foreground">
-            Paga el saldo restante
+            {t("header.balanceTitle")}
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            El depósito del 50% ya está confirmado. Paga el saldo restante para completar tu reserva.
+            {t("header.balanceBody")}
           </p>
         </div>
       ) : (
         <div>
           <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-            Pago de reserva
+            {t("header.paymentEyebrow")}
           </p>
           <h1 className="mt-2 text-3xl font-semibold text-foreground">
-            Elige cómo pagar
+            {t("header.chooseTitle")}
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Selecciona un método para completar el depósito del 50% y confirmar tu reserva.
+            {t("header.chooseBody")}
           </p>
         </div>
       )}
@@ -398,50 +455,53 @@ export default function PaymentConfirmation() {
       {/* Resumen */}
       <div className="rounded-3xl border border-border/70 bg-card px-6 py-5 text-sm">
         <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
-          Resumen de reserva
+          {t("summary.eyebrow")}
         </p>
         <div className="mt-3 grid gap-2">
           <p>
-            <span className="font-semibold text-foreground">Paquete:</span>{" "}
-            {data?.packageLabel ?? "Por confirmar"}
+            <span className="font-semibold text-foreground">{t("summary.package")}</span>{" "}
+            {data?.packageLabel ?? t("pending")}
           </p>
           <p>
-            <span className="font-semibold text-foreground">Estado:</span>{" "}
-            {data?.status ? STATUS_LABEL[data.status] ?? data.status : "Por confirmar"}
+            <span className="font-semibold text-foreground">{t("summary.status")}</span>{" "}
+            {data?.status ? formatStatus(data.status) : t("pending")}
           </p>
           <p>
-            <span className="font-semibold text-foreground">Fecha:</span>{" "}
+            <span className="font-semibold text-foreground">{t("summary.date")}</span>{" "}
             {formatDate(data?.date ?? null, locale)}
           </p>
           <p>
-            <span className="font-semibold text-foreground">Horario:</span>{" "}
+            <span className="font-semibold text-foreground">{t("summary.time")}</span>{" "}
             {formatTimeRange12h(data?.timeSlot ?? null, locale)}
           </p>
           <p>
-            <span className="font-semibold text-foreground">Personas:</span>{" "}
-            {(data?.adults ?? 0) + (data?.kids ?? 0)} (Adultos:{" "}
-            {data?.adults ?? 0}, Niños: {data?.kids ?? 0})
+            <span className="font-semibold text-foreground">{t("summary.people")}</span>{" "}
+            {t("summary.peopleValue", {
+              total: (data?.adults ?? 0) + (data?.kids ?? 0),
+              adults: data?.adults ?? 0,
+              kids: data?.kids ?? 0,
+            })}
           </p>
           <p>
-            <span className="font-semibold text-foreground">Costo total:</span>{" "}
+            <span className="font-semibold text-foreground">{t("summary.total")}</span>{" "}
             {formatCurrency(data?.totalAmount ?? null)}
           </p>
           {isBalancePending || isFullyPaid ? (
             <>
               <p>
-                <span className="font-semibold text-foreground">Pagado:</span>{" "}
+                <span className="font-semibold text-foreground">{t("summary.paid")}</span>{" "}
                 {formatCurrency(data?.paidAmount ?? null)}
               </p>
               {!isFullyPaid && (
                 <p className="mt-1 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-base font-semibold text-amber-700 dark:text-amber-400">
-                  Saldo pendiente (50%):{" "}
+                  {t("summary.balanceDue")}{" "}
                   {formatCurrency(data?.balanceDue ?? null)}
                 </p>
               )}
             </>
           ) : (
             <p className="mt-1 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-base font-semibold text-primary">
-              Depósito a pagar (50%):{" "}
+              {t("summary.deposit")}{" "}
               {formatCurrency(depositAmount)}
             </p>
           )}
@@ -453,42 +513,42 @@ export default function PaymentConfirmation() {
         <div className="rounded-3xl border border-emerald-500/20 bg-emerald-500/10 px-6 py-8 text-center">
           <p className="text-4xl">🌊</p>
           <p className="mt-3 text-lg font-semibold text-emerald-700 dark:text-emerald-400">
-            Tu reserva está completamente pagada
+            {t("states.fullyPaidTitle")}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Nos vemos el {formatDate(data?.date ?? null, locale)}. ¡Que lo disfrutes!
+            {t("states.fullyPaidBody", { date: formatDate(data?.date ?? null, locale) })}
           </p>
         </div>
       ) : isBalancePending ? (
         <div className="rounded-3xl border border-border/70 bg-card px-6 py-5">
           <p className="mb-4 text-xs text-muted-foreground">
-            Usa el botón de Yappy para enviar el saldo restante de{" "}
+            {t("states.balanceBodyPrefix")}{" "}
             <span className="font-semibold text-foreground">
               {formatCurrency(data?.balanceDue ?? null)}
             </span>{" "}
-            directamente a tu número Yappy registrado.
+            {t("states.balanceBodySuffix")}
           </p>
           <YappyBalanceButton
             reservationId={data?.id ?? null}
             balanceDue={data?.balanceDue ?? null}
             onPaymentStarted={() => {
               setPaymentNotice(
-                "El flujo de pago del saldo fue iniciado. En cuanto Yappy confirme, actualizaremos tu reserva."
+                t("states.balancePolling")
               );
               setPolling(true);
             }}
           />
           <p className="mt-4 text-xs text-muted-foreground">
-            ¿Tienes dudas? Escríbenos por{" "}
+            {t("states.helpPrefix")}{" "}
             <a
-              href={buildWhatsAppLink(data, locale)}
+              href={whatsappLink}
               target="_blank"
               rel="noopener noreferrer"
               className="font-medium text-[#25D366] underline-offset-2 hover:underline"
             >
-              WhatsApp
+              {t("cta.whatsapp")}
             </a>{" "}
-            y te ayudamos.
+            {t("states.helpSuffix")}
           </p>
         </div>
       ) : (
@@ -497,16 +557,16 @@ export default function PaymentConfirmation() {
 
           {/* Mini step breadcrumb */}
           <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-            <span className={payStep === "amount" ? "font-semibold text-foreground" : ""}>Monto</span>
+            <span className={payStep === "amount" ? "font-semibold text-foreground" : ""}>{t("steps.amount")}</span>
             <span>›</span>
-            <span className={payStep === "pay" ? "font-semibold text-foreground" : ""}>Pagar</span>
+            <span className={payStep === "pay" ? "font-semibold text-foreground" : ""}>{t("steps.pay")}</span>
           </div>
 
           {/* STEP 1 — Amount selector */}
           {payStep === "amount" && (
             <div className="flex flex-col gap-3">
               <p className="text-sm text-muted-foreground">
-                ¿Cuánto quieres pagar ahora?
+                {t("amountSelector.question")}
               </p>
               <button
                 type="button"
@@ -518,8 +578,8 @@ export default function PaymentConfirmation() {
               >
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-base font-semibold text-foreground">Depósito inicial (50%)</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">Confirma tu reserva con el mínimo requerido</p>
+                    <p className="text-base font-semibold text-foreground">{t("amountSelector.depositTitle")}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{t("amountSelector.depositBody")}</p>
                   </div>
                   <p className="text-lg font-bold text-primary">{formatCurrency(depositAmount)}</p>
                 </div>
@@ -535,8 +595,8 @@ export default function PaymentConfirmation() {
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-base font-semibold text-foreground">Pago completo (100%)</p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">Saldo total saldado desde el inicio</p>
+                      <p className="text-base font-semibold text-foreground">{t("amountSelector.fullTitle")}</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">{t("amountSelector.fullBody")}</p>
                     </div>
                     <p className="text-lg font-bold text-foreground">{formatCurrency(data.totalAmount)}</p>
                   </div>
@@ -558,7 +618,7 @@ export default function PaymentConfirmation() {
                   ←
                 </button>
                 <p className="text-sm text-muted-foreground">
-                  Pagando{" "}
+                  {t("paying")}{" "}
                   <span className="font-semibold text-foreground">{formatCurrency(chosenAmount)}</span>
                 </p>
               </div>
@@ -568,11 +628,11 @@ export default function PaymentConfirmation() {
                 <div className="mb-3 flex items-center gap-2">
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-foreground">Yappy</p>
                   <span className="rounded-full bg-[#00ADEF]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[#00ADEF]">
-                    Recomendado
+                    {t("recommended")}
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Ingresa tu número Yappy y tu nombre como comentario para identificar tu pago.
+                  {t("officialButtonBody")}
                 </p>
                 <div className="mt-4">
                   <YappyPaymentButton
@@ -582,7 +642,7 @@ export default function PaymentConfirmation() {
                     blockedReason={yappyBlockedReason}
                     onPaymentStarted={() => {
                       setPaymentNotice(
-                        "El flujo de Yappy fue iniciado. En cuanto Yappy confirme el pago, actualizaremos tu reserva."
+                        t("officialButtonPolling")
                       );
                       setPolling(true);
                     }}
@@ -592,45 +652,56 @@ export default function PaymentConfirmation() {
 
               {/* Yappy manual (fallback) */}
               <div className="rounded-3xl border border-yellow-500/20 px-5 py-5">
-                <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-yellow-700 dark:text-yellow-500">
-                  Yappy manual – desde la app
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Si el botón no funciona, usa el link estático. El equipo confirmará el pago manualmente.
-                </p>
-                <div className="mt-4">
+                <button
+                  type="button"
+                  onClick={() => setManualExpanded((value) => !value)}
+                  className="flex w-full items-center justify-between gap-3 text-left"
+                >
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-yellow-700 dark:text-yellow-500">
+                      {t("manual.title")}
+                    </p>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {t("manual.subtitle")}
+                    </p>
+                  </div>
+                  <span className="text-sm font-semibold text-foreground">
+                    {manualExpanded ? t("manual.hide") : t("manual.show")}
+                  </span>
+                </button>
+                {manualExpanded ? <div className="mt-4">
                   <button
                     type="button"
                     onClick={() => void handleManualLinkClick()}
                     disabled={manualLinkBusy || Boolean(yappyBlockedReason)}
                     className="flex w-full items-center justify-center rounded-full bg-[#00ADEF] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#0099d6] disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {manualLinkBusy ? "Preparando link..." : "Abrir link estático de Yappy"}
+                    {manualLinkBusy ? t("manual.preparing") : t("manual.openLink")}
                   </button>
-                </div>
-                <div className="mt-3 flex flex-col gap-3">
+                </div> : null}
+                {manualExpanded ? <div className="mt-3 flex flex-col gap-3">
                   <div>
-                    <p className="text-[11px] uppercase text-muted-foreground">Monto a enviar:</p>
+                    <p className="text-[11px] uppercase text-muted-foreground">{t("manual.amount")}</p>
                     <div className="mt-1 w-fit cursor-text select-all rounded-lg border border-border/40 bg-background/60 px-3 py-1.5 font-mono text-sm font-semibold text-primary">
                       {formatCurrency(chosenAmount)}
                     </div>
                   </div>
                   <div>
-                    <p className="text-[11px] uppercase text-muted-foreground">Número de teléfono:</p>
+                    <p className="text-[11px] uppercase text-muted-foreground">{t("manual.phone")}</p>
                     <div className="mt-1 w-fit cursor-text select-all rounded-lg border border-border/40 bg-background/60 px-3 py-1.5 font-mono text-sm font-medium text-foreground">
                       {siteData.links.yappy}
                     </div>
                   </div>
                   <div>
-                    <p className="text-[11px] uppercase text-muted-foreground">Alias / Directorio:</p>
+                    <p className="text-[11px] uppercase text-muted-foreground">{t("manual.alias")}</p>
                     <div className="mt-1 w-fit cursor-text select-all rounded-lg border border-border/40 bg-background/60 px-3 py-1.5 font-mono text-sm font-medium text-foreground">
                       cabanasmarinas507
                     </div>
                   </div>
-                </div>
-                <p className="mt-3 text-xs font-medium text-amber-600 dark:text-amber-500">
-                  Recuerda enviarnos la captura de pantalla del comprobante por WhatsApp para confirmar tu reserva.
-                </p>
+                </div> : null}
+                {manualExpanded ? <p className="mt-3 text-xs font-medium text-amber-600 dark:text-amber-500">
+                  {t("manual.reminder")}
+                </p> : null}
               </div>
 
               {/* WhatsApp (siempre disponible) */}
@@ -639,15 +710,15 @@ export default function PaymentConfirmation() {
                   WhatsApp
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Contáctanos para coordinar el pago o si necesitas ayuda.
+                  {t("whatsappCard.body")}
                 </p>
                 <a
-                  href={buildWhatsAppLink(data, locale)}
+                  href={whatsappLink}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="mt-4 flex items-center justify-center gap-2 rounded-full bg-[#25D366] px-6 py-3 text-sm font-semibold text-white"
                 >
-                  Abrir WhatsApp
+                  {t("whatsappCard.cta")}
                 </a>
               </div>
             </div>
@@ -666,7 +737,7 @@ export default function PaymentConfirmation() {
         href={localizeHref(locale, "/")}
         className="w-full rounded-full border border-border/70 px-4 py-2 text-center text-sm font-semibold"
       >
-        Volver al inicio
+        {t("cta.backHome")}
       </Link>
     </div>
   );

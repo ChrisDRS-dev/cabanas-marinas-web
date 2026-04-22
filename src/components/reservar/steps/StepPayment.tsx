@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { Card, CardContent } from "@/components/ui/card";
 import type {
   ReservationState,
@@ -67,9 +68,9 @@ export default function StepPayment({
   depositAmount,
   config,
 }: StepPaymentProps) {
-  const title = config?.title ?? "Metodo de pago";
-  const subtitle =
-    config?.subtitle ?? "Selecciona como prefieres confirmar tu reserva.";
+  const t = useTranslations("booking.paymentMethods");
+  const title = config?.title ?? t("title");
+  const subtitle = config?.subtitle ?? t("subtitle");
   const methods = (
     config?.methods && config.methods.length > 0
       ? config.methods.map((method) => ({
@@ -80,7 +81,7 @@ export default function StepPayment({
               : method.label ?? method.id,
           description:
             method.id === "CASH"
-              ? "Ver opciones de pago por WhatsApp."
+              ? t("cashDescription")
               : method.description ?? "",
           enabled:
             method.id === "CASH" || method.id === "YAPPY"
@@ -100,6 +101,22 @@ export default function StepPayment({
       <Card className="border-border/70 py-4">
         <CardContent className="grid gap-3">
           {methods.map((method) => {
+            const label =
+              method.id === "YAPPY"
+                ? "Yappy"
+                : method.id === "PAYPAL"
+                  ? "PayPal"
+                  : method.id === "CARD"
+                    ? t("cardLabel")
+                    : "WhatsApp";
+            const description =
+              method.id === "YAPPY"
+                ? t("yappyDescription")
+                : method.id === "PAYPAL"
+                  ? t("paypalDescription")
+                  : method.id === "CARD"
+                    ? t("cardDescription")
+                    : t("cashDescription");
             const selected = state.paymentMethod === method.id;
             return (
               <button
@@ -124,15 +141,15 @@ export default function StepPayment({
                 } `}
               >
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-base font-semibold">{method.label}</p>
+                  <p className="text-base font-semibold">{label}</p>
                   {!method.enabled && (
                     <span className="rounded-full border border-border bg-secondary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Proximamente
+                      {t("comingSoon")}
                     </span>
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {method.description}
+                  {description || method.description}
                 </p>
               </button>
             );
@@ -142,27 +159,27 @@ export default function StepPayment({
 
       {state.paymentMethod === "YAPPY" && (
         <div className="rounded-2xl border border-primary/30 bg-primary/5 px-5 py-4 text-sm">
-          <p className="font-semibold text-foreground">Instrucciones Yappy</p>
+          <p className="font-semibold text-foreground">{t("yappyInstructions")}</p>
           <p className="mt-1 text-muted-foreground">
-            Envía el pago inicial al número Yappy:
+            {t("sendInitial")}
           </p>
           <p className="mt-2 text-xl font-bold tracking-wide text-foreground">
             {siteData.links.yappy}
           </p>
           {depositAmount != null && (
             <p className="mt-2 text-sm text-muted-foreground">
-              Monto a enviar:{" "}
+              {t("amountToSend")}{" "}
               <span className="font-semibold text-primary">
                 {formatCurrency(depositAmount)}
               </span>{" "}
-              <span className="text-xs">(50% del total)</span>
+              <span className="text-xs">{t("halfTotal")}</span>
             </p>
           )}
           <div className="mt-4 flex h-24 w-24 items-center justify-center rounded-xl border border-border/70 bg-muted text-xs text-muted-foreground">
-            QR próximamente
+            {t("qrSoon")}
           </div>
           <p className="mt-3 text-xs text-muted-foreground">
-            Después de realizar el pago, escríbenos por WhatsApp con el comprobante para confirmar tu reserva.
+            {t("afterPayment")}
           </p>
         </div>
       )}

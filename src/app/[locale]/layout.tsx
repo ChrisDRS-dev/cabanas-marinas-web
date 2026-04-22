@@ -53,10 +53,8 @@ export default async function RootLayout({
           <AuthProvider>
             {children}
             <StickyCTA
-              primaryHref={`/${locale}/reservar`}
-              primaryLabel="Reservar"
+              primaryHref="/reservar"
               secondaryHref="https://wa.me/50762811651"
-              secondaryLabel="WhatsApp"
               instagramHref={INSTAGRAM_PROFILE_URL}
             />
           </AuthProvider>

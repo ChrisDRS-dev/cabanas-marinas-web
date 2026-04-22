@@ -2,10 +2,18 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import type { Session } from "@supabase/supabase-js";
+import { useLocale, useMessages, useTranslations } from "next-intl";
+import { useAuth } from "@/components/AuthProvider";
+import { getDateLocale } from "@/i18n/format";
+import { localizeHref, type AppLocale } from "@/i18n/routing";
+import {
+  getCatalogMessages,
+  getLocalizedExtra,
+  getLocalizedPackage,
+} from "@/lib/localized-catalog";
 import { siteData } from "@/lib/siteData";
 import { fetchCatalog, type Extra } from "@/lib/supabase/catalog";
-import { getSessionSafe, supabase } from "@/lib/supabase/client";
+import { supabase } from "@/lib/supabase/client";
 
 type ReservationItem = {
   id: string;
@@ -16,12 +24,8 @@ type ReservationItem = {
   total_amount: number | string | null;
   adults_count?: number | null;
   kids_count?: number | null;
+  package_id?: string | null;
   packages?: { label?: string | null } | { label?: string | null }[] | null;
-};
-
-type HomeReservationNoticeProps = {
-  reservations: ReservationItem[];
-  hasDraft: boolean;
 };
 
 type ChangeRequestPayload = {
@@ -32,12 +36,9 @@ type ChangeRequestPayload = {
   note: string;
 };
 
-const STATUS_LABEL: Record<string, string> = {
-  PENDING_PAYMENT: "Pago pendiente",
-  CONFIRMED: "Confirmada",
-  CANCELLED: "Cancelada",
-  COMPLETED: "Completada",
-  NO_SHOW: "No show",
+type HomeReservationNoticeProps = {
+  reservations?: ReservationItem[];
+  hasDraft?: boolean;
 };
 
 const EDITABLE_STATUS = new Set(["PENDING_PAYMENT", "CONFIRMED"]);
@@ -50,51 +51,10 @@ function parsePanamaDate(value: string) {
   return new Date(value);
 }
 
-function formatDate(value: string) {
-  const date = parsePanamaDate(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString("es-PA", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    timeZone: "America/Panama",
-  });
-}
-
-function formatTime(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleTimeString("es-PA", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-    timeZone: "America/Panama",
-  });
-}
-
 function formatCurrency(value: number | string | null) {
   const parsed = typeof value === "number" ? value : Number(value ?? 0);
   if (Number.isNaN(parsed)) return "$0";
-  const rounded = Number.isInteger(parsed) ? parsed.toFixed(0) : parsed.toFixed(2);
-  return `$${rounded}`;
-}
-
-function buildWhatsAppLink(reservation: ReservationItem) {
-  const base = siteData.links.whatsapp;
-  const packageLabel = Array.isArray(reservation.packages)
-    ? reservation.packages[0]?.label
-    : reservation.packages?.label;
-  const messageLines = [
-    "Hola, tengo una reserva pendiente de pago.",
-    `ID: ${String(reservation.id).slice(0, 8)}`,
-    `Fecha: ${formatDate(reservation.reserved_date)}`,
-    `Horario: ${formatTime(reservation.start_at)} - ${formatTime(reservation.end_at)}`,
-    packageLabel ? `Paquete: ${packageLabel}` : null,
-    `Total estimado: ${formatCurrency(reservation.total_amount)}`,
-    "Estado: Pago pendiente (la reserva se confirma al recibir el pago).",
-  ].filter(Boolean) as string[];
-  const message = messageLines.join("\n");
-  return `${base}?text=${encodeURIComponent(message)}`;
+  return `$${Number.isInteger(parsed) ? parsed.toFixed(0) : parsed.toFixed(2)}`;
 }
 
 function resolvePackageLabel(reservation: ReservationItem) {
@@ -104,119 +64,165 @@ function resolvePackageLabel(reservation: ReservationItem) {
 }
 
 export default function HomeReservationNotice({
-  reservations: initialReservations,
-  hasDraft,
+  reservations: initialReservations = [],
+  hasDraft: initialHasDraft = false,
 }: HomeReservationNoticeProps) {
-  const [editingReservation, setEditingReservation] =
-    useState<ReservationItem | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const locale = useLocale() as AppLocale;
+  const messages = useMessages();
+  const t = useTranslations("account");
+  const paymentT = useTranslations("payment");
+  const { session } = useAuth();
+  const catalog = getCatalogMessages(
+    (messages as { booking?: { catalog?: unknown } }).booking?.catalog,
+  );
+
+  const [editingReservation, setEditingReservation] = useState<ReservationItem | null>(null);
   const [profileName, setProfileName] = useState<string | null>(null);
-  const [reservations, setReservations] =
-    useState<ReservationItem[]>(initialReservations);
-  const [reservationsLoaded, setReservationsLoaded] = useState(false);
+  const [reservations, setReservations] = useState<ReservationItem[]>(initialReservations);
+  const [hasDraft, setHasDraft] = useState(initialHasDraft);
   const [extrasCatalog, setExtrasCatalog] = useState<Extra[]>([]);
   const [extrasError, setExtrasError] = useState<string | null>(null);
   const [requestedAdults, setRequestedAdults] = useState(0);
   const [requestedKids, setRequestedKids] = useState(0);
-  const [requestedExtras, setRequestedExtras] = useState<Record<string, boolean>>(
-    {}
-  );
+  const [requestedExtras, setRequestedExtras] = useState<Record<string, boolean>>({});
   const [note, setNote] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const hasReservations = reservations.length > 0;
-  const pendingReservations = useMemo(
-    () => reservations.filter((item) => item.status === "PENDING_PAYMENT"),
-    [reservations]
+  const localizedExtrasCatalog = useMemo(
+    () => extrasCatalog.map((extra) => getLocalizedExtra(extra, catalog) ?? extra),
+    [catalog, extrasCatalog],
   );
+
+  const formatDate = (value: string) => {
+    const date = parsePanamaDate(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleDateString(getDateLocale(locale), {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      timeZone: "America/Panama",
+    });
+  };
+
+  const formatTime = (value: string) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleTimeString(getDateLocale(locale), {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+      timeZone: "America/Panama",
+    });
+  };
+
+  const formatStatus = (status: string) => {
+    switch (status) {
+      case "PENDING_PAYMENT":
+        return paymentT("statusPending");
+      case "CONFIRMED":
+        return paymentT("statusConfirmed");
+      case "CANCELLED":
+        return paymentT("statusCancelled");
+      case "COMPLETED":
+        return paymentT("statusCompleted");
+      case "NO_SHOW":
+        return paymentT("statusNoShow");
+      default:
+        return status;
+    }
+  };
+
+  const buildWhatsAppLink = (reservation: ReservationItem) => {
+    const base = siteData.links.whatsapp;
+    const rawLabel = reservation.package_id
+      ? getLocalizedPackage(
+          {
+            id: reservation.package_id,
+            label: resolvePackageLabel(reservation) ?? reservation.package_id,
+            note: null,
+            durationMinutes: 0,
+            pricePerAdult: 0,
+            kidDiscount: 0,
+            minPeopleWeekday: 0,
+            minPeopleWeekend: 0,
+            minPeopleHoliday: 0,
+          },
+          catalog,
+        )?.label
+      : resolvePackageLabel(reservation);
+    const message = [
+      t("whatsapp.intro"),
+      t("whatsapp.id", { value: String(reservation.id).slice(0, 8) }),
+      t("whatsapp.date", { value: formatDate(reservation.reserved_date) }),
+      t("whatsapp.time", {
+        value: `${formatTime(reservation.start_at)} - ${formatTime(reservation.end_at)}`,
+      }),
+      rawLabel ? t("whatsapp.package", { value: rawLabel }) : null,
+      t("whatsapp.total", { value: formatCurrency(reservation.total_amount) }),
+      t("whatsapp.status", { value: paymentT("statusPending") }),
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    return `${base}?text=${encodeURIComponent(message)}`;
+  };
 
   useEffect(() => {
     let active = true;
+
     const loadExtras = async () => {
       try {
-        const catalog = await fetchCatalog();
+        const catalogData = await fetchCatalog();
         if (!active) return;
-        setExtrasCatalog(catalog.extras);
+        setExtrasCatalog(catalogData.extras);
       } catch (error) {
         if (!active) return;
         setExtrasError(
-          error instanceof Error ? error.message : "No se pudieron cargar extras."
+          error instanceof Error ? error.message : t("errors.loadExtras"),
         );
       }
     };
-    loadExtras();
+
+    void loadExtras();
+
     return () => {
       active = false;
     };
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (!session?.user) return;
     let active = true;
-    const loadReservations = async () => {
-      try {
-        const response = await fetch("/api/my-reservations");
-        const result = await response.json();
-        if (!active) return;
-        if (response.ok && Array.isArray(result?.reservations)) {
-          if (result.reservations.length > 0) {
-            setReservations(result.reservations);
-          } else {
-            setReservations(initialReservations);
-          }
-        }
-      } catch {
-        if (!active) return;
-      } finally {
-        if (active) setReservationsLoaded(true);
-      }
-    };
-    void loadReservations();
-    return () => {
-      active = false;
-    };
-  }, [session, initialReservations]);
 
-  useEffect(() => {
-    if (reservationsLoaded) return;
-    setReservations(initialReservations);
-  }, [initialReservations, reservationsLoaded]);
-
-  useEffect(() => {
-    void getSessionSafe().then((session) => {
-      setSession(session);
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
-      setSession(next);
-    });
-    return () => {
-      sub.subscription.unsubscribe();
-    };
-  }, []);
-
-  useEffect(() => {
-    let active = true;
-    const loadProfile = async () => {
-      if (!session?.user) {
-        setProfileName(null);
-        return;
-      }
+    const loadProfileAndReservations = async () => {
       const user = session.user;
-      const { data } = await supabase
-        .from("profiles")
-        .select("full_name")
-        .eq("user_id", user.id)
-        .maybeSingle();
+      const [profileResult, reservationsResponse, draftResult] = await Promise.all([
+        supabase.from("profiles").select("full_name").eq("user_id", user.id).maybeSingle(),
+        fetch("/api/my-reservations", { cache: "no-store" }).then((response) =>
+          response.json().then((data) => ({ ok: response.ok, data })),
+        ),
+        supabase.from("reservation_drafts").select("user_id").eq("user_id", user.id).maybeSingle(),
+      ]);
+
       if (!active) return;
+
       const nameFromMeta =
         (user.user_metadata?.full_name as string | undefined) ??
         (user.user_metadata?.name as string | undefined) ??
         null;
-      setProfileName(data?.full_name ?? nameFromMeta);
+      setProfileName(profileResult.data?.full_name ?? nameFromMeta);
+
+      if (reservationsResponse.ok && Array.isArray(reservationsResponse.data?.reservations)) {
+        setReservations(reservationsResponse.data.reservations as ReservationItem[]);
+      }
+
+      setHasDraft(Boolean(draftResult.data?.user_id));
     };
-    void loadProfile();
+
+    void loadProfileAndReservations();
+
     return () => {
       active = false;
     };
@@ -224,17 +230,20 @@ export default function HomeReservationNotice({
 
   useEffect(() => {
     if (!editingReservation) return;
-    const baseAdults = editingReservation.adults_count ?? 0;
-    const baseKids = editingReservation.kids_count ?? 0;
-    setRequestedAdults(baseAdults);
-    setRequestedKids(baseKids);
+    setRequestedAdults(editingReservation.adults_count ?? 0);
+    setRequestedKids(editingReservation.kids_count ?? 0);
     setRequestedExtras(
-      Object.fromEntries(extrasCatalog.map((extra) => [extra.id, false]))
+      Object.fromEntries(localizedExtrasCatalog.map((extra) => [extra.id, false])),
     );
     setNote("");
     setSubmitError(null);
     setSubmitSuccess(null);
-  }, [editingReservation, extrasCatalog]);
+  }, [editingReservation, localizedExtrasCatalog]);
+
+  const pendingReservations = useMemo(
+    () => reservations.filter((item) => item.status === "PENDING_PAYMENT"),
+    [reservations],
+  );
 
   const handleToggleExtra = (id: string) => {
     setRequestedExtras((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -245,6 +254,7 @@ export default function HomeReservationNotice({
     setIsSubmitting(true);
     setSubmitError(null);
     setSubmitSuccess(null);
+
     try {
       const payload: ChangeRequestPayload = {
         reservationId: editingReservation.id,
@@ -255,64 +265,88 @@ export default function HomeReservationNotice({
           .map(([id]) => id),
         note: note.trim(),
       };
+
       const response = await fetch("/api/reservations/change-request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       const result = await response.json();
+
       if (!response.ok) {
-        throw new Error(result?.error ?? "No se pudo enviar la solicitud.");
+        throw new Error(result?.error ?? t("errors.submitRequest"));
       }
-      setSubmitSuccess("Solicitud enviada. Te confirmaremos por WhatsApp.");
+
+      setSubmitSuccess(t("changeRequest.success"));
     } catch (error) {
       setSubmitError(
-        error instanceof Error ? error.message : "No se pudo enviar la solicitud."
+        error instanceof Error ? error.message : t("errors.submitRequest"),
       );
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  if (!session) {
-    return null;
-  }
+  if (!session) return null;
 
   return (
-    <section className="mx-auto max-w-6xl px-4">
-      <div className="rounded-[2.5rem] border border-border/70 bg-card/90 p-4 shadow-xl shadow-black/5">
+    <section className="mx-auto max-w-6xl px-6 pt-8">
+      <div className="rounded-[2.5rem] border border-border/70 bg-card/90 p-5 shadow-xl shadow-black/5">
         <div className="space-y-1">
           <h2 className="font-display text-lg font-semibold sm:text-xl">
-            Bienvenido{profileName ? `, ${profileName}` : ""}
+            {profileName ? t("welcomeNamed", { name: profileName }) : t("welcome")}
           </h2>
-          {(hasReservations || hasDraft) && (
-            <p className="text-sm text-muted-foreground">
-              Aquí verás el estado de tu reserva y las opciones disponibles.
-            </p>
+          {(reservations.length > 0 || hasDraft) && (
+            <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
           )}
         </div>
 
         {hasDraft && (
           <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            <span>Hay una reserva en progreso. Continúa donde la dejaste.</span>
+            <span>{t("draft.message")}</span>
             <Link
-              href="/reservar?draft=1"
+              href={localizeHref(locale, "/reservar?draft=1")}
               className="rounded-full bg-primary px-4 py-2 text-xs font-semibold uppercase tracking-wide text-primary-foreground"
             >
-              Continuar reserva
+              {t("draft.cta")}
             </Link>
           </div>
         )}
 
-
-        {hasReservations && (
+        {reservations.length > 0 && (
           <div className="mt-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
+                {t("reservations.eyebrow")}
+              </p>
+              <Link
+                href={localizeHref(locale, "/reservar")}
+                className="text-xs font-semibold text-primary"
+              >
+                {t("reservations.manage")}
+              </Link>
+            </div>
+
             {reservations.map((reservation) => {
-              const statusLabel =
-                STATUS_LABEL[reservation.status] ?? reservation.status;
-              const isPending = reservation.status === "PENDING_PAYMENT";
-              const packageLabel = resolvePackageLabel(reservation);
+              const rawLabel = reservation.package_id
+                ? getLocalizedPackage(
+                    {
+                      id: reservation.package_id,
+                      label: resolvePackageLabel(reservation) ?? reservation.package_id,
+                      note: null,
+                      durationMinutes: 0,
+                      pricePerAdult: 0,
+                      kidDiscount: 0,
+                      minPeopleWeekday: 0,
+                      minPeopleWeekend: 0,
+                      minPeopleHoliday: 0,
+                    },
+                    catalog,
+                  )?.label
+                : resolvePackageLabel(reservation);
               const isEditable = EDITABLE_STATUS.has(reservation.status);
+              const isPending = reservation.status === "PENDING_PAYMENT";
+
               return (
                 <div
                   key={reservation.id}
@@ -321,14 +355,13 @@ export default function HomeReservationNotice({
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
-                        Reserva {String(reservation.id).slice(0, 8)}
+                        {t("reservations.id", { value: String(reservation.id).slice(0, 8) })}
                       </p>
                       <p className="mt-1 text-base font-semibold">
-                        {packageLabel ?? "Paquete"}
+                        {rawLabel ?? t("reservations.fallbackPackage")}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {formatDate(reservation.reserved_date)} ·{" "}
-                        {formatTime(reservation.start_at)} -{" "}
+                        {formatDate(reservation.reserved_date)} · {formatTime(reservation.start_at)} -{" "}
                         {formatTime(reservation.end_at)}
                       </p>
                     </div>
@@ -341,7 +374,7 @@ export default function HomeReservationNotice({
                           isPending ? "text-amber-600" : "text-muted-foreground"
                         }`}
                       >
-                        {statusLabel}
+                        {formatStatus(reservation.status)}
                       </p>
                     </div>
                   </div>
@@ -356,15 +389,15 @@ export default function HomeReservationNotice({
                           : "border border-border/30 text-muted-foreground"
                       }`}
                     >
-                      Solicitar cambios
+                      {t("reservations.requestChanges")}
                     </button>
                     {isPending && (
-                      <a
-                        href={buildWhatsAppLink(reservation)}
+                      <Link
+                        href={localizeHref(locale, `/reservar/pago?rid=${reservation.id}`)}
                         className="rounded-full bg-[#25D366] px-3 py-1 text-xs font-semibold text-white"
                       >
-                        Pagar por WhatsApp
-                      </a>
+                        {t("reservations.pay")}
+                      </Link>
                     )}
                   </div>
                 </div>
@@ -373,9 +406,9 @@ export default function HomeReservationNotice({
           </div>
         )}
 
-        {hasReservations && pendingReservations.length === 0 && (
+        {reservations.length > 0 && pendingReservations.length === 0 && (
           <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-800">
-            Tus reservas están confirmadas o completadas.
+            {t("reservations.allConfirmed")}
           </div>
         )}
       </div>
@@ -386,14 +419,13 @@ export default function HomeReservationNotice({
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-                  Solicitud de cambio
+                  {t("changeRequest.eyebrow")}
                 </p>
                 <h3 className="mt-1 text-xl font-semibold text-foreground">
-                  Reserva {String(editingReservation.id).slice(0, 8)}
+                  {t("reservations.id", { value: String(editingReservation.id).slice(0, 8) })}
                 </h3>
                 <p className="text-xs text-muted-foreground">
-                  {formatDate(editingReservation.reserved_date)} ·{" "}
-                  {formatTime(editingReservation.start_at)} -{" "}
+                  {formatDate(editingReservation.reserved_date)} · {formatTime(editingReservation.start_at)} -{" "}
                   {formatTime(editingReservation.end_at)}
                 </p>
               </div>
@@ -402,18 +434,17 @@ export default function HomeReservationNotice({
                 onClick={() => setEditingReservation(null)}
                 className="rounded-full border border-border/70 px-3 py-1 text-xs font-semibold"
               >
-                Cerrar
+                {t("changeRequest.close")}
               </button>
             </div>
 
             <div className="mt-4 space-y-4 text-sm text-muted-foreground">
-              <p className="text-xs text-muted-foreground">
-                Solo puedes agregar personas o extras. Para cambiar fecha u
-                horario contáctanos por WhatsApp.
-              </p>
+              <p className="text-xs text-muted-foreground">{t("changeRequest.help")}</p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="space-y-1">
-                  Adultos (actual: {editingReservation.adults_count ?? 0})
+                  {t("changeRequest.adults", {
+                    count: editingReservation.adults_count ?? 0,
+                  })}
                   <input
                     type="number"
                     min={editingReservation.adults_count ?? 0}
@@ -422,15 +453,17 @@ export default function HomeReservationNotice({
                       setRequestedAdults(
                         Math.max(
                           editingReservation.adults_count ?? 0,
-                          Number(event.target.value || 0)
-                        )
+                          Number(event.target.value || 0),
+                        ),
                       )
                     }
                     className="w-full rounded-2xl border border-border/70 bg-background px-3 py-2 text-sm font-semibold text-foreground"
                   />
                 </label>
                 <label className="space-y-1">
-                  Niños (actual: {editingReservation.kids_count ?? 0})
+                  {t("changeRequest.kids", {
+                    count: editingReservation.kids_count ?? 0,
+                  })}
                   <input
                     type="number"
                     min={editingReservation.kids_count ?? 0}
@@ -439,8 +472,8 @@ export default function HomeReservationNotice({
                       setRequestedKids(
                         Math.max(
                           editingReservation.kids_count ?? 0,
-                          Number(event.target.value || 0)
-                        )
+                          Number(event.target.value || 0),
+                        ),
                       )
                     }
                     className="w-full rounded-2xl border border-border/70 bg-background px-3 py-2 text-sm font-semibold text-foreground"
@@ -450,18 +483,14 @@ export default function HomeReservationNotice({
 
               <div>
                 <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                  Extras adicionales
+                  {t("changeRequest.extras")}
                 </p>
-                {extrasError && (
-                  <p className="mt-2 text-xs text-rose-600">{extrasError}</p>
-                )}
+                {extrasError && <p className="mt-2 text-xs text-rose-600">{extrasError}</p>}
                 <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                  {extrasCatalog.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">
-                      No hay extras disponibles.
-                    </p>
+                  {localizedExtrasCatalog.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">{t("changeRequest.noExtras")}</p>
                   ) : (
-                    extrasCatalog.map((extra) => (
+                    localizedExtrasCatalog.map((extra) => (
                       <label
                         key={extra.id}
                         className="flex items-center gap-2 rounded-2xl border border-border/70 bg-background px-3 py-2 text-xs"
@@ -479,13 +508,13 @@ export default function HomeReservationNotice({
               </div>
 
               <label className="space-y-1 text-sm text-muted-foreground">
-                Nota adicional (opcional)
+                {t("changeRequest.note")}
                 <textarea
                   value={note}
                   onChange={(event) => setNote(event.target.value)}
                   rows={3}
                   className="w-full rounded-2xl border border-border/70 bg-background px-3 py-2 text-sm text-foreground"
-                  placeholder="Escribe detalles para el equipo."
+                  placeholder={t("changeRequest.notePlaceholder")}
                 />
               </label>
             </div>
@@ -508,7 +537,7 @@ export default function HomeReservationNotice({
                 onClick={() => setEditingReservation(null)}
                 className="w-full rounded-full border border-border/70 px-4 py-2 text-xs font-semibold"
               >
-                Cancelar
+                {t("changeRequest.cancel")}
               </button>
               <button
                 type="button"
@@ -516,8 +545,19 @@ export default function HomeReservationNotice({
                 disabled={isSubmitting}
                 className="w-full rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground"
               >
-                {isSubmitting ? "Enviando..." : "Enviar solicitud"}
+                {isSubmitting ? t("changeRequest.sending") : t("changeRequest.submit")}
               </button>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-[#25D366]/20 bg-[#25D366]/5 px-4 py-3 text-xs text-muted-foreground">
+              <a
+                href={buildWhatsAppLink(editingReservation)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-[#25D366]"
+              >
+                {t("changeRequest.whatsapp")}
+              </a>
             </div>
           </div>
         </div>
@@ -525,3 +565,4 @@ export default function HomeReservationNotice({
     </section>
   );
 }
+
