@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages } from 'next-intl/server';
 import { notFound } from 'next/navigation';
-import { routing } from '@/i18n/routing';
+import { isAppLocale } from '@/i18n/routing';
 import "../globals.css";
 import "leaflet/dist/leaflet.css";
 import StickyCTA from "@/components/StickyCTA";
@@ -28,7 +28,7 @@ export default async function RootLayout({
   params: Promise<{ locale: string }>;
 }>) {
   const { locale } = await params;
-  if (!routing.locales.includes(locale as any)) {
+  if (!isAppLocale(locale)) {
     notFound();
   }
   const messages = await getMessages();

@@ -23,7 +23,12 @@ export default function StickyCTA({
   const t = useTranslations("stickyCta");
   const { session, dismissed } = useAuth();
 
-  if (pathname && stripLocaleFromPathname(pathname).startsWith("/reservar")) {
+  if (
+    pathname &&
+    ["/reservar", "/review"].some((route) =>
+      stripLocaleFromPathname(pathname).startsWith(route),
+    )
+  ) {
     return null;
   }
   if (!session || dismissed) {
