@@ -1,8 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useAuth } from "@/components/AuthProvider";
+import {
+  REVIEW_PHOTO_BUCKET,
+  type ReviewPhotoSelection,
+  buildReviewPhotoPath,
+  compressReviewImage,
+  validateReviewPhotoFiles,
+} from "@/lib/review-images";
+import { supabase } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
 function ReviewStars({
@@ -74,6 +82,33 @@ type ReviewSubmissionFormProps = {
   eyebrow?: string;
 };
 
+type CreateReviewResponse = {
+  ok?: boolean;
+  reviewId?: string;
+  uploadedPhotos?: number;
+  message?: string;
+  error?: string;
+};
+
+type CreateReviewPhotoResponse = {
+  ok?: boolean;
+  error?: string;
+};
+
+function getPhotoValidationMessage(
+  code: "too_many_files" | "invalid_type" | "file_too_large",
+  t: ReturnType<typeof useTranslations<"reviews">>,
+) {
+  switch (code) {
+    case "too_many_files":
+      return t("invalidImageCount");
+    case "invalid_type":
+      return t("invalidImageType");
+    case "file_too_large":
+      return t("invalidImageSize");
+  }
+}
+
 export default function ReviewSubmissionForm({
   title,
   description,
@@ -81,6 +116,7 @@ export default function ReviewSubmissionForm({
 }: ReviewSubmissionFormProps) {
   const t = useTranslations("reviews");
   const { session, openAuth } = useAuth();
+  const photoPreviewUrlsRef = useRef<string[]>([]);
   const suggestedName =
     (session?.user.user_metadata?.full_name as string | undefined) ??
     (session?.user.user_metadata?.name as string | undefined) ??
@@ -93,7 +129,9 @@ export default function ReviewSubmissionForm({
   const [displayName, setDisplayName] = useState("");
   const [stayLabel, setStayLabel] = useState("");
   const [consentToPublish, setConsentToPublish] = useState(false);
+  const [selectedPhotos, setSelectedPhotos] = useState<ReviewPhotoSelection[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submissionStage, setSubmissionStage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -103,15 +141,71 @@ export default function ReviewSubmissionForm({
     }
   }, [displayName, suggestedName]);
 
+  useEffect(() => {
+    photoPreviewUrlsRef.current = selectedPhotos.map((photo) => photo.previewUrl);
+  }, [selectedPhotos]);
+
+  useEffect(() => {
+    return () => {
+      photoPreviewUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, []);
+
+  function clearSelectedPhotos() {
+    photoPreviewUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+    photoPreviewUrlsRef.current = [];
+    setSelectedPhotos([]);
+  }
+
+  function removePhoto(photoId: string) {
+    setSelectedPhotos((current) => {
+      const target = current.find((photo) => photo.id === photoId);
+      if (target) {
+        URL.revokeObjectURL(target.previewUrl);
+      }
+      return current.filter((photo) => photo.id !== photoId);
+    });
+  }
+
+  function handlePhotoChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = "";
+
+    if (!files.length) return;
+
+    const nextFiles = [...selectedPhotos.map((photo) => photo.file), ...files];
+    const validationError = validateReviewPhotoFiles(nextFiles);
+
+    if (validationError) {
+      setError(getPhotoValidationMessage(validationError.code, t));
+      return;
+    }
+
+    const nextSelections = files.map((file, index) => ({
+      id:
+        typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+          ? crypto.randomUUID()
+          : `${file.name}-${file.lastModified}-${index}`,
+      file,
+      previewUrl: URL.createObjectURL(file),
+    }));
+
+    setError(null);
+    setSelectedPhotos((current) => [...current, ...nextSelections]);
+  }
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (isSubmitting) return;
 
     setError(null);
     setSuccess(null);
+    setSubmissionStage(null);
     setIsSubmitting(true);
 
     try {
+      setSubmissionStage(t("submitStageReview"));
+
       const response = await fetch("/api/reviews", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -126,20 +220,92 @@ export default function ReviewSubmissionForm({
       });
 
       const payload = (await response.json().catch(() => null)) as
-        | { error?: string; message?: string }
+        | CreateReviewResponse
         | null;
 
-      if (!response.ok) {
+      if (!response.ok || !payload?.reviewId) {
         throw new Error(payload?.error ?? t("submitError"));
       }
 
-      setSuccess(payload?.message ?? t("submitSuccess"));
+      let uploadedPhotos = 0;
+
+      if (selectedPhotos.length) {
+        for (const [index, photo] of selectedPhotos.entries()) {
+          try {
+            setSubmissionStage(
+              t("submitStagePhoto", {
+                current: index + 1,
+                total: selectedPhotos.length,
+              }),
+            );
+
+            const compressedFile = await compressReviewImage(photo.file, index);
+            const storagePath = buildReviewPhotoPath(payload.reviewId, index);
+            const bucket = supabase.storage.from(REVIEW_PHOTO_BUCKET);
+
+            const { error: uploadError } = await bucket.upload(
+              storagePath,
+              compressedFile,
+              {
+                cacheControl: "3600",
+                contentType: "image/webp",
+                upsert: false,
+              },
+            );
+
+            if (uploadError) {
+              throw new Error(uploadError.message || t("imageUploadError"));
+            }
+
+            const {
+              data: { publicUrl },
+            } = bucket.getPublicUrl(storagePath);
+
+            const metadataResponse = await fetch("/api/reviews/photos", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                reviewId: payload.reviewId,
+                storagePath,
+                publicUrl,
+                sortOrder: index,
+              }),
+            });
+
+            const metadataPayload =
+              (await metadataResponse.json().catch(() => null)) as
+                | CreateReviewPhotoResponse
+                | null;
+
+            if (!metadataResponse.ok) {
+              await bucket.remove([storagePath]).catch(() => undefined);
+              throw new Error(
+                metadataPayload?.error ?? t("imageRegisterError"),
+              );
+            }
+
+            uploadedPhotos += 1;
+          } catch {
+            // Keep the review even if one or more images fail to upload.
+          }
+        }
+      }
+
+      setSuccess(
+        selectedPhotos.length && uploadedPhotos < selectedPhotos.length
+          ? t("submitPartialSuccess", {
+              uploaded: uploadedPhotos,
+              total: selectedPhotos.length,
+            })
+          : (payload.message ?? t("submitSuccess")),
+      );
       setRating(0);
       setComment("");
       setIsAnonymous(false);
       setDisplayName(suggestedName);
       setStayLabel("");
       setConsentToPublish(false);
+      clearSelectedPhotos();
     } catch (submissionError) {
       setError(
         submissionError instanceof Error
@@ -147,6 +313,7 @@ export default function ReviewSubmissionForm({
           : t("submitError"),
       );
     } finally {
+      setSubmissionStage(null);
       setIsSubmitting(false);
     }
   }
@@ -303,6 +470,58 @@ export default function ReviewSubmissionForm({
               />
             </div>
 
+            <div className="space-y-3 rounded-[1.3rem] border border-white/8 bg-white/[0.03] px-4 py-4">
+              <div className="space-y-1">
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/56">
+                  {t("images")}
+                </p>
+                <p className="text-sm leading-6 text-white/56">
+                  {t("imagesHelp")}
+                </p>
+              </div>
+
+              <label className="inline-flex cursor-pointer rounded-full border border-white/12 bg-black/20 px-4 py-2 text-sm font-semibold text-white transition hover:border-[#59f0e8]/35 hover:text-[#59f0e8]">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  multiple
+                  className="sr-only"
+                  onChange={handlePhotoChange}
+                  disabled={isSubmitting}
+                />
+                {t("addImages")}
+              </label>
+
+              {selectedPhotos.length ? (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {selectedPhotos.map((photo, index) => (
+                    <div
+                      key={photo.id}
+                      className="overflow-hidden rounded-[1.25rem] border border-white/10 bg-black/20"
+                    >
+                      <img
+                        src={photo.previewUrl}
+                        alt={t("photoPreviewAlt", { index: index + 1 })}
+                        className="h-40 w-full object-cover"
+                      />
+                      <div className="flex items-center justify-between gap-3 px-3 py-3">
+                        <p className="min-w-0 truncate text-xs text-white/56">
+                          {photo.file.name}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => removePhoto(photo.id)}
+                          className="rounded-full border border-white/12 px-3 py-1 text-xs font-semibold text-white/74 transition hover:border-rose-300/30 hover:text-rose-200"
+                        >
+                          {t("removeImage")}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+
             <label className="flex items-start gap-3 rounded-[1.3rem] border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white/68">
               <input
                 type="checkbox"
@@ -312,10 +531,6 @@ export default function ReviewSubmissionForm({
               />
               <span>{t("consent")}</span>
             </label>
-
-            <div className="rounded-[1.3rem] border border-dashed border-white/10 bg-white/[0.02] px-4 py-4 text-sm text-white/56">
-              {t("imagesComingSoon")}
-            </div>
 
             {error ? (
               <div className="rounded-[1.2rem] border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
@@ -329,7 +544,10 @@ export default function ReviewSubmissionForm({
               </div>
             ) : null}
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+              {submissionStage ? (
+                <p className="text-sm text-white/54">{submissionStage}</p>
+              ) : null}
               <button
                 type="submit"
                 disabled={isSubmitting}

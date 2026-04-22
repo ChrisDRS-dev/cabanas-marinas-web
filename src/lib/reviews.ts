@@ -1,3 +1,10 @@
+export type ApprovedReviewPhoto = {
+  id: string;
+  public_url: string;
+  sort_order: number;
+  created_at: string;
+};
+
 export type ApprovedReview = {
   id: string;
   rating: number;
@@ -7,6 +14,11 @@ export type ApprovedReview = {
   display_name: string | null;
   guest_name: string | null;
   created_at: string;
+  photos: ApprovedReviewPhoto[];
+};
+
+type ApprovedReviewRow = Omit<ApprovedReview, "photos"> & {
+  review_photos?: ApprovedReviewPhoto[] | null;
 };
 
 export const demoApprovedReviews: ApprovedReview[] = [
@@ -20,6 +32,7 @@ export const demoApprovedReviews: ApprovedReview[] = [
     display_name: "María González",
     guest_name: "María González",
     created_at: "2026-03-18T10:00:00.000Z",
+    photos: [],
   },
   {
     id: "demo-review-2",
@@ -31,6 +44,7 @@ export const demoApprovedReviews: ApprovedReview[] = [
     display_name: "Carlos y Elena",
     guest_name: "Carlos y Elena",
     created_at: "2026-02-22T09:15:00.000Z",
+    photos: [],
   },
   {
     id: "demo-review-3",
@@ -42,6 +56,7 @@ export const demoApprovedReviews: ApprovedReview[] = [
     display_name: null,
     guest_name: "Invitado",
     created_at: "2026-01-10T17:45:00.000Z",
+    photos: [],
   },
   {
     id: "demo-review-4",
@@ -53,6 +68,7 @@ export const demoApprovedReviews: ApprovedReview[] = [
     display_name: "Ana Rodríguez",
     guest_name: "Ana Rodríguez",
     created_at: "2025-12-14T14:20:00.000Z",
+    photos: [],
   },
   {
     id: "demo-review-5",
@@ -64,8 +80,25 @@ export const demoApprovedReviews: ApprovedReview[] = [
     display_name: "Luis Herrera",
     guest_name: "Luis Herrera",
     created_at: "2025-11-05T12:30:00.000Z",
+    photos: [],
   },
 ];
+
+export function mapApprovedReviews(rows: ApprovedReviewRow[]) {
+  return rows.map((row) => ({
+    id: row.id,
+    rating: row.rating,
+    comment: row.comment,
+    stay_label: row.stay_label,
+    is_anonymous: row.is_anonymous,
+    display_name: row.display_name,
+    guest_name: row.guest_name,
+    created_at: row.created_at,
+    photos: [...(row.review_photos ?? [])].sort(
+      (a, b) => a.sort_order - b.sort_order,
+    ),
+  }));
+}
 
 export function getReviewDisplayName(review: {
   is_anonymous: boolean;

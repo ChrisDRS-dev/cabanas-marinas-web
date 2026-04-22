@@ -14,7 +14,7 @@ import ReserveButton from "@/components/ReserveButton";
 import ReviewsSection from "@/components/ReviewsSection";
 import { type AppLocale, localizeHref } from "@/i18n/routing";
 import { instagramEmbedPosts, INSTAGRAM_PROFILE_URL } from "@/lib/instagram-embeds";
-import { type ApprovedReview } from "@/lib/reviews";
+import { mapApprovedReviews } from "@/lib/reviews";
 import { siteData } from "@/lib/siteData";
 import { supabasePublic } from "@/lib/supabase/public";
 
@@ -79,7 +79,7 @@ async function loadHomeContent(locale: AppLocale) {
   const reviewsResult = await supabase
     .from("reviews")
     .select(
-      "id, rating, comment, stay_label, is_anonymous, display_name, guest_name, created_at",
+      "id, rating, comment, stay_label, is_anonymous, display_name, guest_name, created_at, review_photos(id, public_url, sort_order, created_at)",
     )
     .eq("status", "approved")
     .order("created_at", { ascending: false })
@@ -104,7 +104,7 @@ async function loadHomeContent(locale: AppLocale) {
     faq: home.faq,
     reviews: home.reviews,
     finalCta: home.finalCta,
-    approvedReviews: (reviewsResult.data ?? []) as ApprovedReview[],
+    approvedReviews: mapApprovedReviews(reviewsResult.data ?? []),
   };
 }
 

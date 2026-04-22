@@ -56,6 +56,7 @@ function ReviewCard({ review }: ReviewCardProps) {
   const meta = review.stay_label
     ? t("visitedOn", { label: review.stay_label })
     : t("visitedBrand");
+  const photos = review.photos ?? [];
 
   return (
     <article className="flex h-full flex-col justify-between rounded-[1.75rem] border border-white/6 bg-[#10171c]/95 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
@@ -64,6 +65,19 @@ function ReviewCard({ review }: ReviewCardProps) {
         <blockquote className="mt-4 font-display text-[1.35rem] italic leading-[1.5] tracking-[-0.02em] text-white/74 sm:text-[1.55rem]">
           “{review.comment}”
         </blockquote>
+        {photos.length ? (
+          <div className="mt-5 flex flex-wrap gap-3">
+            {photos.map((photo, index) => (
+              <img
+                key={photo.id}
+                src={photo.public_url}
+                alt={t("photoAlt", { index: index + 1, name })}
+                className="h-20 w-20 rounded-2xl border border-white/10 object-cover shadow-[0_16px_30px_rgba(0,0,0,0.18)]"
+                loading="lazy"
+              />
+            ))}
+          </div>
+        ) : null}
       </div>
 
       <div className="mt-6">

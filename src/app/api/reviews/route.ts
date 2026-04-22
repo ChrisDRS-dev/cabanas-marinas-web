@@ -8,6 +8,7 @@ type CreateReviewPayload = {
   displayName?: string;
   stayLabel?: string;
   consentToPublish?: boolean;
+  bookingId?: string | null;
 };
 
 function sanitizeText(value: unknown) {
@@ -100,19 +101,29 @@ export async function POST(request: Request) {
     email: user.email ?? null,
   });
 
-  const { error } = await supabase.from("reviews").insert({
-    customer_id: user.id,
-    guest_name: guestName,
-    display_name: isAnonymous ? null : displayName,
-    is_anonymous: isAnonymous,
-    rating,
-    comment,
-    stay_label: stayLabel,
-    status: "pending",
-    consent_to_publish: true,
-  });
+  const bookingId =
+    typeof payload?.bookingId === "string" && payload.bookingId.trim()
+      ? payload.bookingId.trim()
+      : null;
 
-  if (error) {
+  const { data: createdReview, error } = await supabase
+    .from("reviews")
+    .insert({
+      customer_id: user.id,
+      booking_id: bookingId,
+      guest_name: guestName,
+      display_name: isAnonymous ? null : displayName,
+      is_anonymous: isAnonymous,
+      rating,
+      comment,
+      stay_label: stayLabel,
+      status: "pending",
+      consent_to_publish: true,
+    })
+    .select("id")
+    .single();
+
+  if (error || !createdReview) {
     return NextResponse.json(
       { error: "No pudimos guardar tu reseña. Inténtalo de nuevo." },
       { status: 500 },
@@ -121,6 +132,8 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     ok: true,
+    reviewId: createdReview.id,
+    uploadedPhotos: 0,
     message:
       "Gracias. Tu reseña quedó enviada y pasará por revisión antes de publicarse.",
   });
