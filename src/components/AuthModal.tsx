@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/lib/supabase/client";
 
@@ -12,7 +12,6 @@ type AuthModalProps = {
 
 export default function AuthModal({ open, onClose }: AuthModalProps) {
   const { session } = useAuth();
-  const locale = useLocale();
   const t = useTranslations("auth");
   const [loading, setLoading] = useState(false);
 
@@ -32,7 +31,7 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
         options: {
           redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(
             window.location.pathname + window.location.search,
-          )}&locale=${locale}`,
+          )}`,
         },
       });
     } finally {

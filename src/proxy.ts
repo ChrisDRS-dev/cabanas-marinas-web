@@ -53,5 +53,5 @@ export default async function proxy(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api|_next|.*\\..*).*)"],
+  matcher: ["/((?!api|auth/callback|_next|.*\\..*).*)"],
 };
