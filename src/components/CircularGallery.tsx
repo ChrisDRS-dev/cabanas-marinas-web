@@ -1,5 +1,8 @@
 "use client";
 
+import Image from "next/image";
+import Link from "next/link";
+import { Instagram } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
@@ -7,21 +10,12 @@ export type CircularGalleryItem = {
   id: string;
   permalink: string;
   title: string;
+  coverImage: string;
 };
 
 type CircularGalleryProps = {
   items: CircularGalleryItem[];
 };
-
-declare global {
-  interface Window {
-    instgrm?: {
-      Embeds?: {
-        process: () => void;
-      };
-    };
-  }
-}
 
 const PRELOAD_OFFSETS = [-2, -1, 0, 1, 2] as const;
 const VISIBLE_OFFSETS = new Set([-1, 0, 1]);
@@ -45,7 +39,7 @@ function shortestOffset(from: number, to: number, length: number) {
 
 /**
  * Returns the CSS transform string for a card at the given offset.
- * Scale is applied here — NOT inside InstagramEmbedCard — to avoid
+ * Scale is applied here, not inside the post card, to avoid
  * the double-scaling bug that made cards appear tiny.
  */
 function getOffsetTransform(offset: number, scale: number) {
@@ -65,59 +59,19 @@ function getOffsetTransform(offset: number, scale: number) {
   return `translate3d(${horizontal}, ${vertical}, 0) rotate(${rotation}) scale(${scale})`;
 }
 
-function ensureInstagramScript() {
-  const existing = document.querySelector<HTMLScriptElement>(
-    'script[data-instagram-embed="true"]'
-  );
-  if (existing) return existing;
-
-  const script = document.createElement("script");
-  script.async = true;
-  script.src = "https://www.instagram.com/embed.js";
-  script.setAttribute("data-instagram-embed", "true");
-  document.body.appendChild(script);
-  return script;
-}
-
-/**
- * Renders a single Instagram embed at its natural 326 × 560 px size.
- * Scaling is handled by the parent button's CSS transform.
- */
-function InstagramEmbedCard({
-  permalink,
+function InstagramPostCard({
+  item,
   isActive,
 }: {
-  permalink: string;
+  item: CircularGalleryItem;
   isActive: boolean;
 }) {
-  const embedRef = useRef<HTMLDivElement | null>(null);
-  const initializedRef = useRef(false);
-
-  useEffect(() => {
-    if (!embedRef.current) return;
-    if (initializedRef.current) return;
-    initializedRef.current = true;
-
-    const script = ensureInstagramScript();
-    const processEmbeds = () => {
-      window.instgrm?.Embeds?.process();
-    };
-
-    if (window.instgrm?.Embeds) {
-      processEmbeds();
-      return;
-    }
-
-    script.addEventListener("load", processEmbeds);
-    return () => {
-      script.removeEventListener("load", processEmbeds);
-    };
-  }, [permalink]);
-
   return (
-    <div
-      ref={embedRef}
-      className="overflow-hidden rounded-[1.45rem] border border-black/6 bg-white p-2 shadow-[0_18px_54px_rgba(10,12,18,0.14)] transition-[box-shadow] duration-700 ease-out"
+    <Link
+      href={item.permalink}
+      target="_blank"
+      rel="noreferrer"
+      className="block overflow-hidden rounded-[1.45rem] border border-black/6 bg-white shadow-[0_18px_54px_rgba(10,12,18,0.14)] transition-[box-shadow] duration-700 ease-out"
       style={{
         height: "560px",
         width: "326px",
@@ -126,24 +80,46 @@ function InstagramEmbedCard({
           : "0 14px 40px rgba(10,12,18,0.1)",
       }}
     >
-      <blockquote
-        className="instagram-media"
-        data-instgrm-captioned
-        data-instgrm-permalink={permalink}
-        data-instgrm-version="14"
-        style={{
-          background: "#ffffff",
-          border: "0",
-          borderRadius: "18px",
-          boxShadow: "none",
-          margin: "0 auto",
-          maxWidth: "540px",
-          minWidth: "326px",
-          padding: "0",
-          width: "100%",
-        }}
-      />
-    </div>
+      <div className="flex h-full flex-col bg-white">
+        <div className="flex items-center gap-3 border-b border-black/8 px-4 py-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[linear-gradient(135deg,#feda75,#fa7e1e,#d62976,#962fbf,#4f5bd5)] text-white">
+            <Instagram className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-[#111820]">
+              cabanasmarinas507
+            </p>
+            <p className="text-[11px] text-[#53606c]">Instagram</p>
+          </div>
+        </div>
+
+        <div className="relative h-[326px] overflow-hidden bg-[#e9eef0]">
+          <Image
+            src={item.coverImage}
+            alt={item.title}
+            fill
+            sizes="326px"
+            className="object-cover"
+          />
+        </div>
+
+        <div className="flex flex-1 flex-col justify-between px-4 py-4">
+          <div>
+            <div className="flex items-center gap-2 text-[#111820]">
+              <span className="h-2.5 w-2.5 rounded-full bg-[#d62976]" />
+              <span className="h-2.5 w-2.5 rounded-full bg-[#fa7e1e]" />
+              <span className="h-2.5 w-2.5 rounded-full bg-[#4f5bd5]" />
+            </div>
+            <p className="mt-4 line-clamp-3 text-sm leading-6 text-[#26323d]">
+              {item.title}
+            </p>
+          </div>
+          <span className="mt-5 inline-flex w-fit rounded-full bg-[#111820] px-4 py-2 text-xs font-semibold text-white">
+            Ver post en Instagram
+          </span>
+        </div>
+      </div>
+    </Link>
   );
 }
 
@@ -230,10 +206,19 @@ export default function CircularGallery({ items }: CircularGalleryProps) {
             const opacity = isActive ? 1 : distance === 1 ? 0.6 : 0;
 
             return (
-              <button
+              <div
                 key={item.id}
-                type="button"
+                role="button"
+                tabIndex={isVisible ? 0 : -1}
                 onClick={() => {
+                  if (isActive) return;
+                  setActiveIndex(itemIndex);
+                  setIsPaused(true);
+                }}
+                onKeyDown={(event) => {
+                  if (!isVisible || isActive) return;
+                  if (event.key !== "Enter" && event.key !== " ") return;
+                  event.preventDefault();
                   setActiveIndex(itemIndex);
                   setIsPaused(true);
                 }}
@@ -262,12 +247,9 @@ export default function CircularGallery({ items }: CircularGalleryProps) {
                     isActive ? "pointer-events-auto" : "pointer-events-none"
                   }
                 >
-                  <InstagramEmbedCard
-                    permalink={item.permalink}
-                    isActive={isActive}
-                  />
+                  <InstagramPostCard item={item} isActive={isActive} />
                 </div>
-              </button>
+              </div>
             );
           })}
         </div>
