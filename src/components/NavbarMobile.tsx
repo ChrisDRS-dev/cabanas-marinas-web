@@ -1,12 +1,14 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import LanguageSelector from "@/components/LanguageSelector";
 import PhoneDialog from "@/components/PhoneDialog";
 import ThemeToggle from "@/components/ThemeToggle";
 import { useAuth } from "@/components/AuthProvider";
+import { localizeHref, type AppLocale } from "@/i18n/routing";
 import { supabase } from "@/lib/supabase/client";
 
 type NavbarMobileProps = {
@@ -16,6 +18,7 @@ type NavbarMobileProps = {
 export default function NavbarMobile({ brand }: NavbarMobileProps) {
   const t = useTranslations("navbar");
   const common = useTranslations("common");
+  const locale = useLocale() as AppLocale;
   const { session, openAuth } = useAuth();
   const [userOpen, setUserOpen] = useState(false);
   const [phoneDialogOpen, setPhoneDialogOpen] = useState(false);
@@ -66,7 +69,7 @@ export default function NavbarMobile({ brand }: NavbarMobileProps) {
     <>
       <header className="sticky top-0 z-40 border-b border-border/60 bg-background/90 backdrop-blur">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-3">
+          <Link href={localizeHref(locale, "/")} className="flex items-center gap-3">
             <div className="flex h-10 w-10 min-h-10 min-w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white shadow-sm">
               <Image
                 src="/logo/navbar-logo.png"
@@ -79,7 +82,7 @@ export default function NavbarMobile({ brand }: NavbarMobileProps) {
             <div>
               <p className="font-display text-lg font-semibold">{brand}</p>
             </div>
-          </div>
+          </Link>
           <div className="flex items-center gap-3">
             <LanguageSelector />
             <ThemeToggle />

@@ -5,7 +5,7 @@ import { ArrowLeft, ArrowRight, Star } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import type { ApprovedReview } from "@/lib/reviews";
-import { getReviewDisplayName } from "@/lib/reviews";
+import { getReviewDisplayName, getReviewInstagramHandle } from "@/lib/reviews";
 import { cn } from "@/lib/utils";
 import { type AppLocale, localizeHref } from "@/i18n/routing";
 
@@ -28,6 +28,17 @@ type ReviewsSectionProps = {
 type ReviewCardProps = {
   review: ApprovedReview;
 };
+
+function formatReviewDate(value: string, locale: AppLocale) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  return new Intl.DateTimeFormat(locale === "es" ? "es-PA" : "en-US", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(date);
+}
 
 function ReviewStars({ rating }: { rating: number }) {
   return (
@@ -52,10 +63,13 @@ function ReviewStars({ rating }: { rating: number }) {
 
 function ReviewCard({ review }: ReviewCardProps) {
   const t = useTranslations("reviews");
+  const locale = useLocale() as AppLocale;
   const name = getReviewDisplayName(review);
-  const meta = review.stay_label
-    ? t("visitedOn", { label: review.stay_label })
-    : t("visitedBrand");
+  const instagramHandle = getReviewInstagramHandle(review);
+  const reviewDate = formatReviewDate(review.created_at, locale);
+  const meta = reviewDate
+    ? t("commentedOn", { date: reviewDate })
+    : t("commentedRecently");
   const photos = review.photos ?? [];
 
   return (
@@ -81,8 +95,16 @@ function ReviewCard({ review }: ReviewCardProps) {
       </div>
 
       <div className="mt-6">
-        <p className="text-[13px] font-semibold uppercase tracking-[0.16em] text-white/92">
-          {name}
+        <p className="flex flex-wrap items-center gap-2 text-[13px] font-semibold uppercase tracking-[0.16em] text-white/92">
+          <span>{name}</span>
+          {instagramHandle ? (
+            <>
+              <span className="text-white/28">|</span>
+              <span className="bg-[linear-gradient(90deg,#feda75_0%,#fa7e1e_24%,#d62976_52%,#962fbf_76%,#4f5bd5_100%)] bg-clip-text text-transparent">
+                {instagramHandle}
+              </span>
+            </>
+          ) : null}
         </p>
         <p className="mt-1 text-[11px] uppercase tracking-[0.14em] text-white/45">
           {meta}

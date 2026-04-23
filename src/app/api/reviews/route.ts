@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { normalizeInstagramHandle } from "@/lib/instagram-handle";
 import { supabaseServer } from "@/lib/supabase/server";
 
 type CreateReviewPayload = {
@@ -6,7 +7,7 @@ type CreateReviewPayload = {
   comment?: string;
   isAnonymous?: boolean;
   displayName?: string;
-  stayLabel?: string;
+  instagramHandle?: string;
   consentToPublish?: boolean;
   bookingId?: string | null;
 };
@@ -54,8 +55,9 @@ export async function POST(request: Request) {
   const rating = Number(payload?.rating ?? 0);
   const comment = sanitizeText(payload?.comment);
   const isAnonymous = Boolean(payload?.isAnonymous);
-  const displayName = sanitizeText(payload?.displayName);
-  const stayLabel = sanitizeText(payload?.stayLabel) || null;
+  const instagramHandle = normalizeInstagramHandle(
+    payload?.instagramHandle ?? payload?.displayName,
+  );
   const consentToPublish = payload?.consentToPublish === true;
 
   if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
@@ -72,9 +74,9 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!isAnonymous && !displayName) {
+  if (!isAnonymous && !instagramHandle) {
     return NextResponse.json(
-      { error: "Indica el nombre que quieres mostrar públicamente." },
+      { error: "Indica un usuario de Instagram válido." },
       { status: 400 },
     );
   }
@@ -112,11 +114,11 @@ export async function POST(request: Request) {
       customer_id: user.id,
       booking_id: bookingId,
       guest_name: guestName,
-      display_name: isAnonymous ? null : displayName,
+      display_name: isAnonymous ? null : instagramHandle,
       is_anonymous: isAnonymous,
       rating,
       comment,
-      stay_label: stayLabel,
+      stay_label: null,
       status: "pending",
       consent_to_publish: true,
     })

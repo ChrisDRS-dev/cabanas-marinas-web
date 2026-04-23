@@ -1,3 +1,5 @@
+import { normalizeInstagramHandle } from "@/lib/instagram-handle";
+
 export type ApprovedReviewPhoto = {
   id: string;
   public_url: string;
@@ -9,7 +11,6 @@ export type ApprovedReview = {
   id: string;
   rating: number;
   comment: string;
-  stay_label: string | null;
   is_anonymous: boolean;
   display_name: string | null;
   guest_name: string | null;
@@ -27,9 +28,8 @@ export const demoApprovedReviews: ApprovedReview[] = [
     rating: 5,
     comment:
       "Pasamos una tarde tranquila frente al mar. El lugar se sintió privado, limpio y con una vista que de verdad invita a bajar el ritmo.",
-    stay_label: "Marzo 2026",
     is_anonymous: false,
-    display_name: "María González",
+    display_name: "@maria.playa",
     guest_name: "María González",
     created_at: "2026-03-18T10:00:00.000Z",
     photos: [],
@@ -39,9 +39,8 @@ export const demoApprovedReviews: ApprovedReview[] = [
     rating: 5,
     comment:
       "La experiencia del amanecer fue bellísima. Nos gustó mucho que todo se sintiera relajado y bien organizado desde que llegamos.",
-    stay_label: "Febrero 2026",
     is_anonymous: false,
-    display_name: "Carlos y Elena",
+    display_name: "@carlos.elena",
     guest_name: "Carlos y Elena",
     created_at: "2026-02-22T09:15:00.000Z",
     photos: [],
@@ -51,7 +50,6 @@ export const demoApprovedReviews: ApprovedReview[] = [
     rating: 4,
     comment:
       "Ideal para compartir con amigos y desconectarse unas horas. El entorno natural y la brisa hacen que uno quiera quedarse más tiempo.",
-    stay_label: "Enero 2026",
     is_anonymous: true,
     display_name: null,
     guest_name: "Invitado",
@@ -63,9 +61,8 @@ export const demoApprovedReviews: ApprovedReview[] = [
     rating: 5,
     comment:
       "Nos encantó la vista, el acceso al mar y la sensación de privacidad. El espacio se presta muchísimo para un plan familiar con calma.",
-    stay_label: "Diciembre 2025",
     is_anonymous: false,
-    display_name: "Ana Rodríguez",
+    display_name: "@ana.rodriguez",
     guest_name: "Ana Rodríguez",
     created_at: "2025-12-14T14:20:00.000Z",
     photos: [],
@@ -75,9 +72,8 @@ export const demoApprovedReviews: ApprovedReview[] = [
     rating: 4,
     comment:
       "Muy bonito para una escapada corta. El lugar transmite paz y el traslado se sintió parte de la experiencia, no solo logística.",
-    stay_label: "Noviembre 2025",
     is_anonymous: false,
-    display_name: "Luis Herrera",
+    display_name: "@luis.herrera",
     guest_name: "Luis Herrera",
     created_at: "2025-11-05T12:30:00.000Z",
     photos: [],
@@ -89,7 +85,6 @@ export function mapApprovedReviews(rows: ApprovedReviewRow[]) {
     id: row.id,
     rating: row.rating,
     comment: row.comment,
-    stay_label: row.stay_label,
     is_anonymous: row.is_anonymous,
     display_name: row.display_name,
     guest_name: row.guest_name,
@@ -106,8 +101,19 @@ export function getReviewDisplayName(review: {
   guest_name: string | null;
 }) {
   if (review.is_anonymous) return "Anónimo";
-  const preferred = review.display_name?.trim() || review.guest_name?.trim();
+  const instagramHandle = getReviewInstagramHandle(review);
+  const preferred =
+    review.guest_name?.trim() ||
+    (!instagramHandle ? review.display_name?.trim() : "");
   return preferred || "Anónimo";
+}
+
+export function getReviewInstagramHandle(review: {
+  is_anonymous: boolean;
+  display_name: string | null;
+}) {
+  if (review.is_anonymous) return "";
+  return normalizeInstagramHandle(review.display_name);
 }
 
 export function getReviewInitials(name: string) {

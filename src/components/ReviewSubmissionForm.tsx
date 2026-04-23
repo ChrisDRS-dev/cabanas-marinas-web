@@ -10,6 +10,7 @@ import {
   compressReviewImage,
   validateReviewPhotoFiles,
 } from "@/lib/review-images";
+import { normalizeInstagramHandle } from "@/lib/instagram-handle";
 import { supabase } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -117,7 +118,7 @@ export default function ReviewSubmissionForm({
   const t = useTranslations("reviews");
   const { session, openAuth } = useAuth();
   const photoPreviewUrlsRef = useRef<string[]>([]);
-  const suggestedName =
+  const accountName =
     (session?.user.user_metadata?.full_name as string | undefined) ??
     (session?.user.user_metadata?.name as string | undefined) ??
     session?.user.email?.split("@")[0] ??
@@ -125,21 +126,13 @@ export default function ReviewSubmissionForm({
 
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
-  const [isAnonymous, setIsAnonymous] = useState(false);
-  const [displayName, setDisplayName] = useState("");
-  const [stayLabel, setStayLabel] = useState("");
+  const [instagramHandle, setInstagramHandle] = useState("");
   const [consentToPublish, setConsentToPublish] = useState(false);
   const [selectedPhotos, setSelectedPhotos] = useState<ReviewPhotoSelection[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionStage, setSubmissionStage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!displayName && suggestedName) {
-      setDisplayName(suggestedName);
-    }
-  }, [displayName, suggestedName]);
 
   useEffect(() => {
     photoPreviewUrlsRef.current = selectedPhotos.map((photo) => photo.previewUrl);
@@ -204,6 +197,13 @@ export default function ReviewSubmissionForm({
     setIsSubmitting(true);
 
     try {
+      const normalizedInstagramHandle =
+        normalizeInstagramHandle(instagramHandle);
+
+      if (!normalizedInstagramHandle) {
+        throw new Error(t("instagramHandleError"));
+      }
+
       setSubmissionStage(t("submitStageReview"));
 
       const response = await fetch("/api/reviews", {
@@ -212,9 +212,8 @@ export default function ReviewSubmissionForm({
         body: JSON.stringify({
           rating,
           comment,
-          isAnonymous,
-          displayName,
-          stayLabel,
+          isAnonymous: false,
+          instagramHandle: normalizedInstagramHandle,
           consentToPublish,
         }),
       });
@@ -301,9 +300,7 @@ export default function ReviewSubmissionForm({
       );
       setRating(0);
       setComment("");
-      setIsAnonymous(false);
-      setDisplayName(suggestedName);
-      setStayLabel("");
+      setInstagramHandle("");
       setConsentToPublish(false);
       clearSelectedPhotos();
     } catch (submissionError) {
@@ -403,71 +400,25 @@ export default function ReviewSubmissionForm({
               />
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={() => setIsAnonymous(false)}
-                className={cn(
-                  "rounded-[1.4rem] border px-4 py-3 text-left transition",
-                  !isAnonymous
-                    ? "border-[#59f0e8]/45 bg-[#59f0e8]/10 text-white"
-                    : "border-white/10 bg-white/[0.03] text-white/68 hover:bg-white/[0.06]",
-                )}
-              >
-                <p className="text-sm font-semibold">{t("showMyName")}</p>
-                <p className="mt-1 text-xs text-white/48">
-                  {t("showMyNameDescription")}
-                </p>
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsAnonymous(true)}
-                className={cn(
-                  "rounded-[1.4rem] border px-4 py-3 text-left transition",
-                  isAnonymous
-                    ? "border-[#59f0e8]/45 bg-[#59f0e8]/10 text-white"
-                    : "border-white/10 bg-white/[0.03] text-white/68 hover:bg-white/[0.06]",
-                )}
-              >
-                <p className="text-sm font-semibold">{t("anonymous")}</p>
-                <p className="mt-1 text-xs text-white/48">
-                  {t("anonymousDescription")}
-                </p>
-              </button>
-            </div>
-
-            {!isAnonymous ? (
-              <div className="space-y-2">
-                <label
-                  htmlFor="review-display-name-page"
-                  className="text-xs font-semibold uppercase tracking-[0.22em] text-white/56"
-                >
-                  {t("publicName")}
-                </label>
-                <input
-                  id="review-display-name-page"
-                  value={displayName}
-                  onChange={(event) => setDisplayName(event.target.value)}
-                  placeholder={t("publicNamePlaceholder")}
-                  className="w-full rounded-[1.4rem] border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/26 focus:border-[#59f0e8]/45"
-                />
-              </div>
-            ) : null}
-
             <div className="space-y-2">
               <label
-                htmlFor="review-stay-label-page"
+                htmlFor="review-instagram-handle-page"
                 className="text-xs font-semibold uppercase tracking-[0.22em] text-white/56"
               >
-                {t("stayReference")}
+                {t("instagramHandle")}
               </label>
               <input
-                id="review-stay-label-page"
-                value={stayLabel}
-                onChange={(event) => setStayLabel(event.target.value)}
-                placeholder={t("stayReferencePlaceholder")}
+                id="review-instagram-handle-page"
+                value={instagramHandle}
+                onChange={(event) => setInstagramHandle(event.target.value)}
+                placeholder={t("instagramHandlePlaceholder")}
                 className="w-full rounded-[1.4rem] border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/26 focus:border-[#59f0e8]/45"
               />
+              <p className="text-xs leading-5 text-white/45">
+                {t("instagramHandleHelp", {
+                  name: accountName || t("accountNameFallback"),
+                })}
+              </p>
             </div>
 
             <div className="space-y-3 rounded-[1.3rem] border border-white/8 bg-white/[0.03] px-4 py-4">
