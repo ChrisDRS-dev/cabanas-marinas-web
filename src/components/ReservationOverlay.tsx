@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
+import { useLocale } from "next-intl";
 import { useAuth } from "@/components/AuthProvider";
+import { localizeHref, stripLocaleFromPathname, type AppLocale } from "@/i18n/routing";
 
 const ReservationWizard = dynamic(
   () => import("@/components/reservar/ReservationWizard"),
@@ -104,6 +106,7 @@ export default function ReservationOverlay() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
+  const locale = useLocale() as AppLocale;
   const { session, openAuth } = useAuth();
   const [loadingReservation, setLoadingReservation] = useState(false);
   const [activeReservations, setActiveReservations] = useState<ReservationItem[]>([]);
@@ -134,8 +137,9 @@ export default function ReservationOverlay() {
     };
   }, [firstActive, forceWizard]);
 
+  const normalizedPathname = stripLocaleFromPathname(pathname ?? "/");
   const show =
-    pathname === "/" &&
+    normalizedPathname === "/" &&
     (searchParams.get("reservar") === "1" ||
       searchParams.get("reservar") === "true");
 
@@ -156,7 +160,7 @@ export default function ReservationOverlay() {
       params.delete("reservar");
       params.delete("package");
       const query = params.toString();
-      router.replace(query ? `/?${query}` : "/");
+      router.replace(query ? `${pathname}?${query}` : pathname);
       return;
     }
     const original = document.body.style.overflow;
@@ -164,7 +168,7 @@ export default function ReservationOverlay() {
     return () => {
       document.body.style.overflow = original;
     };
-  }, [show, session, openAuth, router, searchParams]);
+  }, [show, session, openAuth, pathname, router, searchParams]);
 
   useEffect(() => {
     if (!show || !session) return;
@@ -212,7 +216,7 @@ export default function ReservationOverlay() {
     params.delete("package");
     params.delete("step");
     const query = params.toString();
-    router.replace(query ? `/?${query}` : "/");
+    router.replace(query ? `${pathname}?${query}` : pathname);
   };
 
   if (!show || !session) return null;
@@ -534,7 +538,10 @@ export default function ReservationOverlay() {
               </div>
               {selectedReservation.status === "PENDING_PAYMENT" && (
                 <a
-                  href={`/reservar/pago?method=${selectedReservation.payment_method ?? "YAPPY"}&rid=${selectedReservation.id}`}
+                  href={localizeHref(
+                    locale,
+                    `/reservar/pago?method=${selectedReservation.payment_method ?? "YAPPY"}&rid=${selectedReservation.id}`,
+                  )}
                   className="w-full rounded-full bg-primary px-4 py-2.5 text-center text-sm font-semibold text-primary-foreground"
                 >
                   Realizar pago

@@ -2,7 +2,6 @@ import { Suspense } from "react";
 import { getMessages, getTranslations, setRequestLocale } from "next-intl/server";
 import FAQAccordionWrapper from "@/components/FAQAccordionWrapper";
 import FadeIn from "@/components/FadeIn";
-import HomeReservationNotice from "@/components/HomeReservationNotice";
 import HomeAboutSection from "@/components/home/HomeAboutSection";
 import HomeActivitiesSection from "@/components/home/HomeActivitiesSection";
 import HomePlansSection from "@/components/home/HomePlansSection";
@@ -148,7 +147,6 @@ export default async function HomePage({
     <div className="bg-background text-foreground">
       <NavbarMobile brand={common("brand")} />
       <main className="pb-28">
-        <HomeReservationNotice />
         <HomePlansSection
           title={home.sections.plansTitle}
           subtitle={home.sections.plansSubtitle}

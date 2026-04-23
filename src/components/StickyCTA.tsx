@@ -42,7 +42,7 @@ export default function StickyCTA({
           href={localizeHref(locale, primaryHref)}
           className="flex-1 rounded-full bg-primary px-6 py-3 text-center text-sm font-semibold uppercase tracking-wide text-primary-foreground shadow-lg shadow-primary/20 transition hover:brightness-110"
         >
-          {t("reserve")}
+          {t("myReservations")}
         </Link>
         <a
           href={secondaryHref}
