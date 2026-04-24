@@ -684,7 +684,15 @@ export default function ReservationWizard({
   const primaryLabel =
     state.step === totalSteps ? t("requestReservation") : t("continue");
 
-  const submitReservation = async () => {
+  const submitReservation = async (phoneOverride?: string | null) => {
+    const currentPhone = phoneOverride ?? profilePhone;
+    if (!currentPhone) {
+      setSubmitError(null);
+      setSubmitSuccess(null);
+      setShowPhonePrompt(true);
+      return;
+    }
+
     setIsSubmitting(true);
     setSubmitError(null);
     setSubmitSuccess(null);
@@ -713,6 +721,8 @@ export default function ReservationWizard({
           const message =
             code === "not_authenticated" || code === "CM_NOT_AUTHENTICATED"
             ? t("errors.notAuthenticated")
+            : code === "missing_phone"
+            ? t("errors.missingPhone")
             : code === "missing_fields"
             ? t("errors.missingFields")
             : code === "CM_INVALID_TIME_RANGE"
@@ -825,16 +835,12 @@ export default function ReservationWizard({
       const whatsappLink = `${whatsappBase}?text=${encodeURIComponent(message)}`;
       setWhatsAppLink(whatsappLink);
       const rid = result?.id ?? null;
-      if (!profilePhone) {
-        setShowPhonePrompt(true);
-      } else {
-        router.push(
-          localizeHref(
-            locale,
-            `/reservar/pago?method=${state.paymentMethod ?? "YAPPY"}&rid=${rid ?? ""}`,
-          ),
-        );
-      }
+      router.push(
+        localizeHref(
+          locale,
+          `/reservar/pago?method=${state.paymentMethod ?? "YAPPY"}&rid=${rid ?? ""}`,
+        ),
+      );
     } catch (error) {
       setSubmitError(
         error instanceof Error ? error.message : t("errors.generic")
@@ -1146,12 +1152,16 @@ export default function ReservationWizard({
         submitLabel={t("confirmation.payHere")}
         onSaved={(phone) => {
           setProfilePhone(phone);
-          router.push(
-            localizeHref(
-              locale,
-              `/reservar/pago?method=${state.paymentMethod ?? "YAPPY"}&rid=${confirmationId ?? ""}`,
-            ),
-          );
+          if (confirmationId) {
+            router.push(
+              localizeHref(
+                locale,
+                `/reservar/pago?method=${state.paymentMethod ?? "YAPPY"}&rid=${confirmationId}`,
+              ),
+            );
+            return;
+          }
+          void submitReservation(phone);
         }}
       />
 

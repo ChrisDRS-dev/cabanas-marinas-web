@@ -78,7 +78,7 @@ async function loadHomeContent(locale: AppLocale) {
   const reviewsResult = await supabase
     .from("reviews")
     .select(
-      "id, rating, comment, is_anonymous, display_name, guest_name, created_at, review_photos(id, public_url, sort_order, created_at)",
+      "id, rating, comment, is_anonymous, display_name, instagram_handle, guest_name, created_at, review_photos(id, public_url, sort_order, created_at)",
     )
     .eq("status", "approved")
     .order("created_at", { ascending: false })

@@ -36,24 +36,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "invalid_phone" }, { status: 400 });
   }
 
-  const { error } = await supabase
-    .from("profiles")
-    .upsert({ user_id: user.id, phone }, { onConflict: "user_id" });
+  const { data: savedPhone, error } = await supabase.rpc("update_profile_phone", {
+    p_phone: phone,
+  });
 
   if (error) {
-    const { error: authError } = await supabase.auth.updateUser({
-      data: { phone },
-    });
-
-    if (!authError) {
-      return NextResponse.json({
-        ok: true,
-        phone,
-        fallback: "auth_metadata",
-        warning: "profiles_upsert_failed",
-      });
-    }
-
     return NextResponse.json(
       {
         error: "update_failed",
@@ -62,12 +49,20 @@ export async function POST(req: Request) {
             ? undefined
             : {
                 profiles: String(error.message ?? "unknown_profiles_error"),
-                auth: String(authError.message ?? "unknown_auth_error"),
               },
       },
       { status: 400 }
     );
   }
 
-  return NextResponse.json({ ok: true, phone });
+  const normalizedPhone = typeof savedPhone === "string" ? savedPhone : phone;
+  const { error: authError } = await supabase.auth.updateUser({
+    data: { phone: normalizedPhone },
+  });
+
+  return NextResponse.json({
+    ok: true,
+    phone: normalizedPhone,
+    warning: authError ? "auth_metadata_update_failed" : undefined,
+  });
 }

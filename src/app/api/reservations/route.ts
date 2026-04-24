@@ -51,6 +51,10 @@ function roundCurrency(value: number) {
   return Math.round(value * 100) / 100;
 }
 
+function getMetadataPhone(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
 async function syncReservationPaymentState(args: {
   supabase: Awaited<ReturnType<typeof supabaseServer>>;
   reservationId: string;
@@ -159,6 +163,25 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "invalid_package" }, { status: 400 });
   }
 
+  const { data: initialProfile } = await supabase
+    .from("profiles")
+    .select("full_name,email,phone")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const metadataPhone = getMetadataPhone(user.user_metadata?.phone);
+  let profilePhone = initialProfile?.phone ?? null;
+  if (!profilePhone && metadataPhone) {
+    const { data: syncedPhone } = await supabase.rpc("update_profile_phone", {
+      p_phone: metadataPhone,
+    });
+    profilePhone = typeof syncedPhone === "string" ? syncedPhone : null;
+  }
+
+  if (!profilePhone) {
+    return NextResponse.json({ error: "missing_phone" }, { status: 400 });
+  }
+
   const range = parseTimeRange(timeSlot);
   const startTime = range.start;
   if (!startTime) {
@@ -246,9 +269,9 @@ export async function POST(req: Request) {
     await supabase
       .from("reservations")
       .update({
-        customer_name: profile?.full_name ?? null,
-        customer_phone: profile?.phone ?? null,
-        customer_email: profile?.email ?? user.email ?? null,
+        customer_name: profile?.full_name ?? initialProfile?.full_name ?? null,
+        customer_phone: profile?.phone ?? profilePhone,
+        customer_email: profile?.email ?? initialProfile?.email ?? user.email ?? null,
       })
       .eq("id", reservationId);
   }

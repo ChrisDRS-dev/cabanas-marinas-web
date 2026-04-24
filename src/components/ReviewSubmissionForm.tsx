@@ -200,7 +200,7 @@ export default function ReviewSubmissionForm({
       const normalizedInstagramHandle =
         normalizeInstagramHandle(instagramHandle);
 
-      if (!normalizedInstagramHandle) {
+      if (instagramHandle.trim() && !normalizedInstagramHandle) {
         throw new Error(t("instagramHandleError"));
       }
 
@@ -213,7 +213,7 @@ export default function ReviewSubmissionForm({
           rating,
           comment,
           isAnonymous: false,
-          instagramHandle: normalizedInstagramHandle,
+          instagramHandle: normalizedInstagramHandle || null,
           consentToPublish,
         }),
       });

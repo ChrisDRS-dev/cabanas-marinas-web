@@ -55,9 +55,10 @@ export async function POST(request: Request) {
   const rating = Number(payload?.rating ?? 0);
   const comment = sanitizeText(payload?.comment);
   const isAnonymous = Boolean(payload?.isAnonymous);
-  const instagramHandle = normalizeInstagramHandle(
+  const rawInstagramHandle = sanitizeText(
     payload?.instagramHandle ?? payload?.displayName,
   );
+  const instagramHandle = normalizeInstagramHandle(rawInstagramHandle);
   const consentToPublish = payload?.consentToPublish === true;
 
   if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
@@ -74,7 +75,7 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!isAnonymous && !instagramHandle) {
+  if (rawInstagramHandle && !instagramHandle) {
     return NextResponse.json(
       { error: "Indica un usuario de Instagram válido." },
       { status: 400 },
@@ -114,7 +115,8 @@ export async function POST(request: Request) {
       customer_id: user.id,
       booking_id: bookingId,
       guest_name: guestName,
-      display_name: isAnonymous ? null : instagramHandle,
+      display_name: null,
+      instagram_handle: isAnonymous ? null : instagramHandle || null,
       is_anonymous: isAnonymous,
       rating,
       comment,

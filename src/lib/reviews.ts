@@ -13,6 +13,7 @@ export type ApprovedReview = {
   comment: string;
   is_anonymous: boolean;
   display_name: string | null;
+  instagram_handle: string | null;
   guest_name: string | null;
   created_at: string;
   photos: ApprovedReviewPhoto[];
@@ -29,7 +30,8 @@ export const demoApprovedReviews: ApprovedReview[] = [
     comment:
       "Pasamos una tarde tranquila frente al mar. El lugar se sintió privado, limpio y con una vista que de verdad invita a bajar el ritmo.",
     is_anonymous: false,
-    display_name: "@maria.playa",
+    display_name: null,
+    instagram_handle: "@maria.playa",
     guest_name: "María González",
     created_at: "2026-03-18T10:00:00.000Z",
     photos: [],
@@ -40,7 +42,8 @@ export const demoApprovedReviews: ApprovedReview[] = [
     comment:
       "La experiencia del amanecer fue bellísima. Nos gustó mucho que todo se sintiera relajado y bien organizado desde que llegamos.",
     is_anonymous: false,
-    display_name: "@carlos.elena",
+    display_name: null,
+    instagram_handle: "@carlos.elena",
     guest_name: "Carlos y Elena",
     created_at: "2026-02-22T09:15:00.000Z",
     photos: [],
@@ -52,6 +55,7 @@ export const demoApprovedReviews: ApprovedReview[] = [
       "Ideal para compartir con amigos y desconectarse unas horas. El entorno natural y la brisa hacen que uno quiera quedarse más tiempo.",
     is_anonymous: true,
     display_name: null,
+    instagram_handle: null,
     guest_name: "Invitado",
     created_at: "2026-01-10T17:45:00.000Z",
     photos: [],
@@ -62,7 +66,8 @@ export const demoApprovedReviews: ApprovedReview[] = [
     comment:
       "Nos encantó la vista, el acceso al mar y la sensación de privacidad. El espacio se presta muchísimo para un plan familiar con calma.",
     is_anonymous: false,
-    display_name: "@ana.rodriguez",
+    display_name: null,
+    instagram_handle: "@ana.rodriguez",
     guest_name: "Ana Rodríguez",
     created_at: "2025-12-14T14:20:00.000Z",
     photos: [],
@@ -73,7 +78,8 @@ export const demoApprovedReviews: ApprovedReview[] = [
     comment:
       "Muy bonito para una escapada corta. El lugar transmite paz y el traslado se sintió parte de la experiencia, no solo logística.",
     is_anonymous: false,
-    display_name: "@luis.herrera",
+    display_name: null,
+    instagram_handle: "@luis.herrera",
     guest_name: "Luis Herrera",
     created_at: "2025-11-05T12:30:00.000Z",
     photos: [],
@@ -87,6 +93,7 @@ export function mapApprovedReviews(rows: ApprovedReviewRow[]) {
     comment: row.comment,
     is_anonymous: row.is_anonymous,
     display_name: row.display_name,
+    instagram_handle: row.instagram_handle ?? null,
     guest_name: row.guest_name,
     created_at: row.created_at,
     photos: [...(row.review_photos ?? [])].sort(
@@ -98,6 +105,7 @@ export function mapApprovedReviews(rows: ApprovedReviewRow[]) {
 export function getReviewDisplayName(review: {
   is_anonymous: boolean;
   display_name: string | null;
+  instagram_handle?: string | null;
   guest_name: string | null;
 }) {
   if (review.is_anonymous) return "Anónimo";
@@ -111,9 +119,13 @@ export function getReviewDisplayName(review: {
 export function getReviewInstagramHandle(review: {
   is_anonymous: boolean;
   display_name: string | null;
+  instagram_handle?: string | null;
 }) {
   if (review.is_anonymous) return "";
-  return normalizeInstagramHandle(review.display_name);
+  return (
+    normalizeInstagramHandle(review.instagram_handle) ||
+    normalizeInstagramHandle(review.display_name)
+  );
 }
 
 export function getReviewInitials(name: string) {
