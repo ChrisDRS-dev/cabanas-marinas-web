@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Instagram } from "lucide-react";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useAuth } from "@/components/AuthProvider";
 import { localizeHref, stripLocaleFromPathname, type AppLocale } from "@/i18n/routing";
@@ -22,6 +23,47 @@ export default function StickyCTA({
   const locale = useLocale() as AppLocale;
   const t = useTranslations("stickyCta");
   const { session, dismissed } = useAuth();
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    if (!session || dismissed) {
+      return;
+    }
+
+    let ticking = false;
+
+    const updateVisibility = () => {
+      const scrollY = window.scrollY;
+      const footer = document.querySelector("footer");
+      const faq = document.getElementById("faq");
+
+      const footerTop =
+        footer?.getBoundingClientRect().top ?? Number.POSITIVE_INFINITY;
+      const faqTop =
+        faq?.getBoundingClientRect().top ?? Number.POSITIVE_INFINITY;
+      const viewportHeight = window.innerHeight;
+      const nearPageEnd =
+        footerTop < viewportHeight - 12 || faqTop < viewportHeight * 0.88;
+
+      setIsVisible(scrollY > 8 && !nearPageEnd);
+      ticking = false;
+    };
+
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      window.requestAnimationFrame(updateVisibility);
+    };
+
+    updateVisibility();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, [dismissed, session]);
 
   if (
     pathname &&
@@ -37,7 +79,14 @@ export default function StickyCTA({
 
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-4 z-50 flex justify-center px-4">
-      <div className="pointer-events-auto flex w-full max-w-lg items-center gap-3 rounded-full border border-border/60 bg-card/95 p-2 shadow-lg backdrop-blur">
+      <div
+        className={[
+          "flex w-full max-w-md items-center gap-3 rounded-full border border-border/60 bg-card/95 p-2 shadow-lg backdrop-blur transition-all duration-300 ease-out",
+          isVisible
+            ? "pointer-events-auto translate-y-0 opacity-100"
+            : "pointer-events-none translate-y-8 opacity-0",
+        ].join(" ")}
+      >
         <Link
           href={localizeHref(locale, primaryHref)}
           className="flex-1 rounded-full bg-primary px-6 py-3 text-center text-sm font-semibold uppercase tracking-wide text-primary-foreground shadow-lg shadow-primary/20 transition hover:brightness-110"
