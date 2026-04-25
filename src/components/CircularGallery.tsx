@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
 export type CircularGalleryItem = {
@@ -14,12 +14,24 @@ type CircularGalleryProps = {
   items: CircularGalleryItem[];
 };
 
-const VISIBLE_OFFSETS = [-1, 0, 1] as const;
+const PRELOAD_OFFSETS = [-2, -1, 0, 1, 2] as const;
+const VISIBLE_OFFSETS = new Set([-1, 0, 1]);
 const SCALE_ACTIVE = 0.68;
 const SCALE_SIDE = 0.46;
+const SCALE_HIDDEN = 0.34;
 
 function wrapIndex(index: number, length: number) {
   return ((index % length) + length) % length;
+}
+
+function shortestOffset(from: number, to: number, length: number) {
+  const direct = to - from;
+  const wrappedForward = direct + length;
+  const wrappedBackward = direct - length;
+
+  return [direct, wrappedForward, wrappedBackward].reduce((best, current) =>
+    Math.abs(current) < Math.abs(best) ? current : best,
+  );
 }
 
 /**
@@ -104,6 +116,19 @@ export default function CircularGallery({ items }: CircularGalleryProps) {
     };
   }, []);
 
+  const renderedItems = useMemo(
+    () =>
+      items.length === 0
+        ? []
+        : PRELOAD_OFFSETS.map((offset) =>
+            items[wrapIndex(activeIndex + offset, items.length)],
+          ).filter(
+            (item, index, array) =>
+              array.findIndex((entry) => entry.id === item.id) === index,
+          ),
+    [activeIndex, items],
+  );
+
   if (items.length === 0) return null;
 
   return (
@@ -136,32 +161,47 @@ export default function CircularGallery({ items }: CircularGalleryProps) {
         <div className="pointer-events-none absolute inset-y-0 right-0 z-40 w-14 bg-gradient-to-l from-white/70 to-transparent dark:from-card/75 sm:w-20" />
 
         <div className="relative h-full">
-          {VISIBLE_OFFSETS.map((offset) => {
-            const item = items[wrapIndex(activeIndex + offset, items.length)];
+          {renderedItems.map((item) => {
+            const itemIndex = items.findIndex((entry) => entry.id === item.id);
+            const offset = shortestOffset(activeIndex, itemIndex, items.length);
+            const isVisible = VISIBLE_OFFSETS.has(offset as -1 | 0 | 1);
             const isActive = offset === 0;
             const distance = Math.abs(offset);
             const scale = isActive
               ? SCALE_ACTIVE
-              : SCALE_SIDE;
+              : distance === 1
+                ? SCALE_SIDE
+                : SCALE_HIDDEN;
 
             return (
-              <button
-                key={`${item.id}-${offset}`}
-                type="button"
+              <div
+                key={item.id}
+                role="button"
+                tabIndex={isVisible ? 0 : -1}
                 onClick={() => {
-                  setActiveIndex(
-                    items.findIndex((entry) => entry.id === item.id),
-                  );
+                  if (isActive) return;
+                  setActiveIndex(itemIndex);
+                  setIsPaused(true);
+                }}
+                onKeyDown={(event) => {
+                  if (!isVisible || isActive) return;
+                  if (event.key !== "Enter" && event.key !== " ") return;
+                  event.preventDefault();
+                  setActiveIndex(itemIndex);
                   setIsPaused(true);
                 }}
                 className="absolute left-1/2 top-1/2 w-[326px] text-left transition-[transform,opacity,filter] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform"
                 style={{
                   transform: getOffsetTransform(offset, scale),
-                  opacity: isActive ? 1 : 0.58,
+                  opacity: isActive ? 1 : distance === 1 ? 0.6 : 0,
                   filter:
-                    isActive ? "none" : "saturate(0.94) blur(0.12px)",
+                    isActive
+                      ? "none"
+                      : distance === 1
+                        ? "saturate(0.94) blur(0.12px)"
+                        : "saturate(0.9) blur(0.3px)",
                   zIndex: isActive ? 30 : 20 - distance,
-                  pointerEvents: "auto",
+                  pointerEvents: isVisible ? "auto" : "none",
                 }}
                 aria-label={
                   isActive
@@ -179,7 +219,7 @@ export default function CircularGallery({ items }: CircularGalleryProps) {
                     isActive={isActive}
                   />
                 </div>
-              </button>
+              </div>
             );
           })}
         </div>
