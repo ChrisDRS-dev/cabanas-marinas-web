@@ -4,14 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useAuth } from "@/components/AuthProvider";
 import {
-  REVIEW_PHOTO_BUCKET,
   type ReviewPhotoSelection,
-  buildReviewPhotoPath,
   compressReviewImage,
   validateReviewPhotoFiles,
 } from "@/lib/review-images";
 import { normalizeInstagramHandle } from "@/lib/instagram-handle";
-import { supabase } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
 function ReviewStars({
@@ -239,36 +236,14 @@ export default function ReviewSubmissionForm({
             );
 
             const compressedFile = await compressReviewImage(photo.file, index);
-            const storagePath = buildReviewPhotoPath(payload.reviewId, index);
-            const bucket = supabase.storage.from(REVIEW_PHOTO_BUCKET);
+            const photoFormData = new FormData();
+            photoFormData.set("reviewId", payload.reviewId);
+            photoFormData.set("sortOrder", String(index));
+            photoFormData.set("file", compressedFile);
 
-            const { error: uploadError } = await bucket.upload(
-              storagePath,
-              compressedFile,
-              {
-                cacheControl: "3600",
-                contentType: "image/webp",
-                upsert: false,
-              },
-            );
-
-            if (uploadError) {
-              throw new Error(uploadError.message || t("imageUploadError"));
-            }
-
-            const {
-              data: { publicUrl },
-            } = bucket.getPublicUrl(storagePath);
-
-            const metadataResponse = await fetch("/api/reviews/photos", {
+            const metadataResponse = await fetch("/api/reviews/photos/upload", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                reviewId: payload.reviewId,
-                storagePath,
-                publicUrl,
-                sortOrder: index,
-              }),
+              body: photoFormData,
             });
 
             const metadataPayload =
@@ -277,7 +252,6 @@ export default function ReviewSubmissionForm({
                 | null;
 
             if (!metadataResponse.ok) {
-              await bucket.remove([storagePath]).catch(() => undefined);
               throw new Error(
                 metadataPayload?.error ?? t("imageRegisterError"),
               );
