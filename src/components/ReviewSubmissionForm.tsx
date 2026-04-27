@@ -1,13 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useAuth } from "@/components/AuthProvider";
 import {
   type ReviewPhotoSelection,
   compressReviewImage,
   validateReviewPhotoFiles,
 } from "@/lib/review-images";
+import { localizeHref, type AppLocale } from "@/i18n/routing";
 import { normalizeInstagramHandle } from "@/lib/instagram-handle";
 import { cn } from "@/lib/utils";
 
@@ -113,6 +115,8 @@ export default function ReviewSubmissionForm({
   eyebrow,
 }: ReviewSubmissionFormProps) {
   const t = useTranslations("reviews");
+  const common = useTranslations("common");
+  const locale = useLocale() as AppLocale;
   const { session, openAuth } = useAuth();
   const photoPreviewUrlsRef = useRef<string[]>([]);
   const accountName =
@@ -295,6 +299,12 @@ export default function ReviewSubmissionForm({
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(89,240,232,0.16),transparent_40%),radial-gradient(circle_at_bottom_right,rgba(255,180,120,0.08),transparent_36%)]" />
         <div className="relative px-5 py-8 sm:px-8 sm:py-10">
           <div className="space-y-3">
+            <Link
+              href={localizeHref(locale, "/")}
+              className="inline-flex rounded-full border border-white/12 bg-white/[0.04] px-4 py-2 text-sm font-semibold text-white/80 transition hover:border-[#59f0e8]/35 hover:text-[#59f0e8]"
+            >
+              {common("backToHome")}
+            </Link>
             {eyebrow ? (
               <p className="text-[11px] uppercase tracking-[0.35em] text-[#59f0e8]/80">
                 {eyebrow}
@@ -334,6 +344,12 @@ export default function ReviewSubmissionForm({
       <div className="relative flex min-h-0 flex-1 flex-col">
         <div className="border-b border-white/8 px-5 py-5 sm:px-8 sm:py-6">
           <div className="space-y-3">
+            <Link
+              href={localizeHref(locale, "/")}
+              className="inline-flex rounded-full border border-white/12 bg-white/[0.04] px-4 py-2 text-sm font-semibold text-white/80 transition hover:border-[#59f0e8]/35 hover:text-[#59f0e8]"
+            >
+              {common("backToHome")}
+            </Link>
             {eyebrow ? (
               <p className="text-[11px] uppercase tracking-[0.35em] text-[#59f0e8]/80">
                 {eyebrow}
