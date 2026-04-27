@@ -7,7 +7,6 @@ import { useLocale, useTranslations } from "next-intl";
 import type { ApprovedReview, ApprovedReviewPhoto } from "@/lib/reviews";
 import {
   getReviewDisplayName,
-  getReviewInitials,
   getReviewInstagramHandle,
 } from "@/lib/reviews";
 import { cn } from "@/lib/utils";
@@ -137,7 +136,6 @@ function ReviewCard({ review, onOpenPhoto }: ReviewCardProps) {
   const t = useTranslations("reviews");
   const locale = useLocale() as AppLocale;
   const name = getReviewDisplayName(review);
-  const initials = getReviewInitials(name);
   const instagramHandle = getReviewInstagramHandle(review);
   const reviewDate = formatReviewDate(review.created_at, locale);
   const meta = reviewDate
@@ -147,8 +145,18 @@ function ReviewCard({ review, onOpenPhoto }: ReviewCardProps) {
 
   return (
     <article className="rounded-[2rem] border border-white/8 bg-[#0d1519]/95 p-5 shadow-[0_24px_72px_rgba(0,0,0,0.22)] sm:p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <ReviewStars rating={review.rating} large />
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <p className="text-[0.98rem] font-semibold uppercase tracking-[0.12em] text-white/96 sm:text-base">
+            {name}
+          </p>
+          {instagramHandle ? (
+            <p className="mt-1 lowercase bg-[linear-gradient(90deg,#f4d34c_0%,#ff5d95_100%)] bg-clip-text text-[0.98rem] font-semibold text-transparent sm:text-[1rem]">
+              {instagramHandle}
+            </p>
+          ) : null}
+          <p className="mt-2 text-sm text-white/42 sm:text-[0.95rem]">{meta}</p>
+        </div>
         <span className="inline-flex items-center gap-2 rounded-full border border-[#59f0e8]/14 bg-[#59f0e8]/8 px-3.5 py-2 text-xs font-semibold text-[#59f0e8]">
           <Check className="h-3.5 w-3.5" />
           {t("verifiedGuest")}
@@ -157,31 +165,15 @@ function ReviewCard({ review, onOpenPhoto }: ReviewCardProps) {
 
       <div
         className={cn(
-          "mt-5 grid gap-6",
+          "mt-5 grid gap-5",
           photos.length ? "lg:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)]" : "",
         )}
       >
         <div className="space-y-6">
-          <blockquote className="font-display text-[1.05rem] italic leading-[1.8] tracking-[-0.015em] text-white/86 sm:text-[1.2rem]">
+          <ReviewStars rating={review.rating} large />
+          <blockquote className="font-display text-[1rem] italic leading-[1.72] tracking-[-0.015em] text-white/86 sm:text-[1.18rem]">
             “{review.comment}”
           </blockquote>
-
-          <div className="flex items-start gap-4">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[radial-gradient(circle_at_top,#114954_0%,#0d2830_100%)] text-[1.65rem] font-semibold text-[#59f0e8] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-              {initials}
-            </div>
-            <div className="min-w-0">
-              <p className="text-base font-semibold uppercase tracking-[0.12em] text-white/96">
-                {name}
-              </p>
-              {instagramHandle ? (
-                <p className="mt-1 lowercase bg-[linear-gradient(90deg,#f4d34c_0%,#ff5d95_100%)] bg-clip-text text-[1rem] font-semibold text-transparent">
-                  {instagramHandle}
-                </p>
-              ) : null}
-              <p className="mt-2 text-sm text-white/42">{meta}</p>
-            </div>
-          </div>
         </div>
 
         {photos.length ? (
@@ -289,31 +281,37 @@ function ReviewGallery({
 
         <div className="flex min-h-0 flex-col border-t border-white/8 bg-[#0d1519] lg:border-l lg:border-t-0">
           <div className="space-y-4 px-5 py-5 sm:px-6">
-            <div className="flex items-center justify-between gap-3">
-              <ReviewStars rating={activeItem.review.rating} />
-              <p className="text-xs uppercase tracking-[0.16em] text-white/38">
-                {t("galleryCounter", {
-                  current: activeIndex + 1,
-                  total: items.length,
-                })}
-              </p>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold uppercase tracking-[0.12em] text-white/92">
+                  {activeItem.name}
+                </p>
+                {activeItem.instagramHandle ? (
+                  <p className="mt-1 lowercase bg-[linear-gradient(90deg,#f4d34c_0%,#ff5d95_100%)] bg-clip-text text-sm font-semibold text-transparent">
+                    {activeItem.instagramHandle}
+                  </p>
+                ) : null}
+                <p className="mt-2 text-sm text-white/45">{activeItem.date}</p>
+              </div>
+              <div className="space-y-3 text-right">
+                <span className="inline-flex items-center gap-2 rounded-full border border-[#59f0e8]/14 bg-[#59f0e8]/8 px-3 py-2 text-[11px] font-semibold text-[#59f0e8]">
+                  <Check className="h-3.5 w-3.5" />
+                  {t("verifiedGuest")}
+                </span>
+                <p className="text-xs uppercase tracking-[0.16em] text-white/38">
+                  {t("galleryCounter", {
+                    current: activeIndex + 1,
+                    total: items.length,
+                  })}
+                </p>
+              </div>
             </div>
+
+            <ReviewStars rating={activeItem.review.rating} />
 
             <blockquote className="font-display text-[1.05rem] italic leading-[1.7] text-white/84">
               “{activeItem.review.comment}”
             </blockquote>
-
-            <div className="border-t border-white/8 pt-4">
-              <p className="text-sm font-semibold uppercase tracking-[0.12em] text-white/92">
-                {activeItem.name}
-              </p>
-              {activeItem.instagramHandle ? (
-                <p className="mt-1 lowercase bg-[linear-gradient(90deg,#f4d34c_0%,#ff5d95_100%)] bg-clip-text text-sm font-semibold text-transparent">
-                  {activeItem.instagramHandle}
-                </p>
-              ) : null}
-              <p className="mt-2 text-sm text-white/45">{activeItem.date}</p>
-            </div>
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto border-t border-white/8 px-4 py-4">
@@ -403,34 +401,27 @@ export default function ReviewsSection({
   }
 
   return (
-    <section id="resenas" className="mx-auto max-w-6xl px-6 py-10 sm:py-12">
-      <div className="relative overflow-hidden rounded-[2.25rem] border border-white/10 bg-[linear-gradient(180deg,rgba(13,24,28,0.98),rgba(9,16,20,0.98))] px-5 py-8 shadow-[0_24px_80px_rgba(0,0,0,0.24)] sm:px-7 sm:py-10">
+    <section id="resenas" className="mx-auto max-w-6xl px-5 py-8 sm:px-6 sm:py-10">
+      <div className="relative overflow-hidden rounded-[2.25rem] border border-white/10 bg-[linear-gradient(180deg,rgba(13,24,28,0.98),rgba(9,16,20,0.98))] px-4 py-5 shadow-[0_24px_80px_rgba(0,0,0,0.24)] sm:px-6 sm:py-6">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(52,182,200,0.1),transparent_38%),radial-gradient(circle_at_bottom_right,rgba(255,179,71,0.07),transparent_32%)]" />
-        <div className="absolute left-1/2 top-10 h-[24rem] w-[24rem] -translate-x-1/2 rounded-full border border-white/[0.03]" />
-        <div className="absolute left-1/2 top-24 h-[38rem] w-[38rem] -translate-x-1/2 rounded-full border border-white/[0.02]" />
+        <div className="absolute left-1/2 top-4 h-[16rem] w-[16rem] -translate-x-1/2 rounded-full border border-white/[0.025]" />
+        <div className="absolute left-1/2 top-10 h-[24rem] w-[24rem] -translate-x-1/2 rounded-full border border-white/[0.015]" />
 
         <div className="relative mx-auto max-w-6xl">
-          <div className="mx-auto max-w-2xl text-center">
-            <p className="text-[11px] uppercase tracking-[0.28em] text-primary/90">
+          <div className="mx-auto max-w-lg text-center">
+            <p className="text-[10px] uppercase tracking-[0.24em] text-primary/90 sm:text-[11px]">
               {content.eyebrow}
             </p>
-            <div className="mx-auto mt-4 h-px w-28 bg-white/10" />
-            <h2 className="mt-4 font-display text-[3rem] italic tracking-[-0.04em] text-white/94 sm:text-[4rem]">
+            <div className="mx-auto mt-2 h-px w-20 bg-white/10" />
+            <h2 className="mt-3 font-display text-[2.25rem] italic tracking-[-0.04em] text-white/94 sm:text-[3rem]">
               {content.title}
             </h2>
-            <div className="mx-auto mt-4 h-px w-28 bg-white/10" />
-            <p className="mx-auto mt-5 max-w-xl text-[15px] leading-8 text-white/58">
+            <p className="mx-auto mt-3 max-w-md text-[13px] leading-6 text-white/58 sm:text-[14px]">
               {content.subtitle}
             </p>
-            <Link
-              href={localizeHref(locale, "/review")}
-              className="mt-6 inline-flex rounded-full border border-primary/30 bg-primary/10 px-6 py-3 text-base font-semibold text-primary transition hover:bg-primary/15"
-            >
-              {content.ctaLabel}
-            </Link>
           </div>
 
-          <div className="mt-9 space-y-5">
+          <div className="mt-5 space-y-4">
             {sortedReviews.length ? (
               <>
                 {visibleReviews.map((review) => (
@@ -442,7 +433,7 @@ export default function ReviewsSection({
                 ))}
 
                 {sortedReviews.length > 2 ? (
-                  <div className="pt-2 text-center">
+                  <div className="pt-1 text-center">
                     <button
                       type="button"
                       onClick={() => setShowAllReviews((current) => !current)}
@@ -471,6 +462,15 @@ export default function ReviewsSection({
                 </p>
               </div>
             )}
+          </div>
+
+          <div className="pt-5 text-center">
+            <Link
+              href={localizeHref(locale, "/review")}
+              className="inline-flex rounded-full border border-primary/30 bg-primary/10 px-6 py-3 text-base font-semibold text-primary transition hover:bg-primary/15"
+            >
+              {content.ctaLabel}
+            </Link>
           </div>
         </div>
       </div>
