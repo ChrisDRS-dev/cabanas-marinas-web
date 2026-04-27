@@ -64,9 +64,7 @@ function ReviewStars({ rating, large = false }: { rating: number; large?: boolea
             key={value}
             className={cn(
               large ? "h-5 w-5" : "h-4 w-4",
-              filled
-                ? "fill-primary text-primary"
-                : "text-foreground/12 dark:text-white/14",
+              filled ? "fill-[#59f0e8] text-[#59f0e8]" : "text-white/14",
             )}
           />
         );
@@ -96,7 +94,7 @@ function ReviewPhotoMosaic({
       <button
         type="button"
         onClick={() => onOpenPhoto(primaryPhoto.id)}
-        className="group block w-full overflow-hidden rounded-[1.85rem] border border-[#ddd5c7] bg-[#f5f2ec] dark:border-white/10 dark:bg-[#0b1418]"
+        className="group block w-full overflow-hidden rounded-[1.85rem] border border-white/10 bg-[#0b1418]"
       >
         <img
           src={primaryPhoto.public_url}
@@ -118,7 +116,7 @@ function ReviewPhotoMosaic({
               key={photo.id}
               type="button"
               onClick={() => onOpenPhoto(photo.id)}
-              className="group block overflow-hidden rounded-[1.5rem] border border-[#ddd5c7] bg-[#f5f2ec] dark:border-white/10 dark:bg-[#0b1418]"
+              className="group block overflow-hidden rounded-[1.5rem] border border-white/10 bg-[#0b1418]"
             >
               <img
                 src={photo.public_url}
@@ -146,10 +144,10 @@ function ReviewCard({ review, onOpenPhoto }: ReviewCardProps) {
   const photos = review.photos ?? [];
 
   return (
-    <article className="rounded-[2rem] border border-[#ddd5c7] bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(248,245,239,0.94))] p-5 shadow-[0_18px_48px_rgba(15,31,36,0.10)] dark:border-white/8 dark:bg-[#0d1519]/95 dark:shadow-[0_24px_72px_rgba(0,0,0,0.22)] sm:p-6">
+    <article className="rounded-[2rem] border border-white/8 bg-[#0d1519]/95 p-5 shadow-[0_24px_72px_rgba(0,0,0,0.22)] sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <p className="text-[0.98rem] font-semibold uppercase tracking-[0.12em] text-foreground sm:text-base dark:text-white/96">
+          <p className="text-[0.98rem] font-semibold uppercase tracking-[0.12em] text-white/96 sm:text-base">
             {name}
           </p>
           {instagramHandle ? (
@@ -157,11 +155,11 @@ function ReviewCard({ review, onOpenPhoto }: ReviewCardProps) {
               {instagramHandle}
             </p>
           ) : null}
-          <p className="mt-2 text-sm text-muted-foreground sm:text-[0.95rem] dark:text-white/42">
+          <p className="mt-2 text-sm text-white/42 sm:text-[0.95rem]">
             {meta}
           </p>
         </div>
-        <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3.5 py-2 text-xs font-semibold text-primary dark:border-[#59f0e8]/14 dark:bg-[#59f0e8]/8 dark:text-[#59f0e8]">
+        <span className="inline-flex items-center gap-2 rounded-full border border-[#59f0e8]/14 bg-[#59f0e8]/8 px-3.5 py-2 text-xs font-semibold text-[#59f0e8]">
           <Check className="h-3.5 w-3.5" />
           {t("verifiedGuest")}
         </span>
@@ -175,7 +173,7 @@ function ReviewCard({ review, onOpenPhoto }: ReviewCardProps) {
       >
         <div className="space-y-6">
           <ReviewStars rating={review.rating} large />
-          <blockquote className="font-display text-[1rem] italic leading-[1.72] tracking-[-0.015em] text-foreground/84 dark:text-white/86 sm:text-[1.18rem]">
+          <blockquote className="font-display text-[1rem] italic leading-[1.72] tracking-[-0.015em] text-white/86 sm:text-[1.18rem]">
             “{review.comment}”
           </blockquote>
         </div>
@@ -234,19 +232,19 @@ function ReviewGallery({
 
   return (
     <div
-      className="fixed inset-0 z-[80] overflow-y-auto bg-[rgba(248,245,239,0.86)] p-4 backdrop-blur-md dark:bg-[#071015]/92 sm:p-6"
+      className="fixed inset-0 z-[80] overflow-y-auto bg-[#071015]/92 p-4 backdrop-blur-md sm:p-6"
       onClick={onClose}
     >
       <div
-        className="mx-auto my-4 flex max-w-6xl flex-col overflow-hidden rounded-[2rem] border border-[#d8cfbf] bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(245,242,236,0.96))] shadow-[0_30px_120px_rgba(15,31,36,0.18)] dark:border-white/10 dark:bg-[#0b1418]/98 dark:shadow-[0_30px_120px_rgba(0,0,0,0.45)] lg:max-h-[calc(100vh-3rem)] lg:grid lg:grid-cols-[minmax(0,1fr)_22rem]"
+        className="mx-auto my-4 flex max-w-6xl flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-[#0b1418]/98 shadow-[0_30px_120px_rgba(0,0,0,0.45)] lg:max-h-[calc(100vh-3rem)] lg:grid lg:grid-cols-[minmax(0,1fr)_22rem]"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="relative flex min-h-[44vh] shrink-0 items-center justify-center bg-[radial-gradient(circle_at_top,rgba(0,133,161,0.12),transparent_42%),linear-gradient(180deg,rgba(255,255,255,0.84),rgba(243,245,246,0.98))] px-4 py-16 dark:bg-[#050b0e] sm:px-6">
+        <div className="relative flex min-h-[44vh] shrink-0 items-center justify-center bg-[#050b0e] px-4 py-16 sm:px-6">
           <button
             type="button"
             onClick={onClose}
             aria-label={t("galleryClose")}
-            className="absolute right-4 top-4 z-10 flex h-11 w-11 items-center justify-center rounded-full border border-border/70 bg-background/85 text-foreground/72 shadow-sm transition hover:border-primary/35 hover:text-primary dark:border-white/12 dark:bg-black/30 dark:text-white/78 dark:hover:border-white/24 dark:hover:text-white"
+            className="absolute right-4 top-4 z-10 flex h-11 w-11 items-center justify-center rounded-full border border-white/12 bg-black/30 text-white/78 transition hover:border-white/24 hover:text-white"
           >
             <X className="h-5 w-5" />
           </button>
@@ -259,7 +257,7 @@ function ReviewGallery({
                   onChange(activeIndex === 0 ? items.length - 1 : activeIndex - 1)
                 }
                 aria-label={t("galleryPrev")}
-                className="absolute left-3 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-border/70 bg-background/82 text-foreground/72 shadow-sm transition hover:border-primary/35 hover:text-primary dark:border-white/12 dark:bg-black/30 dark:text-white/80 dark:hover:border-white/24 dark:hover:text-white sm:left-5"
+                className="absolute left-3 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/12 bg-black/30 text-white/80 transition hover:border-white/24 hover:text-white sm:left-5"
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
@@ -269,7 +267,7 @@ function ReviewGallery({
                   onChange(activeIndex === items.length - 1 ? 0 : activeIndex + 1)
                 }
                 aria-label={t("galleryNext")}
-                className="absolute right-3 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-border/70 bg-background/82 text-foreground/72 shadow-sm transition hover:border-primary/35 hover:text-primary dark:border-white/12 dark:bg-black/30 dark:text-white/80 dark:hover:border-white/24 dark:hover:text-white sm:right-5"
+                className="absolute right-3 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/12 bg-black/30 text-white/80 transition hover:border-white/24 hover:text-white sm:right-5"
               >
                 <ChevronRight className="h-5 w-5" />
               </button>
@@ -283,11 +281,11 @@ function ReviewGallery({
           />
         </div>
 
-        <div className="gallery-scroll flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain border-t border-[#d8cfbf] bg-[rgba(255,255,255,0.82)] dark:border-white/8 dark:bg-[#0d1519] lg:border-l lg:border-t-0">
+        <div className="gallery-scroll flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain border-t border-white/8 bg-[#0d1519] lg:border-l lg:border-t-0">
           <div className="space-y-4 px-5 py-5 sm:px-6">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold uppercase tracking-[0.12em] text-foreground/92 dark:text-white/92">
+                <p className="text-sm font-semibold uppercase tracking-[0.12em] text-white/92">
                   {activeItem.name}
                 </p>
                 {activeItem.instagramHandle ? (
@@ -295,16 +293,16 @@ function ReviewGallery({
                     {activeItem.instagramHandle}
                   </p>
                 ) : null}
-                <p className="mt-2 text-sm text-muted-foreground dark:text-white/45">
+                <p className="mt-2 text-sm text-white/45">
                   {activeItem.date}
                 </p>
               </div>
               <div className="space-y-3 text-right">
-                <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-2 text-[11px] font-semibold text-primary dark:border-[#59f0e8]/14 dark:bg-[#59f0e8]/8 dark:text-[#59f0e8]">
+                <span className="inline-flex items-center gap-2 rounded-full border border-[#59f0e8]/14 bg-[#59f0e8]/8 px-3 py-2 text-[11px] font-semibold text-[#59f0e8]">
                   <Check className="h-3.5 w-3.5" />
                   {t("verifiedGuest")}
                 </span>
-                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground/80 dark:text-white/38">
+                <p className="text-xs uppercase tracking-[0.16em] text-white/38">
                   {t("galleryCounter", {
                     current: activeIndex + 1,
                     total: items.length,
@@ -315,12 +313,12 @@ function ReviewGallery({
 
             <ReviewStars rating={activeItem.review.rating} />
 
-            <blockquote className="font-display text-[1.05rem] italic leading-[1.7] text-foreground/84 dark:text-white/84">
+            <blockquote className="font-display text-[1.05rem] italic leading-[1.7] text-white/84">
               “{activeItem.review.comment}”
             </blockquote>
           </div>
 
-          <div className="border-t border-[#d8cfbf] px-4 py-4 dark:border-white/8">
+          <div className="border-t border-white/8 px-4 py-4">
             <div className="grid grid-cols-3 gap-3">
               {items.map((item, index) => (
                 <button
@@ -330,8 +328,8 @@ function ReviewGallery({
                   className={cn(
                     "overflow-hidden rounded-[1rem] border transition",
                     index === activeIndex
-                      ? "border-primary/45 ring-1 ring-primary/25 dark:border-[#59f0e8]/45 dark:ring-[#59f0e8]/25"
-                      : "border-[#d8cfbf] dark:border-white/10",
+                      ? "border-[#59f0e8]/45 ring-1 ring-[#59f0e8]/25"
+                      : "border-white/10",
                   )}
                 >
                   <img
@@ -408,21 +406,21 @@ export default function ReviewsSection({
 
   return (
     <section id="resenas" className="mx-auto max-w-6xl px-5 py-8 sm:px-6 sm:py-10">
-      <div className="relative overflow-hidden rounded-[2.25rem] border border-[#ddd5c7] bg-[linear-gradient(180deg,#fffdf8_0%,#f8f5ef_52%,#f2ede5_100%)] px-4 py-5 shadow-[0_24px_80px_rgba(15,31,36,0.10)] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(13,24,28,0.98),rgba(9,16,20,0.98))] dark:shadow-[0_24px_80px_rgba(0,0,0,0.24)] sm:px-6 sm:py-6">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(0,133,161,0.10),transparent_38%),radial-gradient(circle_at_bottom_right,rgba(255,179,71,0.12),transparent_34%),radial-gradient(circle_at_top_left,rgba(255,255,255,0.68),transparent_38%)] dark:bg-[radial-gradient(circle_at_top,rgba(52,182,200,0.1),transparent_38%),radial-gradient(circle_at_bottom_right,rgba(255,179,71,0.07),transparent_32%)]" />
-        <div className="absolute left-1/2 top-4 h-[16rem] w-[16rem] -translate-x-1/2 rounded-full border border-[#e7dfd2] dark:border-white/[0.025]" />
-        <div className="absolute left-1/2 top-10 h-[24rem] w-[24rem] -translate-x-1/2 rounded-full border border-[#efe7db] dark:border-white/[0.015]" />
+      <div className="relative overflow-hidden rounded-[2.25rem] border border-white/10 bg-[linear-gradient(180deg,rgba(13,24,28,0.98),rgba(9,16,20,0.98))] px-4 py-5 shadow-[0_24px_80px_rgba(0,0,0,0.24)] sm:px-6 sm:py-6">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(52,182,200,0.1),transparent_38%),radial-gradient(circle_at_bottom_right,rgba(255,179,71,0.07),transparent_32%)]" />
+        <div className="absolute left-1/2 top-4 h-[16rem] w-[16rem] -translate-x-1/2 rounded-full border border-white/[0.025]" />
+        <div className="absolute left-1/2 top-10 h-[24rem] w-[24rem] -translate-x-1/2 rounded-full border border-white/[0.015]" />
 
         <div className="relative mx-auto max-w-6xl">
           <div className="mx-auto max-w-lg text-center">
             <p className="text-[10px] uppercase tracking-[0.24em] text-primary/90 sm:text-[11px]">
               {content.eyebrow}
             </p>
-            <div className="mx-auto mt-2 h-px w-20 bg-[#d8cfbf] dark:bg-white/10" />
-            <h2 className="mt-3 font-display text-[2.25rem] italic tracking-[-0.04em] text-foreground/92 dark:text-white/94 sm:text-[3rem]">
+            <div className="mx-auto mt-2 h-px w-20 bg-white/10" />
+            <h2 className="mt-3 font-display text-[2.25rem] italic tracking-[-0.04em] text-white/94 sm:text-[3rem]">
               {content.title}
             </h2>
-            <p className="mx-auto mt-3 max-w-md text-[13px] leading-6 text-muted-foreground dark:text-white/58 sm:text-[14px]">
+            <p className="mx-auto mt-3 max-w-md text-[13px] leading-6 text-white/58 sm:text-[14px]">
               {content.subtitle}
             </p>
           </div>
@@ -459,11 +457,11 @@ export default function ReviewsSection({
                 ) : null}
               </>
             ) : (
-              <div className="mx-auto max-w-2xl rounded-[1.8rem] border border-[#ddd5c7] bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(248,245,239,0.94))] px-6 py-8 text-center shadow-[0_20px_60px_rgba(15,31,36,0.10)] dark:border-white/8 dark:bg-[#10171c]/90 dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
-                <p className="font-display text-[2rem] italic text-foreground/86 dark:text-white/86">
+              <div className="mx-auto max-w-2xl rounded-[1.8rem] border border-white/8 bg-[#10171c]/90 px-6 py-8 text-center shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
+                <p className="font-display text-[2rem] italic text-white/86">
                   {content.emptyTitle}
                 </p>
-                <p className="mt-3 text-sm leading-6 text-muted-foreground dark:text-white/54">
+                <p className="mt-3 text-sm leading-6 text-white/54">
                   {content.emptyDescription}
                 </p>
               </div>
