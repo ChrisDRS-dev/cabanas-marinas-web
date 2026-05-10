@@ -4,8 +4,6 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useLocale, useMessages, useTranslations } from "next-intl";
-import YappyPaymentButton from "@/components/YappyPaymentButton";
-import YappyBalanceButton from "@/components/YappyBalanceButton";
 import { getDateLocale } from "@/i18n/format";
 import { localizeHref, type AppLocale } from "@/i18n/routing";
 import { getCatalogMessages, getLocalizedPackage } from "@/lib/localized-catalog";
@@ -175,7 +173,6 @@ export default function PaymentConfirmation() {
   const [selectedAmountType, setSelectedAmountType] = useState<"deposit" | "full" | null>(null);
   const [paymentNotice, setPaymentNotice] = useState<string | null>(null);
   const [manualLinkBusy, setManualLinkBusy] = useState(false);
-  const [manualExpanded, setManualExpanded] = useState(false);
   const [polling, setPolling] = useState(false);
   const requestedReservationId = searchParams.get("rid");
   const formatStatus = (status: string | null | undefined) => {
@@ -519,16 +516,14 @@ export default function PaymentConfirmation() {
             </span>{" "}
             {t("states.balanceBodySuffix")}
           </p>
-          <YappyBalanceButton
-            reservationId={data?.id ?? null}
-            balanceDue={data?.balanceDue ?? null}
-            onPaymentStarted={() => {
-              setPaymentNotice(
-                t("states.balancePolling")
-              );
-              setPolling(true);
-            }}
-          />
+          <a
+            href={whatsappLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 rounded-full bg-[#25D366] px-6 py-3 text-sm font-semibold text-white"
+          >
+            {t("whatsappCard.cta")}
+          </a>
           <p className="mt-4 text-xs text-muted-foreground">
             {t("states.helpPrefix")}{" "}
             <a
@@ -614,7 +609,7 @@ export default function PaymentConfirmation() {
                 </p>
               </div>
 
-              {/* Yappy botón (principal) */}
+              {/* Yappy manual (principal) */}
               <div className="rounded-3xl border border-border/70 px-5 py-5">
                 <div className="mb-3 flex items-center gap-2">
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-foreground">Yappy</p>
@@ -623,44 +618,9 @@ export default function PaymentConfirmation() {
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {t("officialButtonBody")}
+                  {t("manual.subtitle")}
                 </p>
                 <div className="mt-4">
-                  <YappyPaymentButton
-                    reservationId={data?.id ?? null}
-                    amountOverride={chosenAmount}
-                    disabled={Boolean(yappyBlockedReason)}
-                    blockedReason={yappyBlockedReason}
-                    onPaymentStarted={() => {
-                      setPaymentNotice(
-                        t("officialButtonPolling")
-                      );
-                      setPolling(true);
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* Yappy manual (fallback) */}
-              <div className="rounded-3xl border border-yellow-500/20 px-5 py-5">
-                <button
-                  type="button"
-                  onClick={() => setManualExpanded((value) => !value)}
-                  className="flex w-full items-center justify-between gap-3 text-left"
-                >
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-yellow-700 dark:text-yellow-500">
-                      {t("manual.title")}
-                    </p>
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      {t("manual.subtitle")}
-                    </p>
-                  </div>
-                  <span className="text-sm font-semibold text-foreground">
-                    {manualExpanded ? t("manual.hide") : t("manual.show")}
-                  </span>
-                </button>
-                {manualExpanded ? <div className="mt-4">
                   <button
                     type="button"
                     onClick={() => void handleManualLinkClick()}
@@ -669,8 +629,13 @@ export default function PaymentConfirmation() {
                   >
                     {manualLinkBusy ? t("manual.preparing") : t("manual.openLink")}
                   </button>
-                </div> : null}
-                {manualExpanded ? <div className="mt-3 flex flex-col gap-3">
+                </div>
+                {yappyBlockedReason ? (
+                  <p className="mt-3 text-xs text-rose-600 dark:text-rose-400">
+                    {yappyBlockedReason}
+                  </p>
+                ) : null}
+                <div className="mt-3 flex flex-col gap-3">
                   <div>
                     <p className="text-[11px] uppercase text-muted-foreground">{t("manual.amount")}</p>
                     <div className="mt-1 w-fit cursor-text select-all rounded-lg border border-border/40 bg-background/60 px-3 py-1.5 font-mono text-sm font-semibold text-primary">
@@ -689,10 +654,10 @@ export default function PaymentConfirmation() {
                       cabanasmarinas507
                     </div>
                   </div>
-                </div> : null}
-                {manualExpanded ? <p className="mt-3 text-xs font-medium text-amber-600 dark:text-amber-500">
+                </div>
+                <p className="mt-3 text-xs font-medium text-amber-600 dark:text-amber-500">
                   {t("manual.reminder")}
-                </p> : null}
+                </p>
               </div>
 
               {/* WhatsApp (siempre disponible) */}
