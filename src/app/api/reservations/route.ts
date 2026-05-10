@@ -209,13 +209,7 @@ export async function POST(req: Request) {
       quantity: toNumber(extra.quantity, 1),
     })) ?? [];
 
-  const rawPayment = String(payload.paymentMethod ?? "CASH").toUpperCase();
-  const VALID_METHODS = ["CASH", "YAPPY", "PAYPAL", "CARD"] as const;
-  const paymentMethod = VALID_METHODS.includes(
-    rawPayment as (typeof VALID_METHODS)[number]
-  )
-    ? rawPayment
-    : "CASH";
+  const paymentMethod = "YAPPY";
 
   const { data, error } = await supabase.rpc("create_reservation_public", {
     p_package_id: packageId,

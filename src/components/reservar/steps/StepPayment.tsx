@@ -6,7 +6,6 @@ import type {
   ReservationState,
   PaymentMethod,
 } from "@/components/reservar/ReservationWizard";
-import type { PaymentMethodConfig } from "@/lib/supabase/formConfig";
 import { siteData } from "@/lib/siteData";
 import type React from "react";
 
@@ -21,25 +20,6 @@ const METHODS: {
     id: "YAPPY",
     label: "Yappy",
     description: "Pago rapido desde el celular.",
-    enabled: true,
-  },
-  {
-    id: "PAYPAL",
-    label: "PayPal",
-    description: "Pago seguro en linea.",
-    enabled: false,
-  },
-  {
-    id: "CARD",
-    label: "Tarjeta / CLAVE",
-    description: "Visa, Mastercard, CLAVE, Nequi.",
-    enabled: false,
-    hidden: true,
-  },
-  {
-    id: "CASH",
-    label: "WhatsApp",
-    description: "Ver opciones de pago por WhatsApp.",
     enabled: true,
   },
 ];
@@ -57,7 +37,6 @@ type StepPaymentProps = {
   config?: {
     title?: string;
     subtitle?: string;
-    methods?: PaymentMethodConfig[];
   };
 };
 
@@ -71,26 +50,7 @@ export default function StepPayment({
   const t = useTranslations("booking.paymentMethods");
   const title = config?.title ?? t("title");
   const subtitle = config?.subtitle ?? t("subtitle");
-  const methods = (
-    config?.methods && config.methods.length > 0
-      ? config.methods.map((method) => ({
-          id: method.id,
-          label:
-            method.id === "CASH"
-              ? "WhatsApp"
-              : method.label ?? method.id,
-          description:
-            method.id === "CASH"
-              ? t("cashDescription")
-              : method.description ?? "",
-          enabled:
-            method.id === "CASH" || method.id === "YAPPY"
-              ? true
-              : method.enabled ?? false,
-          hidden: method.id === "CARD",
-        }))
-      : METHODS
-  ).filter((m) => !m.hidden);
+  const methods = METHODS;
 
   return (
     <section className="space-y-4">
@@ -101,22 +61,8 @@ export default function StepPayment({
       <Card className="border-border/70 py-4">
         <CardContent className="grid gap-3">
           {methods.map((method) => {
-            const label =
-              method.id === "YAPPY"
-                ? "Yappy"
-                : method.id === "PAYPAL"
-                  ? "PayPal"
-                  : method.id === "CARD"
-                    ? t("cardLabel")
-                    : "WhatsApp";
-            const description =
-              method.id === "YAPPY"
-                ? t("yappyDescription")
-                : method.id === "PAYPAL"
-                  ? t("paypalDescription")
-                  : method.id === "CARD"
-                    ? t("cardDescription")
-                    : t("cashDescription");
+            const label = "Yappy";
+            const description = t("yappyDescription");
             const selected = state.paymentMethod === method.id;
             return (
               <button

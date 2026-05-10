@@ -130,16 +130,7 @@ function buildWhatsAppLink(
 ) {
   const base = siteData.links.whatsapp;
   if (!data) return base;
-  const paymentMethodLabel =
-    data.paymentMethod === "YAPPY"
-      ? "Yappy"
-      : data.paymentMethod === "PAYPAL"
-        ? "PayPal"
-        : data.paymentMethod === "CARD"
-          ? locale === "es"
-            ? "Tarjeta"
-            : "Card"
-          : "WhatsApp";
+  const paymentMethodLabel = "Yappy";
   const depositAmount =
     data.depositAmount != null
       ? Number(data.depositAmount)
@@ -187,19 +178,6 @@ export default function PaymentConfirmation() {
   const [manualExpanded, setManualExpanded] = useState(false);
   const [polling, setPolling] = useState(false);
   const requestedReservationId = searchParams.get("rid");
-  const whatsappLink = buildWhatsAppLink(data, locale, {
-    intro: t("reservationWhatsapp.intro"),
-    date: (value) => t("reservationWhatsapp.date", { value }),
-    time: (value) => t("reservationWhatsapp.time", { value }),
-    packageLabel: (value) => t("reservationWhatsapp.package", { value }),
-    status: (value) => t("reservationWhatsapp.status", { value: formatStatus(value) }),
-    people: (total, adults, kids) =>
-      t("reservationWhatsapp.people", { total, adults, kids }),
-    estimatedTotal: (value) => t("reservationWhatsapp.estimatedTotal", { value }),
-    deposit: (value) => t("reservationWhatsapp.deposit", { value }),
-    method: (value) => t("reservationWhatsapp.method", { value }),
-    final: t("reservationWhatsapp.final"),
-  });
   const formatStatus = (status: string | null | undefined) => {
     switch (status) {
       case "PENDING_PAYMENT":
@@ -216,6 +194,19 @@ export default function PaymentConfirmation() {
         return t("pending");
     }
   };
+  const whatsappLink = buildWhatsAppLink(data, locale, {
+    intro: t("reservationWhatsapp.intro"),
+    date: (value) => t("reservationWhatsapp.date", { value }),
+    time: (value) => t("reservationWhatsapp.time", { value }),
+    packageLabel: (value) => t("reservationWhatsapp.package", { value }),
+    status: (value) => t("reservationWhatsapp.status", { value: formatStatus(value) }),
+    people: (total, adults, kids) =>
+      t("reservationWhatsapp.people", { total, adults, kids }),
+    estimatedTotal: (value) => t("reservationWhatsapp.estimatedTotal", { value }),
+    deposit: (value) => t("reservationWhatsapp.deposit", { value }),
+    method: (value) => t("reservationWhatsapp.method", { value }),
+    final: t("reservationWhatsapp.final"),
+  });
 
   const loadReservation = useCallback(async () => {
       let nextStatus: string | null = null;

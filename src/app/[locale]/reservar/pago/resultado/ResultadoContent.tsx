@@ -147,7 +147,7 @@ export default function ResultadoContent() {
         <div className="flex flex-col gap-2">
           {reservationId && (
             <Link
-              href={localizeHref(locale, `/reservar/pago?method=CARD&rid=${reservationId}`)}
+              href={localizeHref(locale, `/reservar/pago?method=YAPPY&rid=${reservationId}`)}
               className="w-full rounded-full bg-foreground px-4 py-2 text-center text-sm font-semibold text-background"
             >
               {t("retry")}

@@ -711,7 +711,7 @@ export default function ReservationWizard({
           adults: state.adults,
           kids: state.kids,
           extras: selectedExtras,
-          paymentMethod: state.paymentMethod ?? "YAPPY",
+          paymentMethod: "YAPPY",
         }),
       });
 
@@ -768,7 +768,7 @@ export default function ReservationWizard({
         extras: resolvedExtras,
         totalAmount,
         depositAmount,
-        paymentMethod: state.paymentMethod ?? "YAPPY",
+        paymentMethod: "YAPPY",
       };
       setConfirmationId(result?.id ?? null);
       setConfirmationData(payload);
@@ -789,14 +789,7 @@ export default function ReservationWizard({
         payload.timeSlot,
         selectedPackage?.durationMinutes
       );
-      const paymentMethodLabel =
-        payload.paymentMethod === "YAPPY"
-          ? t("paymentMethod.YAPPY")
-          : payload.paymentMethod === "PAYPAL"
-          ? t("paymentMethod.PAYPAL")
-          : payload.paymentMethod === "CARD"
-          ? t("paymentMethod.CARD")
-          : t("paymentMethod.CASH");
+      const paymentMethodLabel = t("paymentMethod.YAPPY");
       const messageLines = [
         t("whatsapp.intro"),
         payload.id ? `ID: ${String(payload.id).slice(0, 8)}` : null,
@@ -838,7 +831,7 @@ export default function ReservationWizard({
       router.push(
         localizeHref(
           locale,
-          `/reservar/pago?method=${state.paymentMethod ?? "YAPPY"}&rid=${rid ?? ""}`,
+          `/reservar/pago?method=YAPPY&rid=${rid ?? ""}`,
         ),
       );
     } catch (error) {
@@ -1156,7 +1149,7 @@ export default function ReservationWizard({
             router.push(
               localizeHref(
                 locale,
-                `/reservar/pago?method=${state.paymentMethod ?? "YAPPY"}&rid=${confirmationId}`,
+                `/reservar/pago?method=YAPPY&rid=${confirmationId}`,
               ),
             );
             return;
@@ -1292,7 +1285,7 @@ export default function ReservationWizard({
                 <Link
                   href={localizeHref(
                     locale,
-                    `/reservar/pago?method=${confirmationData?.paymentMethod ?? "YAPPY"}&rid=${confirmationId ?? ""}`,
+                    `/reservar/pago?method=YAPPY&rid=${confirmationId ?? ""}`,
                   )}
                   className="w-full rounded-full bg-primary px-4 py-2.5 text-center text-sm font-semibold text-primary-foreground transition hover:opacity-90"
                 >
