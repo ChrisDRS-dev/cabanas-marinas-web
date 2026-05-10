@@ -157,17 +157,6 @@ export async function POST(req: Request) {
     metadataPhone,
   });
 
-  if (!customerAlias) {
-    return NextResponse.json(
-      {
-        error: "missing_panama_phone",
-        detail:
-          "Necesitas un número panameño de 8 dígitos, guardado como +507XXXXXXXX o XXXXXXXX, para solicitar el pago por Yappy.",
-      },
-      { status: 400 }
-    );
-  }
-
   const totalAmount = Number(reservation.total_amount ?? 0);
   const depositAmount =
     reservation.deposit_amount != null
@@ -238,23 +227,6 @@ export async function POST(req: Request) {
     });
   }
 
-  if (existingPendingPayment?.id) {
-    await admin
-      .from("payments")
-      .update({
-        status: "CANCELLED",
-        meta: {
-          ...(typeof existingPendingPayment.meta === "object" &&
-          existingPendingPayment.meta
-            ? existingPendingPayment.meta
-            : {}),
-          invalidated_at: new Date().toISOString(),
-          invalidation_reason: "superseded_before_new_button_order",
-        },
-      })
-      .eq("id", existingPendingPayment.id);
-  }
-
   try {
     const url = new URL(req.url);
     const config = getYappyButtonConfig(url.origin);
@@ -286,7 +258,7 @@ export async function POST(req: Request) {
         authorizationToken: merchant.token,
         merchantId: config.merchantId,
         domain: config.domain,
-        aliasYappy: customerAlias,
+        aliasYappy: config.aliasYappy,
         ipnUrl: config.ipnUrl,
         orderId,
         amount: effectiveAmount,
@@ -298,7 +270,7 @@ export async function POST(req: Request) {
         yappyCode: error instanceof YappyButtonError ? error.detail : undefined,
         orderId,
         effectiveAmount,
-        aliasYappy: customerAlias,
+        hasConfiguredAlias: Boolean(config.aliasYappy),
       });
       const detail =
         error instanceof YappyButtonError ? error.message : "Order creation failed.";
@@ -306,6 +278,23 @@ export async function POST(req: Request) {
         { error: "order_creation_failed", detail },
         { status: 400 }
       );
+    }
+
+    if (existingPendingPayment?.id) {
+      await admin
+        .from("payments")
+        .update({
+          status: "CANCELLED",
+          meta: {
+            ...(typeof existingPendingPayment.meta === "object" &&
+            existingPendingPayment.meta
+              ? existingPendingPayment.meta
+              : {}),
+            invalidated_at: new Date().toISOString(),
+            invalidation_reason: "superseded_before_new_button_order",
+          },
+        })
+        .eq("id", existingPendingPayment.id);
     }
 
     const { data: payment } = await admin
@@ -325,7 +314,8 @@ export async function POST(req: Request) {
           order_response: yappyOrder.raw,
           expected_amount: effectiveAmount,
           flow: "yappy_button_v2",
-          requested_alias: customerAlias,
+          requested_alias: config.aliasYappy,
+          customer_yappy_alias: customerAlias,
         },
       })
       .select("id")

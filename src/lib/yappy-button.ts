@@ -28,6 +28,7 @@ type YappyCreateOrderResponse = {
 type YappyButtonConfig = {
   merchantId: string;
   secretKey: string;
+  aliasYappy: string;
   baseUrl: string;
   cdnUrl: string;
   domain: string;
@@ -81,6 +82,7 @@ function detectYappyEnvironment(value: string) {
 export function getYappyButtonConfig(origin?: string): YappyButtonConfig {
   const merchantId = process.env.YAPPY_BUTTON_MERCHANT_ID?.trim() ?? "";
   const secretKey = process.env.YAPPY_BUTTON_SECRET_KEY?.trim() ?? "";
+  const aliasYappy = process.env.YAPPY_BUTTON_ALIAS?.trim() ?? "";
   const baseUrl = (
     process.env.YAPPY_BUTTON_BASE_URL?.trim() || defaultBaseUrl()
   ).replace(/\/$/, "");
@@ -93,10 +95,10 @@ export function getYappyButtonConfig(origin?: string): YappyButtonConfig {
     process.env.YAPPY_BUTTON_IPN_URL?.trim() ||
     (origin ? `${origin}/api/payments/yappy/ipn` : "")
   ).replace(/\/$/, "");
-  if (!merchantId || !secretKey || !domain || !ipnUrl) {
+  if (!merchantId || !secretKey || !aliasYappy || !domain || !ipnUrl) {
     throw new YappyButtonError(
       "config_missing",
-      "Yappy button environment variables are incomplete. Required: YAPPY_BUTTON_MERCHANT_ID, YAPPY_BUTTON_SECRET_KEY, YAPPY_BUTTON_DOMAIN, YAPPY_BUTTON_IPN_URL."
+      "Yappy button environment variables are incomplete. Required: YAPPY_BUTTON_MERCHANT_ID, YAPPY_BUTTON_SECRET_KEY, YAPPY_BUTTON_ALIAS, YAPPY_BUTTON_DOMAIN, YAPPY_BUTTON_IPN_URL."
     );
   }
 
@@ -126,6 +128,7 @@ export function getYappyButtonConfig(origin?: string): YappyButtonConfig {
   return {
     merchantId,
     secretKey,
+    aliasYappy,
     baseUrl,
     cdnUrl,
     domain,

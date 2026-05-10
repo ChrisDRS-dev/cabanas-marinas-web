@@ -167,17 +167,6 @@ export async function POST(req: Request) {
     metadataPhone,
   });
 
-  if (!customerAlias) {
-    return NextResponse.json(
-      {
-        error: "missing_panama_phone",
-        detail:
-          "Necesitas un número panameño de 8 dígitos guardado en tu perfil para recibir la solicitud de pago por Yappy.",
-      },
-      { status: 400 }
-    );
-  }
-
   // Call Yappy
   try {
     const url = new URL(req.url);
@@ -203,7 +192,7 @@ export async function POST(req: Request) {
         authorizationToken: merchant.token,
         merchantId: config.merchantId,
         domain: config.domain,
-        aliasYappy: customerAlias,
+        aliasYappy: config.aliasYappy,
         ipnUrl: config.ipnUrl,
         orderId,
         amount: balanceDue,
@@ -215,7 +204,7 @@ export async function POST(req: Request) {
         yappyCode: error instanceof YappyButtonError ? error.detail : undefined,
         orderId,
         balanceDue,
-        aliasYappy: customerAlias,
+        hasConfiguredAlias: Boolean(config.aliasYappy),
       });
       const detail =
         error instanceof YappyButtonError ? error.message : "Order creation failed.";
@@ -239,7 +228,8 @@ export async function POST(req: Request) {
           order_response: yappyOrder.raw,
           expected_amount: balanceDue,
           flow: "yappy_balance",
-          requested_alias: customerAlias,
+          requested_alias: config.aliasYappy,
+          customer_yappy_alias: customerAlias,
         },
       })
       .select("id")
