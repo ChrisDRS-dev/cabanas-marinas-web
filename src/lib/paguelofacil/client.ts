@@ -5,31 +5,55 @@ import type {
   PFMgmtTransaction,
 } from "@/lib/paguelofacil/types";
 
-function getEnvironment(): PFEnvironment {
-  return process.env.PF_ENV === "prod" ? "prod" : "sandbox";
+function optionalEnv(...names: string[]) {
+  for (const name of names) {
+    const value = process.env[name]?.trim();
+    if (value) return value;
+  }
+  return null;
 }
 
-function requiredEnv(name: string) {
-  const value = process.env[name]?.trim();
+function getEnvironment(): PFEnvironment {
+  if (process.env.PF_ENV === "prod") return "prod";
+  if (process.env.PF_ENV === "sandbox") return "sandbox";
+
+  const configuredUrl = optionalEnv("PF_LINK_URL_PROD", "PF_LINK_URL", "PF_BASE_URL");
+  return configuredUrl?.includes("secure.paguelofacil.com") ? "prod" : "sandbox";
+}
+
+function requiredEnv(name: string, ...aliases: string[]) {
+  const value = optionalEnv(name, ...aliases);
   if (!value) {
-    throw new Error(`Missing required PagueloFacil env var: ${name}`);
+    throw new PagueloFacilConfigError(`Missing required PagueloFacil env var: ${name}`);
   }
   return value;
 }
 
 function getLinkUrl() {
   const env = getEnvironment();
-  return env === "prod"
-    ? requiredEnv("PF_LINK_URL_PROD")
-    : requiredEnv("PF_LINK_URL_SANDBOX");
+  if (env === "prod") {
+    return (
+      optionalEnv("PF_LINK_URL_PROD", "PF_LINK_URL", "PF_BASE_URL") ??
+      "https://secure.paguelofacil.com/LinkDeamon.cfm"
+    );
+  }
+
+  return (
+    optionalEnv("PF_LINK_URL_SANDBOX", "PF_LINK_URL", "PF_BASE_URL") ??
+    "https://sandbox.paguelofacil.com/LinkDeamon.cfm"
+  );
 }
 
 function getManagementUrl() {
   const env = getEnvironment();
-  return (env === "prod"
-    ? requiredEnv("PF_MGMT_URL_PROD")
-    : requiredEnv("PF_MGMT_URL_SANDBOX")
-  ).replace(/\/$/, "");
+  const url =
+    env === "prod"
+      ? optionalEnv("PF_MGMT_URL_PROD", "PF_MGMT_URL") ??
+        "https://api.pfserver.net/PFManagementServices/api/v1"
+      : optionalEnv("PF_MGMT_URL_SANDBOX", "PF_MGMT_URL") ??
+        "https://sandbox.paguelofacil.com/PFManagementServices/api/v1";
+
+  return url.replace(/\/$/, "");
 }
 
 function toMoney(value: number) {
@@ -64,6 +88,23 @@ function firstTransaction(payload: unknown): PFMgmtTransaction | null {
   return null;
 }
 
+export class PagueloFacilConfigError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PagueloFacilConfigError";
+  }
+}
+
+export class PagueloFacilProviderError extends Error {
+  constructor(
+    message: string,
+    readonly status?: number,
+  ) {
+    super(message);
+    this.name = "PagueloFacilProviderError";
+  }
+}
+
 export async function createPaymentLink(
   params: PFCreateLinkParams,
 ): Promise<PFCreateLinkResponse> {
@@ -90,9 +131,20 @@ export async function createPaymentLink(
     body: body.toString(),
   });
 
-  const payload = (await response.json().catch(() => null)) as PFCreateLinkResponse | null;
+  const responseBody = await response.text();
+  const payload = (() => {
+    try {
+      return JSON.parse(responseBody) as PFCreateLinkResponse;
+    } catch {
+      return null;
+    }
+  })();
+
   if (!response.ok || !payload) {
-    throw new Error(`PagueloFacil link request failed with HTTP ${response.status}.`);
+    throw new PagueloFacilProviderError(
+      `PagueloFacil link request failed with HTTP ${response.status}.`,
+      response.status,
+    );
   }
 
   return payload;
@@ -110,14 +162,17 @@ export async function verifyTransaction(
   const response = await fetch(url, {
     method: "GET",
     headers: {
-      Authorization: requiredEnv("PF_TOKEN"),
+      Authorization: requiredEnv("PF_TOKEN", "PF_API_TOKEN"),
       Accept: "application/json",
     },
     cache: "no-store",
   });
 
   if (!response.ok) {
-    throw new Error(`PagueloFacil verify request failed with HTTP ${response.status}.`);
+    throw new PagueloFacilProviderError(
+      `PagueloFacil verify request failed with HTTP ${response.status}.`,
+      response.status,
+    );
   }
 
   return firstTransaction(await response.json().catch(() => null));
@@ -133,4 +188,48 @@ export function getTransactionAmount(tx: PFMgmtTransaction | null) {
   const raw = tx.totalPay ?? tx.requestPayAmount ?? tx.authAmount;
   const amount = Number(raw);
   return Number.isFinite(amount) ? Math.round(amount * 100) / 100 : null;
+}
+
+function moneyOrNull(value: unknown) {
+  const amount = Number(value);
+  return Number.isFinite(amount) ? Math.round(amount * 100) / 100 : null;
+}
+
+function stringOrNull(value: unknown) {
+  if (value == null) return null;
+  const text = String(value).trim();
+  return text || null;
+}
+
+export function getTransactionFee(tx: PFMgmtTransaction | null) {
+  if (!tx) return null;
+  return moneyOrNull(tx.fee ?? tx.fees ?? tx.commission);
+}
+
+export function getTransactionNetAmount(tx: PFMgmtTransaction | null) {
+  if (!tx) return null;
+  return moneyOrNull(tx.netAmount ?? tx.netPay);
+}
+
+export function getTransactionMessage(tx: PFMgmtTransaction | null) {
+  return stringOrNull(tx?.messageSys ?? tx?.message);
+}
+
+export function getTransactionEmail(tx: PFMgmtTransaction | null) {
+  return stringOrNull(tx?.email);
+}
+
+export function getTransactionCardBrand(tx: PFMgmtTransaction | null) {
+  return stringOrNull(tx?.cardType ?? tx?.type);
+}
+
+export function getTransactionCardLast4(tx: PFMgmtTransaction | null) {
+  const display = stringOrNull(tx?.displayNum);
+  if (!display) return null;
+  const digits = display.replace(/\D/g, "");
+  return digits.length >= 4 ? digits.slice(-4) : null;
+}
+
+export function getTransactionOperationType(tx: PFMgmtTransaction | null) {
+  return stringOrNull(tx?.operationType);
 }

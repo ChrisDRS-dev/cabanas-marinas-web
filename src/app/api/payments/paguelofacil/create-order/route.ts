@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { isAppLocale, type AppLocale } from "@/i18n/routing";
-import { createPaymentLink } from "@/lib/paguelofacil/client";
+import {
+  createPaymentLink,
+  PagueloFacilConfigError,
+  PagueloFacilProviderError,
+} from "@/lib/paguelofacil/client";
 import type { PFAmountType } from "@/lib/paguelofacil/types";
 import {
   getReservationPaymentContext,
@@ -28,6 +32,32 @@ function normalizeLocale(value: unknown): AppLocale {
 
 function paymentMeta(value: unknown) {
   return objectFromUnknown(value);
+}
+
+function addSeconds(date: Date, seconds: number) {
+  return new Date(date.getTime() + seconds * 1000).toISOString();
+}
+
+function errorResponse(error: unknown) {
+  if (error instanceof PagueloFacilConfigError) {
+    return NextResponse.json(
+      {
+        error: "paguelofacil_config_missing",
+      },
+      { status: 503 },
+    );
+  }
+
+  if (error instanceof PagueloFacilProviderError) {
+    return NextResponse.json(
+      {
+        error: "paguelofacil_provider_unavailable",
+      },
+      { status: 502 },
+    );
+  }
+
+  return NextResponse.json({ error: "paguelofacil_link_failed" }, { status: 502 });
 }
 
 export async function POST(req: Request) {
@@ -83,12 +113,53 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "invalid_amount" }, { status: 400 });
   }
 
+  const now = new Date();
+  const reusablePayment = context.payments.find((payment) => {
+    const meta = paymentMeta(payment.meta);
+    const gateway = payment.gateway ?? meta.gateway;
+    const expected = payment.expected_amount != null ? Number(payment.expected_amount) : Number(payment.amount);
+    const expiresAt = payment.link_expires_at ? new Date(payment.link_expires_at).getTime() : 0;
+
+    return (
+      payment.provider === "CARD" &&
+      payment.status === "PENDING" &&
+      gateway === "paguelofacil" &&
+      payment.link_status === "ACTIVE" &&
+      Boolean(payment.link_url) &&
+      Math.abs(expected - amount) <= 0.01 &&
+      expiresAt > now.getTime()
+    );
+  });
+
+  if (reusablePayment?.id && reusablePayment.link_url) {
+    await insertPaymentEvent(admin, {
+      paymentId: reusablePayment.id,
+      reservationId,
+      eventType: "CREATE_LINK",
+      status: "REUSED",
+      amount,
+      customerEmail: context.reservation.customer_email ?? user.email ?? null,
+      payload: {
+        amount_type: amountType,
+        link_code: reusablePayment.link_code ?? null,
+        link_expires_at: reusablePayment.link_expires_at ?? null,
+      },
+    });
+
+    return NextResponse.json({
+      url: reusablePayment.link_url,
+      paymentId: reusablePayment.id,
+      reused: true,
+      expiresAt: reusablePayment.link_expires_at ?? null,
+    });
+  }
+
   const pendingIds = context.payments
     .filter(
       (payment) =>
         payment.provider === "CARD" &&
         payment.status === "PENDING" &&
-        paymentMeta(payment.meta).gateway === "paguelofacil",
+        (payment.gateway === "paguelofacil" || paymentMeta(payment.meta).gateway === "paguelofacil"),
     )
     .map((payment) => payment.id);
 
@@ -97,6 +168,7 @@ export async function POST(req: Request) {
       .from("payments")
       .update({
         status: "CANCELLED",
+        link_status: "CANCELLED",
         meta: {
           invalidation_reason: "replaced_by_new_paguelofacil_link",
           invalidated_at: new Date().toISOString(),
@@ -112,6 +184,14 @@ export async function POST(req: Request) {
       provider: "CARD",
       status: "PENDING",
       amount,
+      gateway: "paguelofacil",
+      gateway_flow: "paguelofacil_link",
+      amount_type: amountType,
+      expected_amount: amount,
+      link_status: "PENDING",
+      customer_email_snapshot: context.reservation.customer_email ?? user.email ?? null,
+      customer_name_snapshot: context.reservation.customer_name ?? null,
+      customer_phone_snapshot: context.reservation.customer_phone ?? null,
       meta: {
         reservation_id: reservationId,
         customer_id: user.id,
@@ -134,6 +214,7 @@ export async function POST(req: Request) {
   const appUrl = getAppUrl(req);
   const returnUrl = `${appUrl}/api/payments/paguelofacil/return?locale=${locale}`;
   const description = `Reserva Cabañas Marinas #${reservationId.slice(0, 8).toUpperCase()}`;
+  const expiresIn = 3600;
 
   try {
     const pfData = await createPaymentLink({
@@ -143,17 +224,27 @@ export async function POST(req: Request) {
       reservationId,
       paymentId: payment.id,
       customerEmail: context.reservation.customer_email ?? user.email ?? null,
-      expiresIn: 3600,
+      expiresIn,
     });
 
     const checkoutUrl = pfData.data?.url;
     if (!pfData.success || !checkoutUrl) {
-      throw new Error(pfData.message ?? "PagueloFacil did not return a checkout URL.");
+      throw new PagueloFacilProviderError(
+        pfData.message ?? "PagueloFacil did not return a checkout URL.",
+      );
     }
+
+    const linkCreatedAt = new Date();
+    const linkExpiresAt = addSeconds(linkCreatedAt, expiresIn);
 
     await admin
       .from("payments")
       .update({
+        link_url: checkoutUrl,
+        link_code: pfData.data?.code ?? null,
+        link_created_at: linkCreatedAt.toISOString(),
+        link_expires_at: linkExpiresAt,
+        link_status: "ACTIVE",
         meta: {
           reservation_id: reservationId,
           customer_id: user.id,
@@ -166,7 +257,8 @@ export async function POST(req: Request) {
           expected_amount: amount,
           link_code: pfData.data?.code ?? null,
           checkout_url: checkoutUrl,
-          link_created_at: new Date().toISOString(),
+          link_created_at: linkCreatedAt.toISOString(),
+          link_expires_at: linkExpiresAt,
         },
       })
       .eq("id", payment.id);
@@ -181,16 +273,19 @@ export async function POST(req: Request) {
       payload: {
         amount_type: amountType,
         link_code: pfData.data?.code ?? null,
+        link_expires_at: linkExpiresAt,
         return_url: returnUrl,
       },
     });
 
-    return NextResponse.json({ url: checkoutUrl, paymentId: payment.id });
+    return NextResponse.json({ url: checkoutUrl, paymentId: payment.id, expiresAt: linkExpiresAt });
   } catch (error) {
     await admin
       .from("payments")
       .update({
         status: "FAILED",
+        link_status: "FAILED",
+        provider_message: error instanceof Error ? error.message : "Unknown error",
         meta: {
           reservation_id: reservationId,
           customer_id: user.id,
@@ -217,6 +312,6 @@ export async function POST(req: Request) {
       },
     });
 
-    return NextResponse.json({ error: "paguelofacil_link_failed" }, { status: 502 });
+    return errorResponse(error);
   }
 }

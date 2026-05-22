@@ -37,6 +37,24 @@ function buildWhatsAppLink(reservationId: string | null, locale: AppLocale) {
   return `${siteData.links.whatsapp}?text=${encodeURIComponent(lines.filter(Boolean).join("\n"))}`;
 }
 
+function getCreateOrderErrorMessage(error: string | undefined, t: ReturnType<typeof useTranslations>) {
+  switch (error) {
+    case "paguelofacil_config_missing":
+      return t("configError");
+    case "paguelofacil_provider_unavailable":
+      return t("providerError");
+    case "unauthorized":
+      return t("sessionError");
+    case "reservation_not_pending_payment":
+    case "invalid_payment_method":
+    case "invoice_not_found":
+    case "invalid_amount":
+      return t("reservationError");
+    default:
+      return t("createError");
+  }
+}
+
 export default function PagueloFacilPayment({
   reservationId,
   amount,
@@ -68,7 +86,7 @@ export default function PagueloFacilPayment({
         | null;
 
       if (!res.ok || !data?.url) {
-        setError(data?.error ?? t("createError"));
+        setError(getCreateOrderErrorMessage(data?.error, t));
         return;
       }
 

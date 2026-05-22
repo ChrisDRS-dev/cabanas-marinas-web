@@ -87,7 +87,7 @@ async function handleReturn(req: Request) {
         reservationId,
         paymentId: paymentId || null,
         codOper,
-        expectedAmount: amount,
+        expectedAmount: null,
         source: "return",
         rawPayload: payload,
       });

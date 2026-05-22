@@ -51,6 +51,11 @@ export type PFMgmtTransaction = {
   authAmount?: string | number;
   totalPay?: string | number;
   requestPayAmount?: string | number;
+  fee?: string | number;
+  fees?: string | number;
+  commission?: string | number;
+  netAmount?: string | number;
+  netPay?: string | number;
   status?: number | string;
   authStatus?: string;
   cardType?: string;
@@ -61,6 +66,7 @@ export type PFMgmtTransaction = {
   displayNum?: string;
   idMerchant?: string;
   messageSys?: string;
+  message?: string;
   operationType?: string;
   [key: string]: unknown;
 };

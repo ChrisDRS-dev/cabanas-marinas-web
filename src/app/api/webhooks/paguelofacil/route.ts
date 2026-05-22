@@ -58,7 +58,7 @@ export async function POST(req: Request) {
       reservationId,
       paymentId: paymentId || null,
       codOper,
-      expectedAmount: amount,
+      expectedAmount: null,
       source: "webhook",
       rawPayload: payload,
     });
