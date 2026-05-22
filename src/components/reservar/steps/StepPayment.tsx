@@ -17,6 +17,12 @@ const METHODS: {
   hidden?: boolean;
 }[] = [
   {
+    id: "CARD",
+    label: "Tarjeta con PagueloFacil",
+    description: "Visa, Mastercard y CLAVE en checkout seguro.",
+    enabled: true,
+  },
+  {
     id: "YAPPY",
     label: "Yappy",
     description: "Pago rapido desde el celular.",
@@ -61,8 +67,10 @@ export default function StepPayment({
       <Card className="border-border/70 py-4">
         <CardContent className="grid gap-3">
           {methods.map((method) => {
-            const label = "Yappy";
-            const description = t("yappyDescription");
+            const label =
+              method.id === "CARD" ? t("cardLabel") : "Yappy";
+            const description =
+              method.id === "CARD" ? t("cardDescription") : t("yappyDescription");
             const selected = state.paymentMethod === method.id;
             return (
               <button
@@ -88,6 +96,11 @@ export default function StepPayment({
               >
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-base font-semibold">{label}</p>
+                  {method.id === "CARD" && method.enabled && (
+                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                      {t("recommended")}
+                    </span>
+                  )}
                   {!method.enabled && (
                     <span className="rounded-full border border-border bg-secondary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                       {t("comingSoon")}
@@ -102,6 +115,22 @@ export default function StepPayment({
           })}
         </CardContent>
       </Card>
+
+      {state.paymentMethod === "CARD" && (
+        <div className="rounded-2xl border border-primary/30 bg-primary/5 px-5 py-4 text-sm">
+          <p className="font-semibold text-foreground">{t("cardInstructions")}</p>
+          <p className="mt-1 text-muted-foreground">{t("cardAfterReservation")}</p>
+          {depositAmount != null && (
+            <p className="mt-2 text-sm text-muted-foreground">
+              {t("amountToSend")}{" "}
+              <span className="font-semibold text-primary">
+                {formatCurrency(depositAmount)}
+              </span>{" "}
+              <span className="text-xs">{t("halfTotal")}</span>
+            </p>
+          )}
+        </div>
+      )}
 
       {state.paymentMethod === "YAPPY" && (
         <div className="rounded-2xl border border-primary/30 bg-primary/5 px-5 py-4 text-sm">

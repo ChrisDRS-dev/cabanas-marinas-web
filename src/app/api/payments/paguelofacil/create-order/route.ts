@@ -1,8 +1,33 @@
 import { NextResponse } from "next/server";
+import { isAppLocale, type AppLocale } from "@/i18n/routing";
+import { createPaymentLink } from "@/lib/paguelofacil/client";
+import type { PFAmountType } from "@/lib/paguelofacil/types";
+import {
+  getReservationPaymentContext,
+  insertPaymentEvent,
+  objectFromUnknown,
+  roundCurrency,
+} from "@/lib/paguelofacil/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { supabaseServer } from "@/lib/supabase/server";
 
-function roundCurrency(value: number) {
-  return Math.round(value * 100) / 100;
+function getAppUrl(req: Request) {
+  const configured = process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL;
+  if (configured) return configured.replace(/\/$/, "");
+  return new URL(req.url).origin;
+}
+
+function normalizeAmountType(value: unknown): PFAmountType {
+  return value === "full" ? "full" : "deposit";
+}
+
+function normalizeLocale(value: unknown): AppLocale {
+  const maybeLocale = typeof value === "string" ? value : null;
+  return isAppLocale(maybeLocale) ? maybeLocale : "es";
+}
+
+function paymentMeta(value: unknown) {
+  return objectFromUnknown(value);
 }
 
 export async function POST(req: Request) {
@@ -17,101 +42,181 @@ export async function POST(req: Request) {
 
   const body = await req.json().catch(() => null);
   const reservationId = String(body?.reservationId ?? "").trim();
+  const amountType = normalizeAmountType(body?.amountType);
+  const locale = normalizeLocale(body?.locale);
 
   if (!reservationId) {
     return NextResponse.json({ error: "missing_reservation" }, { status: 400 });
   }
 
-  const { data: reservation } = await supabase
-    .from("reservations")
-    .select("id,status,total_amount,deposit_amount,payment_method,customer_id")
-    .eq("id", reservationId)
-    .eq("customer_id", user.id)
-    .maybeSingle();
+  const admin = supabaseAdmin();
+  const context = await getReservationPaymentContext(admin, reservationId);
 
-  if (!reservation) {
+  if (!context?.reservation || context.reservation.customer_id !== user.id) {
     return NextResponse.json({ error: "reservation_not_found" }, { status: 404 });
   }
 
-  if (reservation.status !== "PENDING_PAYMENT") {
+  if (context.reservation.status !== "PENDING_PAYMENT") {
     return NextResponse.json({ error: "reservation_not_pending_payment" }, { status: 400 });
   }
 
-  if (String(reservation.payment_method ?? "").toUpperCase() !== "CARD") {
+  if (String(context.reservation.payment_method ?? "").toUpperCase() !== "CARD") {
     return NextResponse.json({ error: "invalid_payment_method" }, { status: 400 });
   }
 
-  const totalAmount = Number(reservation.total_amount ?? 0);
+  if (!context.invoice?.id) {
+    return NextResponse.json({ error: "invoice_not_found" }, { status: 400 });
+  }
+
+  const totalAmount = Number(context.reservation.total_amount ?? 0);
   const depositAmount =
-    reservation.deposit_amount != null
-      ? Number(reservation.deposit_amount)
+    context.reservation.deposit_amount != null
+      ? Number(context.reservation.deposit_amount)
       : roundCurrency(totalAmount * 0.5);
+  const paidAmount = context.payments
+    .filter((payment) => payment.status === "SUCCEEDED")
+    .reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0);
+  const balanceDue = roundCurrency(Math.max(totalAmount - paidAmount, 0));
+  const amount = amountType === "full" ? balanceDue : depositAmount;
 
-  if (!Number.isFinite(depositAmount) || depositAmount <= 0) {
-    return NextResponse.json(
-      { error: "invalid_amount", detail: `Monto de depósito inválido: ${depositAmount}` },
-      { status: 400 }
-    );
+  if (!Number.isFinite(amount) || amount <= 0 || amount > balanceDue + 0.01) {
+    return NextResponse.json({ error: "invalid_amount" }, { status: 400 });
   }
 
-  const cclw = process.env.PF_CCLW;
-  const baseUrl = process.env.PF_BASE_URL;
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://cabanas-marinas-web.vercel.app";
+  const pendingIds = context.payments
+    .filter(
+      (payment) =>
+        payment.provider === "CARD" &&
+        payment.status === "PENDING" &&
+        paymentMeta(payment.meta).gateway === "paguelofacil",
+    )
+    .map((payment) => payment.id);
 
-  if (!cclw || !baseUrl) {
-    console.error("[PF] Missing env vars: PF_CCLW or PF_BASE_URL");
-    return NextResponse.json({ error: "payment_not_configured" }, { status: 500 });
+  if (pendingIds.length > 0) {
+    await admin
+      .from("payments")
+      .update({
+        status: "CANCELLED",
+        meta: {
+          invalidation_reason: "replaced_by_new_paguelofacil_link",
+          invalidated_at: new Date().toISOString(),
+        },
+      })
+      .in("id", pendingIds);
   }
 
-  const returnUrl = `${appUrl}/reservar/pago/resultado`;
-  const returnUrlHex = Buffer.from(returnUrl).toString("hex");
-  const description = `Reserva Cabañas Marinas #${reservationId.slice(0, 8)}`;
+  const { data: payment, error: paymentError } = await admin
+    .from("payments")
+    .insert({
+      invoice_id: context.invoice.id,
+      provider: "CARD",
+      status: "PENDING",
+      amount,
+      meta: {
+        reservation_id: reservationId,
+        customer_id: user.id,
+        customer_name: context.reservation.customer_name ?? null,
+        customer_phone: context.reservation.customer_phone ?? null,
+        customer_email: context.reservation.customer_email ?? user.email ?? null,
+        gateway: "paguelofacil",
+        flow: "paguelofacil_link",
+        amount_type: amountType,
+        expected_amount: amount,
+      },
+    })
+    .select("id")
+    .maybeSingle();
 
-  const params = new URLSearchParams({
-    CCLW: cclw,
-    CMTN: depositAmount.toFixed(2),
-    CDSC: description,
-    RETURN_URL: returnUrlHex,
-    PARM_1: reservationId,
-    EXPIRES_IN: "3600",
-  });
+  if (paymentError || !payment?.id) {
+    return NextResponse.json({ error: "payment_create_failed" }, { status: 500 });
+  }
 
-  console.log("[PF] create-order request", {
-    reservationId,
-    depositAmount,
-    description,
-    returnUrl,
-  });
-
-  let pfData: { success?: boolean; data?: { url?: string } } | null = null;
+  const appUrl = getAppUrl(req);
+  const returnUrl = `${appUrl}/api/payments/paguelofacil/return?locale=${locale}`;
+  const description = `Reserva Cabañas Marinas #${reservationId.slice(0, 8).toUpperCase()}`;
 
   try {
-    const pfResponse = await fetch(baseUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: params.toString(),
+    const pfData = await createPaymentLink({
+      amount,
+      description,
+      returnUrl,
+      reservationId,
+      paymentId: payment.id,
+      customerEmail: context.reservation.customer_email ?? user.email ?? null,
+      expiresIn: 3600,
     });
 
-    pfData = await pfResponse.json().catch(() => null);
-
-    if (!pfResponse.ok || !pfData?.success) {
-      console.error("[PF] create-order failed", { status: pfResponse.status, pfData });
-      return NextResponse.json(
-        { error: "paguelofacil_error", detail: pfData },
-        { status: 400 }
-      );
+    const checkoutUrl = pfData.data?.url;
+    if (!pfData.success || !checkoutUrl) {
+      throw new Error(pfData.message ?? "PagueloFacil did not return a checkout URL.");
     }
-  } catch (err) {
-    console.error("[PF] create-order exception", err instanceof Error ? err.message : String(err));
-    return NextResponse.json({ error: "paguelofacil_unreachable" }, { status: 502 });
-  }
 
-  const checkoutUrl = pfData?.data?.url;
-  if (!checkoutUrl) {
-    console.error("[PF] create-order: no url in response", pfData);
-    return NextResponse.json({ error: "no_checkout_url" }, { status: 500 });
-  }
+    await admin
+      .from("payments")
+      .update({
+        meta: {
+          reservation_id: reservationId,
+          customer_id: user.id,
+          customer_name: context.reservation.customer_name ?? null,
+          customer_phone: context.reservation.customer_phone ?? null,
+          customer_email: context.reservation.customer_email ?? user.email ?? null,
+          gateway: "paguelofacil",
+          flow: "paguelofacil_link",
+          amount_type: amountType,
+          expected_amount: amount,
+          link_code: pfData.data?.code ?? null,
+          checkout_url: checkoutUrl,
+          link_created_at: new Date().toISOString(),
+        },
+      })
+      .eq("id", payment.id);
 
-  console.log("[PF] create-order success", { reservationId, checkoutUrl });
-  return NextResponse.json({ url: checkoutUrl });
+    await insertPaymentEvent(admin, {
+      paymentId: payment.id,
+      reservationId,
+      eventType: "CREATE_LINK",
+      status: "PENDING",
+      amount,
+      customerEmail: context.reservation.customer_email ?? user.email ?? null,
+      payload: {
+        amount_type: amountType,
+        link_code: pfData.data?.code ?? null,
+        return_url: returnUrl,
+      },
+    });
+
+    return NextResponse.json({ url: checkoutUrl, paymentId: payment.id });
+  } catch (error) {
+    await admin
+      .from("payments")
+      .update({
+        status: "FAILED",
+        meta: {
+          reservation_id: reservationId,
+          customer_id: user.id,
+          gateway: "paguelofacil",
+          flow: "paguelofacil_link",
+          amount_type: amountType,
+          expected_amount: amount,
+          failure_reason: "link_creation_failed",
+          failure_message: error instanceof Error ? error.message : "Unknown error",
+        },
+      })
+      .eq("id", payment.id);
+
+    await insertPaymentEvent(admin, {
+      paymentId: payment.id,
+      reservationId,
+      eventType: "CREATE_LINK",
+      status: "FAILED",
+      amount,
+      customerEmail: context.reservation.customer_email ?? user.email ?? null,
+      payload: {
+        amount_type: amountType,
+        error: error instanceof Error ? error.message : "Unknown error",
+      },
+    });
+
+    return NextResponse.json({ error: "paguelofacil_link_failed" }, { status: 502 });
+  }
 }

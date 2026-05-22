@@ -74,7 +74,7 @@ const initialState: ReservationState = {
   kids: 0,
   extras: {},
   couplePackage: false,
-  paymentMethod: "YAPPY",
+  paymentMethod: "CARD",
 };
 
 function normalizeExtrasRecord(
@@ -180,6 +180,11 @@ function reducer(state: ReservationState, action: Action): ReservationState {
 function formatCurrency(value: number) {
   const rounded = Number.isInteger(value) ? value.toFixed(0) : value.toFixed(2);
   return `$${rounded}`;
+}
+
+function getPaymentPath(method: PaymentMethod | null | undefined, reservationId: string | null | undefined) {
+  const normalized = method === "YAPPY" ? "YAPPY" : "CARD";
+  return `/reservar/pago?method=${normalized}&rid=${reservationId ?? ""}`;
 }
 
 function isWeekend(dateValue: string | null) {
@@ -711,7 +716,7 @@ export default function ReservationWizard({
           adults: state.adults,
           kids: state.kids,
           extras: selectedExtras,
-          paymentMethod: "YAPPY",
+          paymentMethod: state.paymentMethod ?? "CARD",
         }),
       });
 
@@ -768,7 +773,7 @@ export default function ReservationWizard({
         extras: resolvedExtras,
         totalAmount,
         depositAmount,
-        paymentMethod: "YAPPY",
+        paymentMethod: result?.paymentMethod ?? state.paymentMethod ?? "CARD",
       };
       setConfirmationId(result?.id ?? null);
       setConfirmationData(payload);
@@ -789,7 +794,10 @@ export default function ReservationWizard({
         payload.timeSlot,
         selectedPackage?.durationMinutes
       );
-      const paymentMethodLabel = t("paymentMethod.YAPPY");
+      const paymentMethodLabel =
+        payload.paymentMethod === "YAPPY"
+          ? t("paymentMethod.YAPPY")
+          : t("paymentMethod.CARD");
       const messageLines = [
         t("whatsapp.intro"),
         payload.id ? `ID: ${String(payload.id).slice(0, 8)}` : null,
@@ -831,7 +839,7 @@ export default function ReservationWizard({
       router.push(
         localizeHref(
           locale,
-          `/reservar/pago?method=YAPPY&rid=${rid ?? ""}`,
+          getPaymentPath(payload.paymentMethod as PaymentMethod | null, rid),
         ),
       );
     } catch (error) {
@@ -1149,7 +1157,7 @@ export default function ReservationWizard({
             router.push(
               localizeHref(
                 locale,
-                `/reservar/pago?method=YAPPY&rid=${confirmationId}`,
+                getPaymentPath(state.paymentMethod, confirmationId),
               ),
             );
             return;
@@ -1285,7 +1293,7 @@ export default function ReservationWizard({
                 <Link
                   href={localizeHref(
                     locale,
-                    `/reservar/pago?method=YAPPY&rid=${confirmationId ?? ""}`,
+                    getPaymentPath(confirmationData?.paymentMethod as PaymentMethod | null, confirmationId),
                   )}
                   className="w-full rounded-full bg-primary px-4 py-2.5 text-center text-sm font-semibold text-primary-foreground transition hover:opacity-90"
                 >

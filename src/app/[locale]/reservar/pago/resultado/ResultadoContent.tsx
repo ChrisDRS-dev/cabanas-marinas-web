@@ -32,9 +32,12 @@ export default function ResultadoContent() {
   const oper = searchParams.get("Oper") ?? searchParams.get("oper") ?? "";
   const reservationId = searchParams.get("PARM_1") ?? searchParams.get("parm_1") ?? "";
   const razon = searchParams.get("Razon") ?? searchParams.get("razon") ?? "";
+  const verified = searchParams.get("verified") ?? "";
 
-  const isApproved = estado === "Aprobada";
-  const isDenied = estado === "Denegada";
+  const isApprovedSignal = estado === "Aprobada" || estado === "Approved";
+  const isApproved = isApprovedSignal && verified === "1";
+  const isPendingVerification = isApprovedSignal && verified !== "1";
+  const isDenied = estado === "Denegada" || estado === "Denegado" || estado === "Declined";
 
   if (!estado) {
     return (
@@ -125,6 +128,45 @@ export default function ResultadoContent() {
     );
   }
 
+  if (isPendingVerification) {
+    const whatsappLink = buildWhatsAppConfirmLink(reservationId, oper, totalPagado, t);
+
+    return (
+      <div className="mx-auto flex w-full max-w-md flex-col gap-5 px-6 py-16">
+        <div className="rounded-3xl border border-amber-500/30 bg-amber-500/10 px-6 py-6 text-center">
+          <p className="text-3xl">!</p>
+          <h1 className="mt-2 text-2xl font-semibold text-amber-700 dark:text-amber-400">
+            {t("pendingVerification")}
+          </h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {t("pendingVerificationBody")}
+          </p>
+          {oper && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              {t("operationCode")} <span className="font-mono">{oper}</span>
+            </p>
+          )}
+        </div>
+
+        <a
+          href={whatsappLink}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex w-full items-center justify-center gap-2 rounded-full bg-[#25D366] px-6 py-3 text-sm font-semibold text-white"
+        >
+          {t("sendProof")}
+        </a>
+
+        <Link
+          href={localizeHref(locale, reservationId ? `/reservar/pago?method=CARD&rid=${reservationId}` : "/reservar/pago")}
+          className="w-full rounded-full border border-border px-4 py-2 text-center text-sm font-semibold"
+        >
+          {t("retry")}
+        </Link>
+      </div>
+    );
+  }
+
   if (isDenied) {
     return (
       <div className="mx-auto flex w-full max-w-md flex-col gap-5 px-6 py-16">
@@ -147,7 +189,7 @@ export default function ResultadoContent() {
         <div className="flex flex-col gap-2">
           {reservationId && (
             <Link
-              href={localizeHref(locale, `/reservar/pago?method=YAPPY&rid=${reservationId}`)}
+              href={localizeHref(locale, `/reservar/pago?method=CARD&rid=${reservationId}`)}
               className="w-full rounded-full bg-foreground px-4 py-2 text-center text-sm font-semibold text-background"
             >
               {t("retry")}

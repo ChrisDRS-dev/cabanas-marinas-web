@@ -51,6 +51,11 @@ function roundCurrency(value: number) {
   return Math.round(value * 100) / 100;
 }
 
+function normalizePaymentMethod(value: unknown) {
+  const method = String(value ?? "").toUpperCase();
+  return method === "YAPPY" || method === "CARD" ? method : "CARD";
+}
+
 function getMetadataPhone(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
@@ -121,7 +126,8 @@ async function syncReservationPaymentState(args: {
       reserved_date: args.reservedDate,
       payment_method: paymentMethod,
       expected_amount: depositAmount,
-      flow: paymentMethod === "YAPPY" ? "yappy_v1" : "manual",
+      flow: paymentMethod === "YAPPY" ? "yappy_v1" : "paguelofacil_pending",
+      gateway: paymentMethod === "CARD" ? "paguelofacil" : "yappy",
     },
   });
 }
@@ -209,7 +215,7 @@ export async function POST(req: Request) {
       quantity: toNumber(extra.quantity, 1),
     })) ?? [];
 
-  const paymentMethod = "YAPPY";
+  const paymentMethod = normalizePaymentMethod(payload.paymentMethod);
 
   const { data, error } = await supabase.rpc("create_reservation_public", {
     p_package_id: packageId,

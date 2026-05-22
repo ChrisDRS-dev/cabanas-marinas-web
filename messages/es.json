@@ -500,12 +500,15 @@
     "paymentMethods": {
       "title": "Método de pago",
       "subtitle": "Selecciona cómo prefieres confirmar tu reserva.",
-      "cardLabel": "Tarjeta / CLAVE",
+      "cardLabel": "Tarjeta con PagueloFácil",
       "comingSoon": "Próximamente",
+      "recommended": "Recomendado",
       "yappyDescription": "Pago rápido desde el celular.",
       "paypalDescription": "Pago seguro en línea.",
-      "cardDescription": "Visa, Mastercard, CLAVE, Nequi.",
+      "cardDescription": "Visa, Mastercard y CLAVE con checkout seguro.",
       "cashDescription": "Ver opciones de pago por WhatsApp.",
+      "cardInstructions": "Pago con tarjeta",
+      "cardAfterReservation": "Después de solicitar la reserva, generaremos un enlace único de PagueloFácil para completar el pago.",
       "yappyInstructions": "Instrucciones Yappy",
       "sendInitial": "Envía el pago inicial al número Yappy:",
       "amountToSend": "Monto a enviar:",
@@ -573,6 +576,8 @@
     "writeWhatsapp": "Escribir por WhatsApp",
     "processed": "Pago procesado",
     "notProcessed": "Pago no procesado",
+    "pendingVerification": "Pago recibido, verificación pendiente",
+    "pendingVerificationBody": "PagueloFácil devolvió una señal de pago, pero todavía no pudimos confirmarlo automáticamente. Envíanos el comprobante por WhatsApp para conciliarlo.",
     "amount": "Monto:",
     "operationCode": "Código de operación:",
     "reservationId": "ID de reserva",
@@ -682,6 +687,23 @@
       "noReservation": "No encontramos una reserva pendiente para iniciar el pago.",
       "notYappy": "Esta reserva no fue creada con Yappy como método de pago.",
       "notPending": "La reserva ya no está pendiente de pago."
+    },
+    "cardBlocked": {
+      "noReservation": "No encontramos una reserva pendiente para iniciar el pago.",
+      "notCard": "Esta reserva no fue creada con tarjeta como método de pago.",
+      "notPending": "La reserva ya no está pendiente de pago."
+    },
+    "paguelofacil": {
+      "body": "Paga {amount} con Visa, Mastercard o CLAVE en el checkout seguro de PagueloFácil.",
+      "creating": "Generando enlace...",
+      "createCta": "Generar enlace por {amount}",
+      "openCheckout": "Abrir checkout seguro",
+      "createError": "No se pudo generar el enlace de pago. Intenta de nuevo.",
+      "networkError": "No se pudo conectar con el sistema de pagos. Intenta de nuevo.",
+      "afterOpenTitle": "¿Completaste el pago?",
+      "afterOpenBody": "Si la reserva no se actualiza automáticamente, envíanos el comprobante por WhatsApp para conciliarlo.",
+      "whatsapp": "Enviar comprobante",
+      "securityNote": "Pago procesado por PagueloFácil. No almacenamos datos de tarjeta."
     },
     "yappyButton": {
       "loadConfigError": "No se pudo cargar la configuración del botón de Yappy.",

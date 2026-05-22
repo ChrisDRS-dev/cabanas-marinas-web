@@ -1,90 +1,88 @@
 import { NextResponse } from "next/server";
+import {
+  applyVerifiedPagueloFacilPayment,
+  getCodOper,
+  getPayloadAmount,
+  getPayloadStatus,
+  insertPaymentEvent,
+  objectFromUnknown,
+} from "@/lib/paguelofacil/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
+async function parseWebhookPayload(req: Request) {
+  const contentType = req.headers.get("content-type") ?? "";
+  if (contentType.includes("application/json")) {
+    return objectFromUnknown(await req.json().catch(() => null));
+  }
+
+  const form = await req.formData().catch(() => null);
+  const payload: Record<string, unknown> = {};
+  form?.forEach((value, key) => {
+    payload[key] = typeof value === "string" ? value : value.name;
+  });
+  return payload;
+}
+
 export async function POST(req: Request) {
-  let body: Record<string, unknown>;
-
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "invalid_body" }, { status: 400 });
-  }
-
-  const reservationId = String(body.PARM_1 ?? "").trim();
-  const status = Number(body.status ?? body.Status ?? -1);
-  const codOper = String(body.codOper ?? body.CodOper ?? "").trim();
-  const totalPay = Number(body.totalPay ?? body.TotalPay ?? 0);
-
-  console.log("[PF] webhook received", { reservationId, status, codOper, totalPay });
-
-  if (!reservationId) {
-    console.error("[PF] webhook: missing PARM_1");
-    return NextResponse.json({ received: true });
-  }
-
+  const payload = await parseWebhookPayload(req);
+  const reservationId = String(payload.PARM_1 ?? payload.parm_1 ?? "").trim();
+  const paymentId = String(payload.PARM_2 ?? payload.parm_2 ?? "").trim();
+  const codOper = getCodOper(payload);
+  const status = getPayloadStatus(payload);
+  const amount = getPayloadAmount(payload);
+  const email = String(payload.email ?? payload.Email ?? "").trim();
   const admin = supabaseAdmin();
 
-  // Verify the reservation exists before doing anything
-  const { data: reservation } = await admin
-    .from("reservations")
-    .select("id,status")
-    .eq("id", reservationId)
-    .maybeSingle();
-
-  if (!reservation) {
-    console.error("[PF] webhook: reservation not found", reservationId);
-    return NextResponse.json({ received: true });
+  if (!reservationId) {
+    return NextResponse.json({ received: true, ignored: "missing_reservation" });
   }
 
-  if (status === 1) {
-    // Fetch current payment meta to merge codOper into it
-    const { data: payment } = await admin
-      .from("payments")
-      .select("id,meta,status")
-      .eq("reservation_id", reservationId)
-      .eq("provider", "CARD")
-      .maybeSingle();
+  await insertPaymentEvent(admin, {
+    paymentId: paymentId || null,
+    reservationId,
+    eventType: "WEBHOOK",
+    providerRef: codOper || null,
+    status: status || null,
+    amount,
+    customerEmail: email || null,
+    payload,
+  });
 
-    if (payment && payment.status !== "SUCCEEDED") {
-      const updatedMeta = {
-        ...(typeof payment.meta === "object" && payment.meta !== null ? payment.meta : {}),
-        codOper,
-        pf_total_pay: totalPay,
-        confirmed_at: new Date().toISOString(),
-      };
-
-      await admin
-        .from("payments")
-        .update({ status: "SUCCEEDED", meta: updatedMeta })
-        .eq("id", payment.id);
-    }
-
-    await admin
-      .from("invoices")
-      .update({ status: "PAID" })
-      .eq("reservation_id", reservationId)
-      .neq("status", "PAID");
-
-    await admin
-      .from("reservations")
-      .update({ status: "CONFIRMED" })
-      .eq("id", reservationId)
-      .neq("status", "CONFIRMED");
-
-    console.log("[PF] webhook: reservation confirmed", { reservationId, codOper });
-  } else if (status === 0) {
-    await admin
-      .from("payments")
-      .update({ status: "FAILED" })
-      .eq("reservation_id", reservationId)
-      .eq("provider", "CARD")
-      .neq("status", "FAILED");
-
-    console.log("[PF] webhook: payment failed", { reservationId });
-  } else {
-    console.warn("[PF] webhook: unknown status value", status);
+  if (!codOper) {
+    return NextResponse.json({ received: true, ignored: "missing_operation" });
   }
 
-  // Always return 200 — PagueloFacil retries on non-200
-  return NextResponse.json({ received: true });
+  try {
+    const result = await applyVerifiedPagueloFacilPayment({
+      admin,
+      reservationId,
+      paymentId: paymentId || null,
+      codOper,
+      expectedAmount: amount,
+      source: "webhook",
+      rawPayload: payload,
+    });
+
+    return NextResponse.json({
+      received: true,
+      verified: result.ok,
+      reason: result.ok ? null : result.reason,
+    });
+  } catch (error) {
+    await insertPaymentEvent(admin, {
+      paymentId: paymentId || null,
+      reservationId,
+      eventType: "VERIFY",
+      providerRef: codOper,
+      status: "ERROR",
+      amount,
+      customerEmail: email || null,
+      payload: {
+        source: "webhook",
+        error: error instanceof Error ? error.message : "Unknown verify error",
+      },
+    });
+
+    return NextResponse.json({ received: true, verified: false, reason: "verify_failed" });
+  }
 }

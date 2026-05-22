@@ -500,12 +500,15 @@
     "paymentMethods": {
       "title": "Payment method",
       "subtitle": "Choose how you want to confirm your reservation.",
-      "cardLabel": "Card / CLAVE",
+      "cardLabel": "Card with PagueloFácil",
       "comingSoon": "Coming soon",
+      "recommended": "Recommended",
       "yappyDescription": "Fast payment from your phone.",
       "paypalDescription": "Secure online payment.",
-      "cardDescription": "Visa, Mastercard, CLAVE, Nequi.",
+      "cardDescription": "Visa, Mastercard and CLAVE through secure checkout.",
       "cashDescription": "See payment options on WhatsApp.",
+      "cardInstructions": "Card payment",
+      "cardAfterReservation": "After requesting the booking, we will generate a unique PagueloFácil link to complete payment.",
       "yappyInstructions": "Yappy instructions",
       "sendInitial": "Send the initial payment to the Yappy number:",
       "amountToSend": "Amount to send:",
@@ -573,6 +576,8 @@
     "writeWhatsapp": "Message on WhatsApp",
     "processed": "Payment processed",
     "notProcessed": "Payment not processed",
+    "pendingVerification": "Payment received, verification pending",
+    "pendingVerificationBody": "PagueloFácil returned a payment signal, but we could not verify it automatically yet. Send us the receipt on WhatsApp so we can reconcile it.",
     "amount": "Amount:",
     "operationCode": "Operation code:",
     "reservationId": "Reservation ID",
@@ -682,6 +687,23 @@
       "noReservation": "We could not find a pending booking to start the payment.",
       "notYappy": "This booking was not created with Yappy as the payment method.",
       "notPending": "This booking is no longer pending payment."
+    },
+    "cardBlocked": {
+      "noReservation": "We could not find a pending booking to start the payment.",
+      "notCard": "This booking was not created with card as the payment method.",
+      "notPending": "This booking is no longer pending payment."
+    },
+    "paguelofacil": {
+      "body": "Pay {amount} with Visa, Mastercard or CLAVE in PagueloFácil secure checkout.",
+      "creating": "Generating link...",
+      "createCta": "Generate link for {amount}",
+      "openCheckout": "Open secure checkout",
+      "createError": "Could not generate the payment link. Please try again.",
+      "networkError": "Could not connect to the payment system. Please try again.",
+      "afterOpenTitle": "Did you complete the payment?",
+      "afterOpenBody": "If the booking does not update automatically, send us the receipt on WhatsApp so we can reconcile it.",
+      "whatsapp": "Send receipt",
+      "securityNote": "Payment processed by PagueloFácil. We do not store card details."
     },
     "yappyButton": {
       "loadConfigError": "Could not load the Yappy button configuration.",
