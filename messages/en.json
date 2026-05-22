@@ -702,6 +702,7 @@
       "configError": "Card payments are not configured correctly. Contact us on WhatsApp so we can help complete the booking.",
       "providerError": "PagueloFácil could not generate the link right now. Try again or contact us on WhatsApp.",
       "sessionError": "Your session expired. Sign in again to generate the link.",
+      "notFoundError": "We could not validate this booking with your session. Return to My bookings or contact us on WhatsApp.",
       "reservationError": "This booking is not available for a card payment link.",
       "networkError": "Could not connect to the payment system. Please try again.",
       "afterOpenTitle": "Did you complete the payment?",

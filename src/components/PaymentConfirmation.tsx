@@ -389,11 +389,9 @@ export default function PaymentConfirmation() {
   const yappyBlockedReason =
     !data?.id
       ? t("yappyBlocked.noReservation")
-      : data.paymentMethod !== "YAPPY"
-        ? t("yappyBlocked.notYappy")
-        : data.status !== "PENDING_PAYMENT"
-          ? t("yappyBlocked.notPending")
-          : null;
+      : data.status !== "PENDING_PAYMENT"
+        ? t("yappyBlocked.notPending")
+        : null;
 
   const cardBlockedReason =
     !data?.id
@@ -624,6 +622,53 @@ export default function PaymentConfirmation() {
                 </p>
               </div>
 
+              <div className="rounded-3xl border border-[#00ADEF]/40 px-5 py-5">
+                <div className="mb-3 flex items-center gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#00ADEF]">Yappy</p>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {t("manual.subtitle")}
+                </p>
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    onClick={() => void handleManualLinkClick()}
+                    disabled={manualLinkBusy || Boolean(yappyBlockedReason)}
+                    className="flex w-full items-center justify-center rounded-full bg-[#00ADEF] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#0099d6] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {manualLinkBusy ? t("manual.preparing") : t("manual.openLink")}
+                  </button>
+                </div>
+                {yappyBlockedReason ? (
+                  <p className="mt-3 text-xs text-rose-600 dark:text-rose-400">
+                    {yappyBlockedReason}
+                  </p>
+                ) : null}
+                <div className="mt-3 flex flex-col gap-3">
+                  <div>
+                    <p className="text-[11px] uppercase text-muted-foreground">{t("manual.amount")}</p>
+                    <div className="mt-1 w-fit cursor-text select-all rounded-lg border border-border/40 bg-background/60 px-3 py-1.5 font-mono text-sm font-semibold text-primary">
+                      {formatCurrency(chosenAmount)}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[11px] uppercase text-muted-foreground">{t("manual.phone")}</p>
+                    <div className="mt-1 w-fit cursor-text select-all rounded-lg border border-border/40 bg-background/60 px-3 py-1.5 font-mono text-sm font-medium text-foreground">
+                      {siteData.links.yappy}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[11px] uppercase text-muted-foreground">{t("manual.alias")}</p>
+                    <div className="mt-1 w-fit cursor-text select-all rounded-lg border border-border/40 bg-background/60 px-3 py-1.5 font-mono text-sm font-medium text-foreground">
+                      cabanasmarinas507
+                    </div>
+                  </div>
+                </div>
+                <p className="mt-3 text-xs font-medium text-amber-600 dark:text-amber-500">
+                  {t("manual.reminder")}
+                </p>
+              </div>
+
               {data?.paymentMethod === "CARD" ? (
                 <div className="rounded-3xl border border-border/70 px-5 py-5">
                   <div className="mb-3 flex items-center gap-2">
@@ -644,54 +689,7 @@ export default function PaymentConfirmation() {
                     onStarted={() => setPolling(true)}
                   />
                 </div>
-              ) : (
-                <div className="rounded-3xl border border-border/70 px-5 py-5">
-                  <div className="mb-3 flex items-center gap-2">
-                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-foreground">Yappy</p>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {t("manual.subtitle")}
-                  </p>
-                  <div className="mt-4">
-                    <button
-                      type="button"
-                      onClick={() => void handleManualLinkClick()}
-                      disabled={manualLinkBusy || Boolean(yappyBlockedReason)}
-                      className="flex w-full items-center justify-center rounded-full bg-[#00ADEF] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#0099d6] disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {manualLinkBusy ? t("manual.preparing") : t("manual.openLink")}
-                    </button>
-                  </div>
-                  {yappyBlockedReason ? (
-                    <p className="mt-3 text-xs text-rose-600 dark:text-rose-400">
-                      {yappyBlockedReason}
-                    </p>
-                  ) : null}
-                  <div className="mt-3 flex flex-col gap-3">
-                    <div>
-                      <p className="text-[11px] uppercase text-muted-foreground">{t("manual.amount")}</p>
-                      <div className="mt-1 w-fit cursor-text select-all rounded-lg border border-border/40 bg-background/60 px-3 py-1.5 font-mono text-sm font-semibold text-primary">
-                        {formatCurrency(chosenAmount)}
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-[11px] uppercase text-muted-foreground">{t("manual.phone")}</p>
-                      <div className="mt-1 w-fit cursor-text select-all rounded-lg border border-border/40 bg-background/60 px-3 py-1.5 font-mono text-sm font-medium text-foreground">
-                        {siteData.links.yappy}
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-[11px] uppercase text-muted-foreground">{t("manual.alias")}</p>
-                      <div className="mt-1 w-fit cursor-text select-all rounded-lg border border-border/40 bg-background/60 px-3 py-1.5 font-mono text-sm font-medium text-foreground">
-                        cabanasmarinas507
-                      </div>
-                    </div>
-                  </div>
-                  <p className="mt-3 text-xs font-medium text-amber-600 dark:text-amber-500">
-                    {t("manual.reminder")}
-                  </p>
-                </div>
-              )}
+              ) : null}
 
               {/* WhatsApp (siempre disponible) */}
               <div className="rounded-3xl border border-[#25D366]/30 px-5 py-5">

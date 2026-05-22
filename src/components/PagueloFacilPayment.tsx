@@ -45,6 +45,9 @@ function getCreateOrderErrorMessage(error: string | undefined, t: ReturnType<typ
       return t("providerError");
     case "unauthorized":
       return t("sessionError");
+    case "missing_reservation":
+    case "reservation_not_found":
+      return t("notFoundError");
     case "reservation_not_pending_payment":
     case "invalid_payment_method":
     case "invoice_not_found":

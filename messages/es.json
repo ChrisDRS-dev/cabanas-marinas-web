@@ -702,6 +702,7 @@
       "configError": "El pago con tarjeta no está configurado correctamente. Escríbenos por WhatsApp para ayudarte a completar la reserva.",
       "providerError": "PagueloFácil no pudo generar el enlace en este momento. Intenta nuevamente o contáctanos por WhatsApp.",
       "sessionError": "Tu sesión expiró. Inicia sesión nuevamente para generar el enlace.",
+      "notFoundError": "No pudimos validar esta reserva con tu sesión. Vuelve a Mis reservas o contáctanos por WhatsApp.",
       "reservationError": "Esta reserva no está disponible para generar un enlace de tarjeta.",
       "networkError": "No se pudo conectar con el sistema de pagos. Intenta de nuevo.",
       "afterOpenTitle": "¿Completaste el pago?",

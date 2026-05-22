@@ -53,7 +53,8 @@ export async function POST(req: Request) {
     );
   }
 
-  if (String(reservation.payment_method ?? "").toUpperCase() !== "YAPPY") {
+  const currentPaymentMethod = String(reservation.payment_method ?? "").toUpperCase();
+  if (currentPaymentMethod !== "YAPPY" && currentPaymentMethod !== "CARD") {
     return NextResponse.json({ error: "invalid_payment_method" }, { status: 400 });
   }
 
@@ -93,9 +94,16 @@ export async function POST(req: Request) {
     );
   }
 
+  if (currentPaymentMethod === "CARD") {
+    await admin
+      .from("reservations")
+      .update({ payment_method: "YAPPY" })
+      .eq("id", reservation.id);
+  }
+
   const pendingPayments = (Array.isArray(invoice?.payments) ? invoice.payments : [])
     .sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")))
-    .filter((payment) => payment.provider === "YAPPY" && payment.status === "PENDING");
+    .filter((payment) => payment.status === "PENDING");
 
   if (pendingPayments.length > 0) {
     const pendingIds = pendingPayments.map((payment) => payment.id).filter(Boolean);
@@ -106,7 +114,10 @@ export async function POST(req: Request) {
           status: "CANCELLED",
           meta: {
             invalidated_at: new Date().toISOString(),
-            invalidation_reason: "switched_to_yappy_manual_link",
+            invalidation_reason:
+              currentPaymentMethod === "CARD"
+                ? "paguelofacil_fallback_to_yappy_manual_link"
+                : "switched_to_yappy_manual_link",
           },
         })
         .in("id", pendingIds);
@@ -131,6 +142,7 @@ export async function POST(req: Request) {
         payment_method: "YAPPY",
         flow: "yappy_manual_link",
         source: "client_manual_link",
+        previous_payment_method: currentPaymentMethod,
         opened_at: new Date().toISOString(),
       },
     })
