@@ -22,6 +22,7 @@ function getAppUrl(req: Request) {
 }
 
 function normalizeAmountType(value: unknown): PFAmountType {
+  if (value === "seventy_five") return "seventy_five";
   return value === "full" ? "full" : "deposit";
 }
 
@@ -107,7 +108,13 @@ export async function POST(req: Request) {
     .filter((payment) => payment.status === "SUCCEEDED")
     .reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0);
   const balanceDue = roundCurrency(Math.max(totalAmount - paidAmount, 0));
-  const amount = amountType === "full" ? balanceDue : depositAmount;
+  const seventyFiveAmount = roundCurrency(totalAmount * 0.75);
+  const amount =
+    amountType === "full"
+      ? balanceDue
+      : amountType === "seventy_five"
+        ? Math.min(seventyFiveAmount, balanceDue)
+        : depositAmount;
 
   if (!Number.isFinite(amount) || amount <= 0 || amount > balanceDue + 0.01) {
     return NextResponse.json({ error: "invalid_amount" }, { status: 400 });

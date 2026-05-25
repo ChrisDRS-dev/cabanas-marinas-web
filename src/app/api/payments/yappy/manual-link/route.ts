@@ -4,6 +4,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 
 type ManualLinkPayload = {
   reservationId?: string | null;
+  amountOverride?: number | null;
 };
 
 function roundCurrency(value: number) {
@@ -29,6 +30,10 @@ export async function POST(req: Request) {
   }
 
   const reservationId = String(payload.reservationId ?? "").trim();
+  const amountOverride =
+    typeof payload.amountOverride === "number" && payload.amountOverride > 0
+      ? roundCurrency(payload.amountOverride)
+      : null;
   if (!reservationId) {
     return NextResponse.json({ error: "missing_reservation" }, { status: 400 });
   }
@@ -63,6 +68,8 @@ export async function POST(req: Request) {
     reservation.deposit_amount != null
       ? Number(reservation.deposit_amount)
       : roundCurrency(totalAmount * 0.5);
+  const effectiveAmount =
+    amountOverride != null && amountOverride <= totalAmount ? amountOverride : depositAmount;
 
   const invoice = Array.isArray(reservation.invoices)
     ? reservation.invoices[0] ?? null
@@ -130,7 +137,7 @@ export async function POST(req: Request) {
       invoice_id: invoiceId,
       provider: "YAPPY",
       status: "PENDING",
-      amount: depositAmount,
+      amount: effectiveAmount,
       meta: {
         reservation_id: reservation.id,
         customer_id: reservation.customer_id,
@@ -138,7 +145,7 @@ export async function POST(req: Request) {
         customer_phone: reservation.customer_phone ?? null,
         customer_email: reservation.customer_email ?? null,
         reserved_date: reservation.reserved_date,
-        expected_amount: depositAmount,
+        expected_amount: effectiveAmount,
         payment_method: "YAPPY",
         flow: "yappy_manual_link",
         source: "client_manual_link",

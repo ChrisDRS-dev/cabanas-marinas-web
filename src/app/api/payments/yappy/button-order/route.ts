@@ -139,8 +139,16 @@ export async function POST(req: Request) {
     );
   }
 
-  if (String(reservation.payment_method ?? "").toUpperCase() !== "YAPPY") {
+  const currentPaymentMethod = String(reservation.payment_method ?? "").toUpperCase();
+  if (currentPaymentMethod !== "YAPPY" && currentPaymentMethod !== "CARD") {
     return NextResponse.json({ error: "invalid_payment_method" }, { status: 400 });
+  }
+
+  if (currentPaymentMethod === "CARD") {
+    await admin
+      .from("reservations")
+      .update({ payment_method: "YAPPY" })
+      .eq("id", reservation.id);
   }
 
   const { data: profile } = await supabase
@@ -206,6 +214,24 @@ export async function POST(req: Request) {
   )
     .sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")))
     .find((payment) => payment.provider === "YAPPY" && payment.status === "PENDING");
+
+  const pendingNonYappyIds = (Array.isArray(invoice?.payments) ? invoice.payments : [])
+    .filter((payment) => payment.provider !== "YAPPY" && payment.status === "PENDING")
+    .map((payment) => payment.id)
+    .filter(Boolean);
+
+  if (pendingNonYappyIds.length > 0) {
+    await admin
+      .from("payments")
+      .update({
+        status: "CANCELLED",
+        meta: {
+          invalidated_at: new Date().toISOString(),
+          invalidation_reason: "switched_to_yappy_button",
+        },
+      })
+      .in("id", pendingNonYappyIds);
+  }
 
   const existingMeta = extractPaymentMeta(existingPendingPayment?.meta);
   if (

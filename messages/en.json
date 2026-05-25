@@ -629,7 +629,7 @@
       "total": "Total cost:",
       "paid": "Paid:",
       "balanceDue": "Balance due (50%):",
-      "deposit": "Deposit to pay (50%):"
+      "deposit": "Minimum amount to proceed:"
     },
     "states": {
       "fullyPaidTitle": "Your booking is fully paid",
@@ -642,14 +642,24 @@
     },
     "steps": {
       "amount": "Amount",
+      "method": "Method",
       "pay": "Pay"
     },
     "amountSelector": {
       "question": "How much would you like to pay now?",
       "depositTitle": "Initial deposit (50%)",
       "depositBody": "Confirm your booking with the minimum required amount",
+      "seventyFiveTitle": "Advanced payment (75%)",
+      "seventyFiveBody": "Reduce the remaining balance for the day of your visit",
       "fullTitle": "Full payment (100%)",
       "fullBody": "Pay the entire balance from the start"
+    },
+    "methodSelector": {
+      "question": "Choose how you want to make the payment",
+      "yappyTitle": "Yappy",
+      "yappyBody": "Fast payment from the Yappy app. If the button does not open, use the manual link.",
+      "cardTitle": "Card with PagueloFácil",
+      "cardBody": "We generate a secure link to pay with Visa, Mastercard or CLAVE offsite."
     },
     "paying": "Paying",
     "recommended": "Recommended",
@@ -696,6 +706,7 @@
     "paguelofacil": {
       "body": "Pay {amount} with Visa, Mastercard or CLAVE in PagueloFácil secure checkout.",
       "creating": "Generating link...",
+      "redirecting": "Generating link and redirecting...",
       "createCta": "Generate link for {amount}",
       "openCheckout": "Open secure checkout",
       "createError": "Could not generate the payment link. Please try again.",

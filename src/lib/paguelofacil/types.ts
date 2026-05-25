@@ -1,6 +1,6 @@
 export type PFEnvironment = "sandbox" | "prod";
 
-export type PFAmountType = "deposit" | "full";
+export type PFAmountType = "deposit" | "seventy_five" | "full";
 
 export type PFCreateLinkParams = {
   amount: number;

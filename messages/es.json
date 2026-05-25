@@ -629,7 +629,7 @@
       "total": "Costo total:",
       "paid": "Pagado:",
       "balanceDue": "Saldo pendiente (50%):",
-      "deposit": "Depósito a pagar (50%):"
+      "deposit": "Monto mínimo para efectuar:"
     },
     "states": {
       "fullyPaidTitle": "Tu reserva está completamente pagada",
@@ -642,14 +642,24 @@
     },
     "steps": {
       "amount": "Monto",
+      "method": "Método",
       "pay": "Pagar"
     },
     "amountSelector": {
       "question": "¿Cuánto quieres pagar ahora?",
       "depositTitle": "Depósito inicial (50%)",
       "depositBody": "Confirma tu reserva con el mínimo requerido",
+      "seventyFiveTitle": "Pago avanzado (75%)",
+      "seventyFiveBody": "Reduce el saldo pendiente para el día de tu visita",
       "fullTitle": "Pago completo (100%)",
       "fullBody": "Saldo total saldado desde el inicio"
+    },
+    "methodSelector": {
+      "question": "Elige cómo quieres efectuar el pago",
+      "yappyTitle": "Yappy",
+      "yappyBody": "Pago rápido desde la app de Yappy. Si el botón no abre, puedes usar el link manual.",
+      "cardTitle": "Tarjeta con PagueloFácil",
+      "cardBody": "Generamos un link seguro para pagar con Visa, Mastercard o CLAVE fuera del sitio."
     },
     "paying": "Pagando",
     "recommended": "Recomendado",
@@ -696,6 +706,7 @@
     "paguelofacil": {
       "body": "Paga {amount} con Visa, Mastercard o CLAVE en el checkout seguro de PagueloFácil.",
       "creating": "Generando enlace...",
+      "redirecting": "Generando link y redirigiendo...",
       "createCta": "Generar enlace por {amount}",
       "openCheckout": "Abrir checkout seguro",
       "createError": "No se pudo generar el enlace de pago. Intenta de nuevo.",

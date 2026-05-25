@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import type { AppLocale } from "@/i18n/routing";
 import type { PFAmountType } from "@/lib/paguelofacil/types";
@@ -14,6 +14,8 @@ type Props = {
   disabled?: boolean;
   blockedReason?: string | null;
   onStarted?: () => void;
+  autoStart?: boolean;
+  autoRedirect?: boolean;
 };
 
 function formatCurrency(value: number | string | null | undefined) {
@@ -66,14 +68,17 @@ export default function PagueloFacilPayment({
   disabled,
   blockedReason,
   onStarted,
+  autoStart = false,
+  autoRedirect = false,
 }: Props) {
   const t = useTranslations("payment.paguelofacil");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
   const [opened, setOpened] = useState(false);
+  const autoStartedRef = useRef(false);
 
-  const handleCreateLink = async () => {
+  const handleCreateLink = useCallback(async () => {
     if (disabled || !reservationId) return;
     setBusy(true);
     setError(null);
@@ -94,12 +99,25 @@ export default function PagueloFacilPayment({
       }
 
       setCheckoutUrl(data.url);
+      if (autoRedirect) {
+        onStarted?.();
+        window.location.assign(data.url);
+      }
     } catch {
       setError(t("networkError"));
     } finally {
       setBusy(false);
     }
-  };
+  }, [amountType, autoRedirect, disabled, locale, onStarted, reservationId, t]);
+
+  useEffect(() => {
+    if (!autoStart || autoStartedRef.current || checkoutUrl || busy || disabled || blockedReason) {
+      return;
+    }
+
+    autoStartedRef.current = true;
+    void handleCreateLink();
+  }, [autoStart, blockedReason, busy, checkoutUrl, disabled, handleCreateLink]);
 
   const openCheckout = () => {
     if (!checkoutUrl) return;
@@ -125,7 +143,11 @@ export default function PagueloFacilPayment({
           disabled={busy || disabled || !reservationId}
           className="flex w-full items-center justify-center rounded-full bg-foreground px-6 py-3 text-sm font-semibold text-background transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {busy ? t("creating") : t("createCta", { amount: formatCurrency(amount) })}
+          {busy && autoRedirect
+            ? t("redirecting")
+            : busy
+              ? t("creating")
+              : t("createCta", { amount: formatCurrency(amount) })}
         </button>
       ) : (
         <button
