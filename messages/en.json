@@ -642,7 +642,6 @@
     },
     "steps": {
       "amount": "Amount",
-      "method": "Method",
       "pay": "Pay"
     },
     "amountSelector": {
@@ -653,13 +652,6 @@
       "seventyFiveBody": "Reduce the remaining balance for the day of your visit",
       "fullTitle": "Full payment (100%)",
       "fullBody": "Pay the entire balance from the start"
-    },
-    "methodSelector": {
-      "question": "Choose how you want to make the payment",
-      "yappyTitle": "Yappy",
-      "yappyBody": "Fast payment from the Yappy app. If the button does not open, use the manual link.",
-      "cardTitle": "Card with PagueloFácil",
-      "cardBody": "We generate a secure link to pay with Visa, Mastercard or CLAVE offsite."
     },
     "paying": "Paying",
     "recommended": "Recommended",

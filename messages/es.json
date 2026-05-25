@@ -642,7 +642,6 @@
     },
     "steps": {
       "amount": "Monto",
-      "method": "Método",
       "pay": "Pagar"
     },
     "amountSelector": {
@@ -653,13 +652,6 @@
       "seventyFiveBody": "Reduce el saldo pendiente para el día de tu visita",
       "fullTitle": "Pago completo (100%)",
       "fullBody": "Saldo total saldado desde el inicio"
-    },
-    "methodSelector": {
-      "question": "Elige cómo quieres efectuar el pago",
-      "yappyTitle": "Yappy",
-      "yappyBody": "Pago rápido desde la app de Yappy. Si el botón no abre, puedes usar el link manual.",
-      "cardTitle": "Tarjeta con PagueloFácil",
-      "cardBody": "Generamos un link seguro para pagar con Visa, Mastercard o CLAVE fuera del sitio."
     },
     "paying": "Pagando",
     "recommended": "Recomendado",

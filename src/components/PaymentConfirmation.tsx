@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useLocale, useMessages, useTranslations } from "next-intl";
 import { getDateLocale } from "@/i18n/format";
@@ -10,7 +10,6 @@ import { getCatalogMessages, getLocalizedPackage } from "@/lib/localized-catalog
 import { getSessionSafe } from "@/lib/supabase/client";
 import { siteData } from "@/lib/siteData";
 import PagueloFacilPayment from "@/components/PagueloFacilPayment";
-import YappyPaymentButton from "@/components/YappyPaymentButton";
 
 type ConfirmationData = {
   id: string | null;
@@ -163,28 +162,25 @@ function buildWhatsAppLink(
   return `${base}?text=${encodeURIComponent(message)}`;
 }
 
-const YAPPY_STATIC_LINK =
-  "https://link.yappy.com.pa/stc/GXqG1kCpTLfAbMHmc7E9nxSk16Vdr9BZvaim7nGhYrA%3D";
-
 export default function PaymentConfirmation() {
   const locale = useLocale() as AppLocale;
   const messages = useMessages();
   const t = useTranslations("payment");
-  const catalog = getCatalogMessages(
-    (messages as { booking?: { catalog?: unknown } }).booking?.catalog,
+  const catalog = useMemo(
+    () =>
+      getCatalogMessages(
+        (messages as { booking?: { catalog?: unknown } }).booking?.catalog,
+      ),
+    [messages],
   );
   const searchParams = useSearchParams();
   const [data, setData] = useState<ConfirmationData | null>(null);
-  type PayStep = "amount" | "method" | "pay";
-  type SelectedPaymentMethod = "YAPPY" | "CARD";
+  type PayStep = "amount" | "pay";
   const [payStep, setPayStep] = useState<PayStep>("amount");
   const [selectedAmountType, setSelectedAmountType] = useState<
     "deposit" | "seventy_five" | "full" | null
   >(null);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] =
-    useState<SelectedPaymentMethod | null>(null);
   const [paymentNotice, setPaymentNotice] = useState<string | null>(null);
-  const [manualLinkBusy, setManualLinkBusy] = useState(false);
   const [polling, setPolling] = useState(false);
   const requestedReservationId = searchParams.get("rid");
   const formatStatus = (status: string | null | undefined) => {
@@ -308,10 +304,18 @@ export default function PaymentConfirmation() {
         return null;
       }
       return { status: nextStatus, invoiceStatus: nextInvoiceStatus };
-  }, [requestedReservationId]);
+  }, [catalog, requestedReservationId]);
 
   useEffect(() => {
-    void loadReservation();
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) {
+        void loadReservation();
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [loadReservation]);
 
   useEffect(() => {
@@ -340,49 +344,6 @@ export default function PaymentConfirmation() {
     };
   }, [loadReservation, polling]);
 
-  async function handleManualLinkClick() {
-    if (!data?.id) {
-      setPaymentNotice(t("manual.noReservation"));
-      return;
-    }
-
-    setManualLinkBusy(true);
-    setPaymentNotice(null);
-
-    try {
-      const response = await fetch("/api/payments/yappy/manual-link", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          reservationId: data.id,
-          ...(chosenAmount != null ? { amountOverride: chosenAmount } : {}),
-        }),
-      });
-      const result = (await response.json().catch(() => null)) as
-        | { detail?: string; error?: string }
-        | null;
-
-      if (!response.ok) {
-        throw new Error(
-          result?.detail ?? t("manual.prepareError")
-        );
-      }
-
-      window.open(YAPPY_STATIC_LINK, "_blank", "noopener,noreferrer");
-      setPaymentNotice(t("manual.opened"));
-      setPolling(true);
-    } catch (error) {
-      setPaymentNotice(
-        error instanceof Error
-          ? error.message
-          : t("manual.openError")
-      );
-    } finally {
-      setManualLinkBusy(false);
-    }
-  }
-
-
   const depositAmount =
     data?.depositAmount != null
       ? data.depositAmount
@@ -400,21 +361,12 @@ export default function PaymentConfirmation() {
       : depositAmount != null ? Number(depositAmount) : null;
   const reservationId = data?.id ?? "";
 
-  const yappyBlockedReason =
-    !data?.id
-      ? t("yappyBlocked.noReservation")
-      : data.status !== "PENDING_PAYMENT"
-        ? t("yappyBlocked.notPending")
-        : null;
-
   const cardBlockedReason =
     !data?.id
       ? t("cardBlocked.noReservation")
-      : data.paymentMethod !== "CARD"
-        ? t("cardBlocked.notCard")
-        : data.status !== "PENDING_PAYMENT"
-          ? t("cardBlocked.notPending")
-          : null;
+      : data.status !== "PENDING_PAYMENT"
+        ? t("cardBlocked.notPending")
+        : null;
 
   const isFullyPaid =
     data?.status === "CONFIRMED" && data?.invoiceStatus === "PAID";
@@ -565,14 +517,12 @@ export default function PaymentConfirmation() {
           </p>
         </div>
       ) : (
-        /* ── 3-step payment flow ── */
+        /* ── 2-step payment flow ── */
         <div className="flex flex-col gap-5">
 
           {/* Mini step breadcrumb */}
           <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
             <span className={payStep === "amount" ? "font-semibold text-foreground" : ""}>{t("steps.amount")}</span>
-            <span>›</span>
-            <span className={payStep === "method" ? "font-semibold text-foreground" : ""}>{t("steps.method")}</span>
             <span>›</span>
             <span className={payStep === "pay" ? "font-semibold text-foreground" : ""}>{t("steps.pay")}</span>
           </div>
@@ -587,8 +537,7 @@ export default function PaymentConfirmation() {
                 type="button"
                 onClick={() => {
                   setSelectedAmountType("deposit");
-                  setSelectedPaymentMethod(null);
-                  setPayStep("method");
+                  setPayStep("pay");
                 }}
                 className="w-full rounded-3xl border border-border/70 bg-background px-6 py-5 text-left transition hover:border-primary/50 hover:shadow-sm active:scale-[0.99]"
               >
@@ -605,8 +554,7 @@ export default function PaymentConfirmation() {
                   type="button"
                   onClick={() => {
                     setSelectedAmountType("seventy_five");
-                    setSelectedPaymentMethod(null);
-                    setPayStep("method");
+                    setPayStep("pay");
                   }}
                   className="w-full rounded-3xl border border-border/70 bg-background px-6 py-5 text-left transition hover:border-primary/50 hover:shadow-sm active:scale-[0.99]"
                 >
@@ -624,8 +572,7 @@ export default function PaymentConfirmation() {
                   type="button"
                   onClick={() => {
                     setSelectedAmountType("full");
-                    setSelectedPaymentMethod(null);
-                    setPayStep("method");
+                    setPayStep("pay");
                   }}
                   className="w-full rounded-3xl border border-border/70 bg-background px-6 py-5 text-left transition hover:border-primary/50 hover:shadow-sm active:scale-[0.99]"
                 >
@@ -641,9 +588,10 @@ export default function PaymentConfirmation() {
             </div>
           )}
 
-          {/* STEP 2 — Payment method selector */}
-          {payStep === "method" && (
+          {/* STEP 2 — PagueloFacil checkout */}
+          {payStep === "pay" && (
             <div className="flex flex-col gap-4">
+              {/* Header with back button + chosen amount */}
               <div className="flex items-center gap-3">
                 <button
                   type="button"
@@ -658,141 +606,27 @@ export default function PaymentConfirmation() {
                 </p>
               </div>
 
-              <p className="text-sm text-muted-foreground">{t("methodSelector.question")}</p>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedPaymentMethod("YAPPY");
-                  setPayStep("pay");
-                }}
-                className="w-full rounded-3xl border border-[#00ADEF]/40 bg-background px-6 py-5 text-left transition hover:border-[#00ADEF] hover:shadow-sm active:scale-[0.99]"
-              >
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#00ADEF]">Yappy</p>
-                <p className="mt-2 text-base font-semibold text-foreground">{t("methodSelector.yappyTitle")}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{t("methodSelector.yappyBody")}</p>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedPaymentMethod("CARD");
-                  setPayStep("pay");
-                }}
-                className="w-full rounded-3xl border border-border/70 bg-background px-6 py-5 text-left transition hover:border-primary/50 hover:shadow-sm active:scale-[0.99]"
-              >
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">PagueloFácil</p>
-                <p className="mt-2 text-base font-semibold text-foreground">{t("methodSelector.cardTitle")}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{t("methodSelector.cardBody")}</p>
-              </button>
-            </div>
-          )}
-
-          {/* STEP 3 — Pay */}
-          {payStep === "pay" && (
-            <div className="flex flex-col gap-4">
-              {/* Header with back button + chosen amount */}
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setPayStep("method")}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border/70 text-sm text-foreground transition hover:border-primary/50"
-                >
-                  ←
-                </button>
-                <p className="text-sm text-muted-foreground">
-                  {t("paying")}{" "}
-                  <span className="font-semibold text-foreground">{formatCurrency(chosenAmount)}</span>
-                </p>
-              </div>
-
-              {selectedPaymentMethod === "YAPPY" ? (
-              <div className="rounded-3xl border border-[#00ADEF]/40 px-5 py-5">
+              <div className="rounded-3xl border border-border/70 px-5 py-5">
                 <div className="mb-3 flex items-center gap-2">
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#00ADEF]">Yappy</p>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {t("officialButtonBody")}
-                </p>
-                <div className="mt-4">
-                  <YappyPaymentButton
-                    reservationId={data?.id}
-                    amountOverride={chosenAmount}
-                    disabled={Boolean(yappyBlockedReason)}
-                    blockedReason={yappyBlockedReason}
-                    onPaymentStarted={() => setPolling(true)}
-                  />
-                </div>
-                <div className="mt-5 border-t border-border/60 pt-4">
-                  <p className="text-xs font-semibold text-foreground">{t("manual.title")}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {t("manual.subtitle")}
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-foreground">
+                    PagueloFacil
                   </p>
-                <div className="mt-4">
-                  <button
-                    type="button"
-                    onClick={() => void handleManualLinkClick()}
-                    disabled={manualLinkBusy || Boolean(yappyBlockedReason)}
-                    className="flex w-full items-center justify-center rounded-full bg-[#00ADEF] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#0099d6] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {manualLinkBusy ? t("manual.preparing") : t("manual.openLink")}
-                  </button>
+                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
+                    {t("recommended")}
+                  </span>
                 </div>
-                {yappyBlockedReason ? (
-                  <p className="mt-3 text-xs text-rose-600 dark:text-rose-400">
-                    {yappyBlockedReason}
-                  </p>
-                ) : null}
-                <div className="mt-3 flex flex-col gap-3">
-                  <div>
-                    <p className="text-[11px] uppercase text-muted-foreground">{t("manual.amount")}</p>
-                    <div className="mt-1 w-fit cursor-text select-all rounded-lg border border-border/40 bg-background/60 px-3 py-1.5 font-mono text-sm font-semibold text-primary">
-                      {formatCurrency(chosenAmount)}
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-[11px] uppercase text-muted-foreground">{t("manual.phone")}</p>
-                    <div className="mt-1 w-fit cursor-text select-all rounded-lg border border-border/40 bg-background/60 px-3 py-1.5 font-mono text-sm font-medium text-foreground">
-                      {siteData.links.yappy}
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-[11px] uppercase text-muted-foreground">{t("manual.alias")}</p>
-                    <div className="mt-1 w-fit cursor-text select-all rounded-lg border border-border/40 bg-background/60 px-3 py-1.5 font-mono text-sm font-medium text-foreground">
-                      cabanasmarinas507
-                    </div>
-                  </div>
-                </div>
-                <p className="mt-3 text-xs font-medium text-amber-600 dark:text-amber-500">
-                  {t("manual.reminder")}
-                </p>
-                </div>
+                <PagueloFacilPayment
+                  reservationId={reservationId}
+                  amount={chosenAmount}
+                  amountType={selectedAmountType ?? "deposit"}
+                  locale={locale}
+                  disabled={Boolean(cardBlockedReason)}
+                  blockedReason={cardBlockedReason}
+                  onStarted={() => setPolling(true)}
+                  autoStart
+                  autoRedirect
+                />
               </div>
-              ) : null}
-
-              {selectedPaymentMethod === "CARD" ? (
-                <div className="rounded-3xl border border-border/70 px-5 py-5">
-                  <div className="mb-3 flex items-center gap-2">
-                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-foreground">
-                      PagueloFacil
-                    </p>
-                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
-                      {t("recommended")}
-                    </span>
-                  </div>
-                  <PagueloFacilPayment
-                    reservationId={reservationId}
-                    amount={chosenAmount}
-                    amountType={selectedAmountType ?? "deposit"}
-                    locale={locale}
-                    disabled={Boolean(cardBlockedReason)}
-                    blockedReason={cardBlockedReason}
-                    onStarted={() => setPolling(true)}
-                    autoStart
-                    autoRedirect
-                  />
-                </div>
-              ) : null}
 
               {/* WhatsApp (siempre disponible) */}
               <div className="rounded-3xl border border-[#25D366]/30 px-5 py-5">

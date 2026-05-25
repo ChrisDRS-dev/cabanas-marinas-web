@@ -92,7 +92,10 @@ export async function POST(req: Request) {
   }
 
   if (String(context.reservation.payment_method ?? "").toUpperCase() !== "CARD") {
-    return NextResponse.json({ error: "invalid_payment_method" }, { status: 400 });
+    await admin
+      .from("reservations")
+      .update({ payment_method: "CARD" })
+      .eq("id", context.reservation.id);
   }
 
   if (!context.invoice?.id) {
