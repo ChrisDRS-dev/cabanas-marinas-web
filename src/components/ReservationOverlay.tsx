@@ -304,16 +304,14 @@ export default function ReservationOverlay() {
                             <p className="text-sm font-semibold">
                               {formatCurrency(reservation.total_amount)}
                             </p>
-                            {reservation.status === "CONFIRMED" &&
-                              reservation.balance_due != null &&
+                            {reservation.balance_due != null &&
                               Number(reservation.balance_due) > 0 && (
                                 <p className="mt-0.5 text-xs font-medium text-amber-600 dark:text-amber-500">
                                   Saldo: {formatCurrency(reservation.balance_due)}
                                 </p>
                               )}
-                            {reservation.status === "CONFIRMED" &&
-                              (reservation.balance_due == null ||
-                                Number(reservation.balance_due) === 0) && (
+                            {(reservation.balance_due == null ||
+                              Number(reservation.balance_due) === 0) && (
                                 <p className="mt-0.5 text-xs font-medium text-emerald-600">
                                   Pagada ✓
                                 </p>
@@ -494,17 +492,16 @@ export default function ReservationOverlay() {
                   {formatCurrency(selectedReservation.total_amount)}
                 </span>
               </div>
-              {selectedReservation.status === "CONFIRMED" &&
-                selectedReservation.paid_amount != null && (
+              {selectedReservation.paid_amount != null &&
+                Number(selectedReservation.paid_amount) > 0 && (
                   <div className="flex items-center justify-between py-3">
-                    <span className="text-muted-foreground">Depósito pagado</span>
+                    <span className="text-muted-foreground">Pagado</span>
                     <span className="font-medium text-emerald-600">
                       {formatCurrency(selectedReservation.paid_amount)}
                     </span>
                   </div>
                 )}
-              {selectedReservation.status === "CONFIRMED" &&
-                selectedReservation.balance_due != null &&
+              {selectedReservation.balance_due != null &&
                 Number(selectedReservation.balance_due) > 0 && (
                   <div className="flex items-center justify-between py-3">
                     <span className="font-semibold text-amber-600 dark:text-amber-500">
