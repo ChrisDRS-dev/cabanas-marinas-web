@@ -112,12 +112,18 @@ export async function POST(req: Request) {
     .reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0);
   const balanceDue = roundCurrency(Math.max(totalAmount - paidAmount, 0));
   const seventyFiveAmount = roundCurrency(totalAmount * 0.75);
+  const targetPaidAmount =
+    amountType === "full"
+      ? totalAmount
+      : amountType === "seventy_five"
+        ? seventyFiveAmount
+        : depositAmount;
   const amount =
     amountType === "full"
       ? balanceDue
       : amountType === "seventy_five"
-        ? Math.min(seventyFiveAmount, balanceDue)
-        : depositAmount;
+        ? Math.min(roundCurrency(Math.max(seventyFiveAmount - paidAmount, 0)), balanceDue)
+        : Math.min(roundCurrency(Math.max(targetPaidAmount - paidAmount, 0)), balanceDue);
 
   if (!Number.isFinite(amount) || amount <= 0 || amount > balanceDue + 0.01) {
     return NextResponse.json({ error: "invalid_amount" }, { status: 400 });

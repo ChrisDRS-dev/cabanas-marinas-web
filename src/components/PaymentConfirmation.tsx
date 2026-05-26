@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useLocale, useMessages, useTranslations } from "next-intl";
 import { getDateLocale } from "@/i18n/format";
@@ -28,6 +28,12 @@ type ConfirmationData = {
   invoiceStatus?: string | null;
   paidAmount?: number | null;
   balanceDue?: number | null;
+  pagueloFacilLinkUrl?: string | null;
+  pagueloFacilLinkStatus?: string | null;
+  pagueloFacilLinkExpiresAt?: string | null;
+  pagueloFacilAmount?: number | string | null;
+  pagueloFacilAmountType?: "deposit" | "seventy_five" | "full" | null;
+  pagueloFacilProviderRef?: string | null;
 };
 
 type ReservationApiItem = {
@@ -44,6 +50,21 @@ type ReservationApiItem = {
   invoice_status?: string | null;
   paid_amount?: number | null;
   balance_due?: number | null;
+  paguelofacil_payment?: {
+    amount?: number | string | null;
+    amount_type?: string | null;
+    status?: string | null;
+    link_url?: string | null;
+    link_status?: string | null;
+    link_expires_at?: string | null;
+    provider_ref?: string | null;
+  } | null;
+  paguelofacil_amount?: number | string | null;
+  paguelofacil_amount_type?: string | null;
+  paguelofacil_link_url?: string | null;
+  paguelofacil_link_status?: string | null;
+  paguelofacil_link_expires_at?: string | null;
+  paguelofacil_provider_ref?: string | null;
   package_id?: string | null;
   adults_count?: number | null;
   kids_count?: number | null;
@@ -75,6 +96,20 @@ function formatCurrency(value: number | string | null | undefined) {
   if (Number.isNaN(parsed)) return "$0";
   const rounded = Number.isInteger(parsed) ? parsed.toFixed(0) : parsed.toFixed(2);
   return `$${rounded}`;
+}
+
+function normalizeAmountType(value: string | null | undefined) {
+  if (value === "seventy_five" || value === "full" || value === "deposit") {
+    return value;
+  }
+  return null;
+}
+
+function isActivePaymentLink(url?: string | null, status?: string | null, expiresAt?: string | null) {
+  if (!url || status !== "ACTIVE") return false;
+  if (!expiresAt) return true;
+  const expires = new Date(expiresAt).getTime();
+  return Number.isFinite(expires) && expires > Date.now();
 }
 
 function formatTimeOfDay(value: string | null, locale: AppLocale) {
@@ -182,6 +217,7 @@ export default function PaymentConfirmation() {
   >(null);
   const [paymentNotice, setPaymentNotice] = useState<string | null>(null);
   const [polling, setPolling] = useState(false);
+  const restoredActiveLinkRef = useRef(false);
   const requestedReservationId = searchParams.get("rid");
   const formatStatus = (status: string | null | undefined) => {
     switch (status) {
@@ -254,6 +290,22 @@ export default function PaymentConfirmation() {
             null;
 
           if (activeReservation) {
+            const pfPayment = activeReservation.paguelofacil_payment ?? null;
+            const pfLinkUrl = pfPayment?.link_url ?? activeReservation.paguelofacil_link_url ?? null;
+            const pfLinkStatus =
+              pfPayment?.link_status ?? activeReservation.paguelofacil_link_status ?? null;
+            const pfLinkExpiresAt =
+              pfPayment?.link_expires_at ??
+              activeReservation.paguelofacil_link_expires_at ??
+              null;
+            const pfAmountType = normalizeAmountType(
+              pfPayment?.amount_type ?? activeReservation.paguelofacil_amount_type ?? null,
+            );
+            const hasActiveLink = isActivePaymentLink(
+              pfLinkUrl,
+              pfLinkStatus,
+              pfLinkExpiresAt,
+            );
             const packageLabel = Array.isArray(activeReservation.packages)
               ? activeReservation.packages[0]?.label ?? null
               : activeReservation.packages?.label ?? null;
@@ -293,7 +345,20 @@ export default function PaymentConfirmation() {
               invoiceStatus: activeReservation.invoice_status ?? null,
               paidAmount: typeof activeReservation.paid_amount === "number" ? activeReservation.paid_amount : null,
               balanceDue: typeof activeReservation.balance_due === "number" ? activeReservation.balance_due : null,
+              pagueloFacilLinkUrl: pfLinkUrl,
+              pagueloFacilLinkStatus: pfLinkStatus,
+              pagueloFacilLinkExpiresAt: pfLinkExpiresAt,
+              pagueloFacilAmount: pfPayment?.amount ?? activeReservation.paguelofacil_amount ?? null,
+              pagueloFacilAmountType: pfAmountType,
+              pagueloFacilProviderRef:
+                pfPayment?.provider_ref ?? activeReservation.paguelofacil_provider_ref ?? null,
             });
+            if (hasActiveLink && !restoredActiveLinkRef.current) {
+              restoredActiveLinkRef.current = true;
+              setSelectedAmountType(pfAmountType ?? "deposit");
+              setPayStep("pay");
+              setPolling(true);
+            }
             nextStatus = activeReservation.status ?? null;
             nextInvoiceStatus = activeReservation.invoice_status ?? null;
           } else if (userId && typeof window !== "undefined") {
@@ -352,14 +417,30 @@ export default function PaymentConfirmation() {
         : null;
   const seventyFiveAmount =
     data?.totalAmount != null ? Math.round(Number(data.totalAmount) * 0.75 * 100) / 100 : null;
+  const paidAmount = Number(data?.paidAmount ?? 0);
+  const balanceDue =
+    data?.balanceDue != null
+      ? Number(data.balanceDue)
+      : data?.totalAmount != null
+        ? Math.max(Number(data.totalAmount) - paidAmount, 0)
+        : null;
 
   const chosenAmount: number | null =
     selectedAmountType === "full"
-      ? (data?.totalAmount != null ? Number(data.totalAmount) : null)
+      ? balanceDue
       : selectedAmountType === "seventy_five"
-        ? seventyFiveAmount
-      : depositAmount != null ? Number(depositAmount) : null;
+        ? seventyFiveAmount != null
+          ? Math.min(Math.max(seventyFiveAmount - paidAmount, 0), balanceDue ?? seventyFiveAmount)
+          : null
+      : depositAmount != null
+        ? Math.min(Math.max(Number(depositAmount) - paidAmount, 0), balanceDue ?? Number(depositAmount))
+        : null;
   const reservationId = data?.id ?? "";
+  const hasActivePagueloFacilLink = isActivePaymentLink(
+    data?.pagueloFacilLinkUrl,
+    data?.pagueloFacilLinkStatus,
+    data?.pagueloFacilLinkExpiresAt,
+  );
 
   const cardBlockedReason =
     !data?.id
@@ -617,12 +698,15 @@ export default function PaymentConfirmation() {
                 </div>
                 <PagueloFacilPayment
                   reservationId={reservationId}
-                  amount={chosenAmount}
+                  amount={hasActivePagueloFacilLink ? data?.pagueloFacilAmount ?? chosenAmount : chosenAmount}
                   amountType={selectedAmountType ?? "deposit"}
                   locale={locale}
                   disabled={Boolean(cardBlockedReason)}
                   blockedReason={cardBlockedReason}
                   onStarted={() => setPolling(true)}
+                  initialCheckoutUrl={hasActivePagueloFacilLink ? data?.pagueloFacilLinkUrl ?? null : null}
+                  initialExpiresAt={hasActivePagueloFacilLink ? data?.pagueloFacilLinkExpiresAt ?? null : null}
+                  initialProviderRef={data?.pagueloFacilProviderRef ?? null}
                   autoStart
                   autoRedirect
                 />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useLocale } from "next-intl";
@@ -29,6 +29,28 @@ type ReservationItem = {
   paid_amount?: number | null;
   balance_due?: number | null;
   payment_method?: string | null;
+  payment_status?: string | null;
+  payment_provider_ref?: string | null;
+  paguelofacil_payment?: {
+    payment_id?: string | null;
+    amount?: number | string | null;
+    amount_type?: string | null;
+    expected_amount?: number | string | null;
+    status?: string | null;
+    link_url?: string | null;
+    link_code?: string | null;
+    link_status?: string | null;
+    link_expires_at?: string | null;
+    provider_ref?: string | null;
+    provider_verified_at?: string | null;
+  } | null;
+  paguelofacil_link_url?: string | null;
+  paguelofacil_link_code?: string | null;
+  paguelofacil_link_status?: string | null;
+  paguelofacil_link_expires_at?: string | null;
+  paguelofacil_amount?: number | string | null;
+  paguelofacil_provider_ref?: string | null;
+  paguelofacil_provider_verified_at?: string | null;
 };
 
 const ACTIVE_STATUS = new Set(["PENDING_PAYMENT", "CONFIRMED"]);
@@ -82,6 +104,44 @@ function formatCurrency(value: number | string | null) {
   return `$${rounded}`;
 }
 
+function formatDateTime(value: string | null | undefined) {
+  if (!value) return "Sin expiración";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Sin expiración";
+  return date.toLocaleString("es-PA", {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: "America/Panama",
+  });
+}
+
+function getPagueloFacilLink(reservation: ReservationItem | null) {
+  const payment = reservation?.paguelofacil_payment ?? null;
+  const url = payment?.link_url ?? reservation?.paguelofacil_link_url ?? null;
+  const expiresAt =
+    payment?.link_expires_at ?? reservation?.paguelofacil_link_expires_at ?? null;
+  const linkStatus = payment?.link_status ?? reservation?.paguelofacil_link_status ?? null;
+  const expiresTime = expiresAt ? new Date(expiresAt).getTime() : 0;
+  const isActive =
+    Boolean(url) &&
+    linkStatus === "ACTIVE" &&
+    (!expiresTime || expiresTime > Date.now());
+
+  return {
+    url,
+    isActive,
+    linkStatus,
+    expiresAt,
+    code: payment?.link_code ?? reservation?.paguelofacil_link_code ?? null,
+    amount: payment?.expected_amount ?? payment?.amount ?? reservation?.paguelofacil_amount ?? null,
+    providerRef: payment?.provider_ref ?? reservation?.paguelofacil_provider_ref ?? null,
+    verifiedAt:
+      payment?.provider_verified_at ??
+      reservation?.paguelofacil_provider_verified_at ??
+      null,
+  };
+}
+
 function toTime(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
@@ -114,6 +174,7 @@ export default function ReservationOverlay() {
   const [selectedReservation, setSelectedReservation] = useState<ReservationItem | null>(null);
   const [showWizard, setShowWizard] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [copiedPaymentLink, setCopiedPaymentLink] = useState(false);
 
   const stepParam = searchParams.get("step");
   const forceWizard = stepParam === "payment";
@@ -170,45 +231,56 @@ export default function ReservationOverlay() {
     };
   }, [show, session, openAuth, pathname, router, searchParams]);
 
+  const loadReservations = useCallback(async () => {
+    if (!session) return;
+    setLoadingReservation(true);
+    try {
+      const response = await fetch("/api/my-reservations", { cache: "no-store" });
+      const result = await response.json();
+      if (response.ok && Array.isArray(result?.reservations)) {
+        const todayStr = getPanamaTodayStr();
+        const all = result.reservations as ReservationItem[];
+        const upcoming = all.filter(
+          (item) => ACTIVE_STATUS.has(item.status) && item.reserved_date >= todayStr
+        );
+        const past = all.filter(
+          (item) => !ACTIVE_STATUS.has(item.status) || item.reserved_date < todayStr
+        );
+        setActiveReservations(upcoming);
+        setPastReservations(past);
+        setSelectedReservation((current) =>
+          current ? all.find((item) => item.id === current.id) ?? current : current
+        );
+        if (upcoming.length === 0 && session.user?.id && typeof window !== "undefined") {
+          window.localStorage.removeItem(`cm_last_reservation:${session.user.id}`);
+        }
+      } else {
+        setActiveReservations([]);
+        setPastReservations([]);
+      }
+    } catch {
+      setActiveReservations([]);
+    } finally {
+      setLoadingReservation(false);
+    }
+  }, [session]);
+
   useEffect(() => {
     if (!show || !session) return;
-    let active = true;
-    setLoadingReservation(true);
-    const load = async () => {
-      try {
-        const response = await fetch("/api/my-reservations");
-        const result = await response.json();
-        if (!active) return;
-        if (response.ok && Array.isArray(result?.reservations)) {
-          const todayStr = getPanamaTodayStr();
-          const all = result.reservations as ReservationItem[];
-          const upcoming = all.filter(
-            (item) => ACTIVE_STATUS.has(item.status) && item.reserved_date >= todayStr
-          );
-          const past = all.filter(
-            (item) => !ACTIVE_STATUS.has(item.status) || item.reserved_date < todayStr
-          );
-          setActiveReservations(upcoming);
-          setPastReservations(past);
-          if (upcoming.length === 0 && session?.user?.id && typeof window !== "undefined") {
-            window.localStorage.removeItem(`cm_last_reservation:${session.user.id}`);
-          }
-        } else {
-          setActiveReservations([]);
-          setPastReservations([]);
-        }
-      } catch {
-        if (!active) return;
-        setActiveReservations([]);
-      } finally {
-        if (active) setLoadingReservation(false);
-      }
-    };
-    void load();
-    return () => {
-      active = false;
-    };
-  }, [show, session]);
+    void loadReservations();
+  }, [loadReservations, show, session]);
+
+  useEffect(() => {
+    if (!show || !session) return;
+    const interval = window.setInterval(() => {
+      void loadReservations();
+    }, 15000);
+    return () => window.clearInterval(interval);
+  }, [loadReservations, show, session]);
+
+  useEffect(() => {
+    setCopiedPaymentLink(false);
+  }, [selectedReservation?.id]);
 
   const handleClose = () => {
     const params = new URLSearchParams(searchParams.toString());
@@ -223,6 +295,7 @@ export default function ReservationOverlay() {
 
   const hasActive = activeReservations.length > 0;
   const renderWizard = showWizard || forceWizard || !hasActive;
+  const selectedPagueloFacilLink = getPagueloFacilLink(selectedReservation);
 
   return (
     <div
@@ -304,6 +377,12 @@ export default function ReservationOverlay() {
                             <p className="text-sm font-semibold">
                               {formatCurrency(reservation.total_amount)}
                             </p>
+                            {reservation.paid_amount != null &&
+                              Number(reservation.paid_amount) > 0 && (
+                                <p className="mt-0.5 text-xs font-medium text-emerald-600">
+                                  Pagado: {formatCurrency(reservation.paid_amount)}
+                                </p>
+                              )}
                             {reservation.balance_due != null &&
                               Number(reservation.balance_due) > 0 && (
                                 <p className="mt-0.5 text-xs font-medium text-amber-600 dark:text-amber-500">
@@ -492,6 +571,14 @@ export default function ReservationOverlay() {
                   {formatCurrency(selectedReservation.total_amount)}
                 </span>
               </div>
+              <div className="flex items-center justify-between py-3">
+                <span className="text-muted-foreground">Estado de pago</span>
+                <span className="font-medium">
+                  {selectedReservation.invoice_status ??
+                    selectedReservation.payment_status ??
+                    "Pendiente"}
+                </span>
+              </div>
               {selectedReservation.paid_amount != null &&
                 Number(selectedReservation.paid_amount) > 0 && (
                   <div className="flex items-center justify-between py-3">
@@ -512,6 +599,79 @@ export default function ReservationOverlay() {
                     </span>
                   </div>
                 )}
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-border/60 bg-background px-4 py-4 text-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-semibold text-foreground">Seguimiento del pago</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Pagado {formatCurrency(selectedReservation.paid_amount ?? 0)} · Pendiente{" "}
+                    {formatCurrency(selectedReservation.balance_due ?? 0)}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void loadReservations()}
+                  className="shrink-0 rounded-full border border-border/70 px-3 py-1.5 text-xs font-semibold"
+                >
+                  Actualizar
+                </button>
+              </div>
+
+              {selectedPagueloFacilLink.url ? (
+                <div className="mt-3 rounded-xl border border-border/50 px-3 py-3 text-xs">
+                  <p className="font-semibold text-foreground">
+                    Link PagueloFácil{" "}
+                    {selectedPagueloFacilLink.isActive ? "activo" : "registrado"}
+                  </p>
+                  <p className="mt-1 text-muted-foreground">
+                    Monto: {formatCurrency(selectedPagueloFacilLink.amount)}
+                  </p>
+                  <p className="text-muted-foreground">
+                    Expira: {formatDateTime(selectedPagueloFacilLink.expiresAt)}
+                  </p>
+                  {selectedPagueloFacilLink.providerRef ? (
+                    <p className="text-muted-foreground">
+                      Operación: {selectedPagueloFacilLink.providerRef}
+                    </p>
+                  ) : null}
+                  <div className="mt-3 flex gap-2">
+                    <a
+                      href={selectedPagueloFacilLink.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`flex-1 rounded-full px-4 py-2 text-center text-xs font-semibold ${
+                        selectedPagueloFacilLink.isActive
+                          ? "bg-primary text-primary-foreground"
+                          : "border border-border/70 text-muted-foreground"
+                      }`}
+                    >
+                      {selectedPagueloFacilLink.isActive ? "Abrir link" : "Link expirado"}
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!selectedPagueloFacilLink.url) return;
+                        void navigator.clipboard.writeText(selectedPagueloFacilLink.url);
+                        setCopiedPaymentLink(true);
+                      }}
+                      className="flex-1 rounded-full border border-border/70 px-4 py-2 text-xs font-semibold"
+                    >
+                      {copiedPaymentLink ? "Copiado" : "Copiar link"}
+                    </button>
+                  </div>
+                </div>
+              ) : selectedReservation.balance_due != null &&
+                Number(selectedReservation.balance_due) > 0 ? (
+                <p className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+                  Aún no hay un link activo. Puedes generarlo desde “Realizar pago”.
+                </p>
+              ) : (
+                <p className="mt-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-700">
+                  No hay saldo pendiente para esta reserva.
+                </p>
+              )}
             </div>
 
             {/* Action buttons */}
@@ -537,7 +697,7 @@ export default function ReservationOverlay() {
                 <a
                   href={localizeHref(
                     locale,
-                    `/reservar/pago?method=${selectedReservation.payment_method ?? "YAPPY"}&rid=${selectedReservation.id}`,
+                    `/reservar/pago?method=CARD&rid=${selectedReservation.id}`,
                   )}
                   className="w-full rounded-full bg-primary px-4 py-2.5 text-center text-sm font-semibold text-primary-foreground"
                 >

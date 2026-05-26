@@ -710,6 +710,11 @@
       "networkError": "No se pudo conectar con el sistema de pagos. Intenta de nuevo.",
       "afterOpenTitle": "¿Completaste el pago?",
       "afterOpenBody": "Si la reserva no se actualiza automáticamente, envíanos el comprobante por WhatsApp para conciliarlo.",
+      "activeLinkTitle": "Tienes un link de pago activo",
+      "activeLinkBody": "Usa este mismo link para completar el pago. Estamos verificando el estado de tu reserva en esta página.",
+      "expiresAt": "Expira: {value}",
+      "operationCode": "Operación: {value}",
+      "popupBlocked": "El navegador bloqueó la pestaña de pago. Usa el botón “Abrir checkout seguro” para continuar.",
       "whatsapp": "Enviar comprobante",
       "securityNote": "Pago procesado por PagueloFácil. No almacenamos datos de tarjeta."
     },

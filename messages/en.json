@@ -710,6 +710,11 @@
       "networkError": "Could not connect to the payment system. Please try again.",
       "afterOpenTitle": "Did you complete the payment?",
       "afterOpenBody": "If the booking does not update automatically, send us the receipt on WhatsApp so we can reconcile it.",
+      "activeLinkTitle": "You have an active payment link",
+      "activeLinkBody": "Use this same link to complete the payment. We are checking your booking status on this page.",
+      "expiresAt": "Expires: {value}",
+      "operationCode": "Operation: {value}",
+      "popupBlocked": "Your browser blocked the payment tab. Use the “Open secure checkout” button to continue.",
       "whatsapp": "Send receipt",
       "securityNote": "Payment processed by PagueloFácil. We do not store card details."
     },

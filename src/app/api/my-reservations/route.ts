@@ -37,7 +37,7 @@ export async function GET() {
   const base = supabase
     .from("reservations")
     .select(
-      "id,reserved_date,start_at,end_at,status,total_amount,deposit_amount,payment_method,package_id,adults_count,kids_count,packages(label),invoices(status,payments(id,provider,status,provider_ref,amount,paid_at,created_at))"
+      "id,reserved_date,start_at,end_at,status,total_amount,deposit_amount,payment_method,package_id,adults_count,kids_count,packages(label),invoices(status,payments(id,provider,status,provider_ref,amount,paid_at,created_at,gateway,amount_type,expected_amount,link_url,link_code,link_status,link_expires_at,provider_verified_at))"
     );
   const { data, error } = await base
     .eq("customer_id", user.id)
@@ -61,6 +61,23 @@ export async function GET() {
         )
       : [];
     const payment = payments[0] ?? null;
+    const paguelofacilPayments = payments.filter(
+      (p) =>
+        p.provider === "CARD" &&
+        (p.gateway === "paguelofacil" || Boolean(p.link_url))
+    );
+    const paguelofacilPayment =
+      paguelofacilPayments.find((p) => {
+        const expiresAt = p.link_expires_at ? new Date(p.link_expires_at).getTime() : 0;
+        return (
+          p.status === "PENDING" &&
+          p.link_status === "ACTIVE" &&
+          Boolean(p.link_url) &&
+          (!expiresAt || expiresAt > Date.now())
+        );
+      }) ??
+      paguelofacilPayments[0] ??
+      null;
 
     const paidAmount = payments
       .filter((p) => p.status === "SUCCEEDED")
@@ -76,6 +93,30 @@ export async function GET() {
       payment_amount: payment?.amount ?? null,
       paid_amount: paidAmount,
       balance_due: balanceDue,
+      paguelofacil_payment: paguelofacilPayment
+        ? {
+            payment_id: paguelofacilPayment.id ?? null,
+            amount: paguelofacilPayment.amount ?? null,
+            amount_type: paguelofacilPayment.amount_type ?? null,
+            expected_amount: paguelofacilPayment.expected_amount ?? null,
+            status: paguelofacilPayment.status ?? null,
+            link_url: paguelofacilPayment.link_url ?? null,
+            link_code: paguelofacilPayment.link_code ?? null,
+            link_status: paguelofacilPayment.link_status ?? null,
+            link_expires_at: paguelofacilPayment.link_expires_at ?? null,
+            provider_ref: paguelofacilPayment.provider_ref ?? null,
+            provider_verified_at: paguelofacilPayment.provider_verified_at ?? null,
+          }
+        : null,
+      paguelofacil_payment_id: paguelofacilPayment?.id ?? null,
+      paguelofacil_amount: paguelofacilPayment?.amount ?? null,
+      paguelofacil_amount_type: paguelofacilPayment?.amount_type ?? null,
+      paguelofacil_link_url: paguelofacilPayment?.link_url ?? null,
+      paguelofacil_link_code: paguelofacilPayment?.link_code ?? null,
+      paguelofacil_link_status: paguelofacilPayment?.link_status ?? null,
+      paguelofacil_link_expires_at: paguelofacilPayment?.link_expires_at ?? null,
+      paguelofacil_provider_ref: paguelofacilPayment?.provider_ref ?? null,
+      paguelofacil_provider_verified_at: paguelofacilPayment?.provider_verified_at ?? null,
     };
   });
 

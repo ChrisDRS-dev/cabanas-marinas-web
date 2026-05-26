@@ -14,6 +14,9 @@ type Props = {
   disabled?: boolean;
   blockedReason?: string | null;
   onStarted?: () => void;
+  initialCheckoutUrl?: string | null;
+  initialExpiresAt?: string | null;
+  initialProviderRef?: string | null;
   autoStart?: boolean;
   autoRedirect?: boolean;
 };
@@ -37,6 +40,17 @@ function buildWhatsAppLink(reservationId: string | null, locale: AppLocale) {
         ];
 
   return `${siteData.links.whatsapp}?text=${encodeURIComponent(lines.filter(Boolean).join("\n"))}`;
+}
+
+function formatExpires(value: string | null | undefined, locale: AppLocale) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleString(locale === "es" ? "es-PA" : "en-US", {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: "America/Panama",
+  });
 }
 
 function getCreateOrderErrorMessage(error: string | undefined, t: ReturnType<typeof useTranslations>) {
@@ -68,15 +82,28 @@ export default function PagueloFacilPayment({
   disabled,
   blockedReason,
   onStarted,
+  initialCheckoutUrl = null,
+  initialExpiresAt = null,
+  initialProviderRef = null,
   autoStart = false,
   autoRedirect = false,
 }: Props) {
   const t = useTranslations("payment.paguelofacil");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
+  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(initialCheckoutUrl);
+  const [expiresAt, setExpiresAt] = useState<string | null>(initialExpiresAt);
+  const [providerRef, setProviderRef] = useState<string | null>(initialProviderRef);
   const [opened, setOpened] = useState(false);
   const autoStartedRef = useRef(false);
+
+  useEffect(() => {
+    if (!initialCheckoutUrl) return;
+    setCheckoutUrl(initialCheckoutUrl);
+    setExpiresAt(initialExpiresAt);
+    setProviderRef(initialProviderRef);
+    setOpened(false);
+  }, [initialCheckoutUrl, initialExpiresAt, initialProviderRef]);
 
   const handleCreateLink = useCallback(async () => {
     if (disabled || !reservationId) return;
@@ -90,7 +117,7 @@ export default function PagueloFacilPayment({
         body: JSON.stringify({ reservationId, amountType, locale }),
       });
       const data = (await res.json().catch(() => null)) as
-        | { url?: string; error?: string; paymentId?: string }
+        | { url?: string; error?: string; paymentId?: string; expiresAt?: string; reused?: boolean }
         | null;
 
       if (!res.ok || !data?.url) {
@@ -99,9 +126,15 @@ export default function PagueloFacilPayment({
       }
 
       setCheckoutUrl(data.url);
+      setExpiresAt(data.expiresAt ?? null);
+      setProviderRef(null);
       if (autoRedirect) {
         onStarted?.();
-        window.location.assign(data.url);
+        const popup = window.open(data.url, "_blank", "noopener,noreferrer");
+        setOpened(true);
+        if (!popup) {
+          setError(t("popupBlocked"));
+        }
       }
     } catch {
       setError(t("networkError"));
@@ -161,12 +194,22 @@ export default function PagueloFacilPayment({
 
       {error ? <p className="text-xs text-rose-600 dark:text-rose-400">{error}</p> : null}
 
-      {opened ? (
+      {checkoutUrl ? (
         <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-muted-foreground">
           <p className="font-semibold text-amber-700 dark:text-amber-400">
-            {t("afterOpenTitle")}
+            {opened ? t("afterOpenTitle") : t("activeLinkTitle")}
           </p>
-          <p className="mt-1">{t("afterOpenBody")}</p>
+          <p className="mt-1">{opened ? t("afterOpenBody") : t("activeLinkBody")}</p>
+          {expiresAt ? (
+            <p className="mt-1">
+              {t("expiresAt", { value: formatExpires(expiresAt, locale) ?? expiresAt })}
+            </p>
+          ) : null}
+          {providerRef ? (
+            <p className="mt-1">
+              {t("operationCode", { value: providerRef })}
+            </p>
+          ) : null}
           <a
             href={buildWhatsAppLink(reservationId, locale)}
             target="_blank"
