@@ -1,27 +1,27 @@
 export const siteData = {
   gallery: [
     {
-      image: "/photos/cabin-from-beach.jpg",
+      image: "/photos/new-cabin-beach.jpg",
       accent: "linear-gradient(135deg, #0085a1 0%, #7fd7e4 100%)",
     },
     {
-      image: "/photos/night-up-view.webp",
+      image: "/photos/new-cabin-day.jpg",
       accent: "linear-gradient(135deg, #ffb347 0%, #ffe6b5 100%)",
     },
     {
-      image: "/photos/cabin-from-beach-sunrise.jpg",
+      image: "/photos/new-sunrise.jpg",
       accent: "linear-gradient(135deg, #ff7a45 0%, #ffc08a 100%)",
     },
   ],
   activities: [
     {
-      image: "/photos/Kayak-view.webp",
+      image: "/photos/new-activities.jpg",
     },
     {
-      image: "/photos/cabin-from-beach-sunrise.jpg",
+      image: "/photos/new-sunrise-alternate.jpg",
     },
     {
-      image: "/photos/cabin-interior1.webp",
+      image: "/photos/new-interior-group.jpg",
     },
   ],
   location: {

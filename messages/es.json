@@ -128,30 +128,30 @@
         "name": "4 horas",
         "price": "$12",
         "unit": "por persona",
-        "duration": "4 horas por reserva",
-        "rule": "Incluye lancha ida y vuelta + asador completo.",
-        "schedule": "Elige tu bloque entre 8:00 a.m. y 10:00 p.m.",
-        "note": "Perfecto para una escapada rápida frente al mar."
+        "duration": "Escapada rápida para recargar energías",
+        "rule": "Desconéctate sin alterar tu agenda",
+        "schedule": "El pretexto perfecto para un asado costero",
+        "note": "Los equipos (kayak, paddleboard, etc.) se seleccionan y pagan por separado."
       },
       {
         "id": "8H",
         "name": "8 horas",
         "price": "$24",
         "unit": "por persona",
-        "duration": "8 horas por reserva",
-        "rule": "Terraza equipada con cojines y juegos de mesa.",
-        "schedule": "Día completo con horario amplio",
-        "note": "Para disfrutar con calma y tiempo de sobra."
+        "duration": "Un día completo de sol, brisa y mar",
+        "rule": "Disfruta sin prisa ni preocupaciones",
+        "schedule": "El tiempo ideal para compartir en grupo",
+        "note": "Elige las actividades y equipamientos adicionales que prefieras al reservar."
       },
       {
         "id": "AMANECER",
         "name": "Ver el amanecer",
         "price": "$12",
         "unit": "por persona",
-        "duration": "6:00 a.m. - 9:00 a.m.",
-        "rule": "Traslado en lancha + espacio privado al amanecer.",
-        "schedule": "Horario fijo para ver la salida del sol",
-        "note": "Experiencia tranquila, ideal para fotos y relax."
+        "duration": "Contempla el primer rayo de sol sobre el océano",
+        "rule": "El escenario perfecto para fotos espectaculares",
+        "schedule": "Paz y silencio absoluto frente al mar",
+        "note": "Vive la salida del sol en paz. Añade equipamiento extra de forma opcional."
       }
     ],
     "activities": [
@@ -254,7 +254,9 @@
   },
   "social": {
     "activePost": "Post activo: {title}",
-    "viewPost": "Ver {title}"
+    "viewPost": "Ver {title}",
+    "galleryPrev": "Foto anterior",
+    "galleryNext": "Siguiente foto"
   },
   "booking": {
     "page": {

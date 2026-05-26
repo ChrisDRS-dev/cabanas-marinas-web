@@ -73,65 +73,6 @@ function ReviewStars({ rating, large = false }: { rating: number; large?: boolea
   );
 }
 
-function ReviewPhotoMosaic({
-  photos,
-  name,
-  onOpenPhoto,
-  photoAlt,
-}: {
-  photos: ApprovedReviewPhoto[];
-  name: string;
-  onOpenPhoto: (photoId: string) => void;
-  photoAlt: (index: number, name: string) => string;
-}) {
-  const primaryPhoto = photos[0];
-  const secondaryPhotos = photos.slice(1, 3);
-
-  if (!primaryPhoto) return null;
-
-  return (
-    <div className="space-y-3">
-      <button
-        type="button"
-        onClick={() => onOpenPhoto(primaryPhoto.id)}
-        className="group block w-full overflow-hidden rounded-[1.85rem] border border-white/10 bg-[#0b1418]"
-      >
-        <img
-          src={primaryPhoto.public_url}
-          alt={photoAlt(1, name)}
-          className="h-60 w-full object-cover transition duration-300 group-hover:scale-[1.02] sm:h-72"
-          loading="lazy"
-        />
-      </button>
-
-      {secondaryPhotos.length ? (
-        <div
-          className={cn(
-            "grid gap-3",
-            secondaryPhotos.length === 1 ? "grid-cols-1" : "grid-cols-2",
-          )}
-        >
-          {secondaryPhotos.map((photo, index) => (
-            <button
-              key={photo.id}
-              type="button"
-              onClick={() => onOpenPhoto(photo.id)}
-              className="group block overflow-hidden rounded-[1.5rem] border border-white/10 bg-[#0b1418]"
-            >
-              <img
-                src={photo.public_url}
-                alt={photoAlt(index + 2, name)}
-                className="h-32 w-full object-cover transition duration-300 group-hover:scale-[1.02] sm:h-36"
-                loading="lazy"
-              />
-            </button>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
 function ReviewCard({ review, onOpenPhoto }: ReviewCardProps) {
   const t = useTranslations("reviews");
   const locale = useLocale() as AppLocale;
@@ -144,50 +85,56 @@ function ReviewCard({ review, onOpenPhoto }: ReviewCardProps) {
   const photos = review.photos ?? [];
 
   return (
-    <article className="rounded-[2rem] border border-white/8 bg-[#0d1519]/95 p-5 shadow-[0_24px_72px_rgba(0,0,0,0.22)] sm:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0 flex-1">
-          <p className="text-[0.98rem] font-semibold uppercase tracking-[0.12em] text-white/96 sm:text-base">
-            {name}
-          </p>
-          {instagramHandle ? (
-            <p className="mt-1 lowercase bg-[linear-gradient(90deg,#f4d34c_0%,#ff5d95_100%)] bg-clip-text text-[0.98rem] font-semibold text-transparent sm:text-[1rem]">
-              {instagramHandle}
+    <article className="rounded-[2rem] border border-white/10 bg-white/[0.03] backdrop-blur-md p-6 shadow-[0_24px_72px_rgba(0,0,0,0.15)] transition-all duration-500 hover:border-primary/30 hover:bg-white/[0.05] hover:-translate-y-1 hover:scale-[1.005] hover:shadow-[0_20px_50px_rgba(52,182,200,0.08)] flex flex-col justify-between h-full sm:p-6">
+      <div className="flex flex-col justify-between h-full flex-1">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <p className="text-[0.98rem] font-semibold uppercase tracking-[0.12em] text-white/96 sm:text-base">
+              {name}
             </p>
+            {instagramHandle ? (
+              <p className="mt-1 lowercase bg-[linear-gradient(90deg,#f4d34c_0%,#ff5d95_100%)] bg-clip-text text-[0.98rem] font-semibold text-transparent sm:text-[1rem]">
+                {instagramHandle}
+              </p>
+            ) : null}
+            <p className="mt-2 text-sm text-white/42 sm:text-[0.95rem]">
+              {meta}
+            </p>
+          </div>
+          <span className="inline-flex items-center gap-2 rounded-full border border-[#59f0e8]/14 bg-[#59f0e8]/8 px-3.5 py-2 text-xs font-semibold text-[#59f0e8] h-fit">
+            <Check className="h-3.5 w-3.5" />
+            {t("verifiedGuest")}
+          </span>
+        </div>
+
+        <div className="mt-5 flex flex-col flex-1 gap-4 justify-between">
+          <div className="space-y-4">
+            <ReviewStars rating={review.rating} large />
+            <blockquote className="font-display text-[1rem] italic leading-[1.65] text-white/86 sm:text-[1.1rem]">
+              “{review.comment}”
+            </blockquote>
+          </div>
+
+          {photos.length ? (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {photos.map((photo, index) => (
+                <button
+                  key={photo.id}
+                  type="button"
+                  onClick={() => onOpenPhoto(photo.id)}
+                  className="group relative h-14 w-14 sm:h-16 sm:w-16 overflow-hidden rounded-xl border border-white/10 bg-black/20 transition-all duration-300 hover:scale-105 hover:border-primary/50 cursor-pointer shadow-md"
+                >
+                  <img
+                    src={photo.public_url}
+                    alt={t("photoAlt", { index: index + 1, name })}
+                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
+                    loading="lazy"
+                  />
+                </button>
+              ))}
+            </div>
           ) : null}
-          <p className="mt-2 text-sm text-white/42 sm:text-[0.95rem]">
-            {meta}
-          </p>
         </div>
-        <span className="inline-flex items-center gap-2 rounded-full border border-[#59f0e8]/14 bg-[#59f0e8]/8 px-3.5 py-2 text-xs font-semibold text-[#59f0e8]">
-          <Check className="h-3.5 w-3.5" />
-          {t("verifiedGuest")}
-        </span>
-      </div>
-
-      <div
-        className={cn(
-          "mt-5 grid gap-5",
-          photos.length ? "lg:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)]" : "",
-        )}
-      >
-        <div className="space-y-6">
-          <ReviewStars rating={review.rating} large />
-          <blockquote className="font-display text-[1rem] italic leading-[1.72] tracking-[-0.015em] text-white/86 sm:text-[1.18rem]">
-            “{review.comment}”
-          </blockquote>
-        </div>
-
-        {photos.length ? (
-          <ReviewPhotoMosaic
-            photos={photos}
-            name={name}
-            onOpenPhoto={onOpenPhoto}
-            photoAlt={(index, reviewName) =>
-              t("photoAlt", { index, name: reviewName })
-            }
-          />
-        ) : null}
       </div>
     </article>
   );
@@ -425,39 +372,17 @@ export default function ReviewsSection({
             </p>
           </div>
 
-          <div className="mt-5 space-y-4">
+          <div className="mt-6 grid gap-6 md:grid-cols-2 items-stretch">
             {sortedReviews.length ? (
-              <>
-                {visibleReviews.map((review) => (
-                  <ReviewCard
-                    key={review.id}
-                    review={review}
-                    onOpenPhoto={openPhoto}
-                  />
-                ))}
-
-                {sortedReviews.length > 2 ? (
-                  <div className="pt-1 text-center">
-                    <button
-                      type="button"
-                      onClick={() => setShowAllReviews((current) => !current)}
-                      className="inline-flex items-center gap-2 text-base font-semibold text-primary transition hover:opacity-80"
-                    >
-                      {showAllReviews
-                        ? t("showLessReviews")
-                        : t("viewAllReviews")}
-                      <ChevronRight
-                        className={cn(
-                          "h-4 w-4 transition-transform",
-                          showAllReviews ? "rotate-90" : "",
-                        )}
-                      />
-                    </button>
-                  </div>
-                ) : null}
-              </>
+              visibleReviews.map((review) => (
+                <ReviewCard
+                  key={review.id}
+                  review={review}
+                  onOpenPhoto={openPhoto}
+                />
+              ))
             ) : (
-              <div className="mx-auto max-w-2xl rounded-[1.8rem] border border-white/8 bg-[#10171c]/90 px-6 py-8 text-center shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
+              <div className="mx-auto max-w-2xl rounded-[1.8rem] border border-white/8 bg-[#10171c]/90 px-6 py-8 text-center shadow-[0_20px_60px_rgba(0,0,0,0.22)] md:col-span-2">
                 <p className="font-display text-[2rem] italic text-white/86">
                   {content.emptyTitle}
                 </p>
@@ -467,6 +392,26 @@ export default function ReviewsSection({
               </div>
             )}
           </div>
+
+          {sortedReviews.length > 2 ? (
+            <div className="mt-6 text-center">
+              <button
+                type="button"
+                onClick={() => setShowAllReviews((current) => !current)}
+                className="inline-flex items-center gap-2 text-base font-semibold text-primary transition hover:opacity-80"
+              >
+                {showAllReviews
+                  ? t("showLessReviews")
+                  : t("viewAllReviews")}
+                <ChevronRight
+                  className={cn(
+                    "h-4 w-4 transition-transform",
+                    showAllReviews ? "rotate-90" : "",
+                  )}
+                />
+              </button>
+            </div>
+          ) : null}
 
           <div className="pt-5 text-center">
             <Link

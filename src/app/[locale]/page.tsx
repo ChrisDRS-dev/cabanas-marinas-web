@@ -224,20 +224,36 @@ export default async function HomePage({
       </Suspense>
 
       <footer className="border-t border-border/70 bg-secondary/50">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-8 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-          <div>
+        <div className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-8 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
             <p className="font-semibold text-foreground">{common("brand")}</p>
+            <p className="text-xs">
+              © {new Date().getFullYear()} Cabañas Marinas. Todos los derechos reservados.
+            </p>
           </div>
-          <div className="flex gap-4">
-            <a href="#planes" className="hover:text-foreground">
-              {home.sections.footerPlans}
-            </a>
-            <a href="#ubicacion" className="hover:text-foreground">
-              {home.sections.footerLocation}
-            </a>
-            <a href="#faq" className="hover:text-foreground">
-              {home.sections.footerFaq}
-            </a>
+          <div className="flex flex-col gap-3 sm:items-end">
+            <div className="flex gap-4">
+              <a href="#planes" className="hover:text-foreground">
+                {home.sections.footerPlans}
+              </a>
+              <a href="#ubicacion" className="hover:text-foreground">
+                {home.sections.footerLocation}
+              </a>
+              <a href="#faq" className="hover:text-foreground">
+                {home.sections.footerFaq}
+              </a>
+            </div>
+            <p className="text-xs text-muted-foreground/80">
+              Este espacio digital fue construido por{" "}
+              <a
+                href="https://chrisdrs.dev"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-foreground hover:text-primary hover:underline transition-colors"
+              >
+                ChrisDRS.dev
+              </a>
+            </p>
           </div>
         </div>
       </footer>

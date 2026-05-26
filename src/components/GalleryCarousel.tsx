@@ -67,11 +67,12 @@ export default function GalleryCarousel({ items }: GalleryCarouselProps) {
   return (
     <div
       ref={containerRef}
-      className="gallery-scroll flex snap-x snap-mandatory gap-4 overflow-x-auto overflow-y-visible pb-4 scroll-smooth lg:px-6 lg:py-3"
+      className="gallery-scroll flex snap-x snap-mandatory gap-6 overflow-x-auto overflow-y-visible pb-6 scroll-smooth lg:px-0 lg:overflow-x-visible lg:grid lg:grid-cols-3 lg:gap-8 lg:max-w-6xl lg:mx-auto"
     >
       {items.map((item) => (
-        <button
-          type="button"
+        <div
+          role="button"
+          tabIndex={0}
           key={item.title}
           onClick={() => {
             if (!session) {
@@ -80,55 +81,127 @@ export default function GalleryCarousel({ items }: GalleryCarouselProps) {
             }
             void reserve(item.href);
           }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              if (!session) {
+                openAuth();
+                return;
+              }
+              void reserve(item.href);
+            }
+          }}
           data-gallery-card
-          className="group relative min-w-[78%] snap-center overflow-hidden rounded-[2rem] border border-border bg-card text-left shadow-xl shadow-black/5 aspect-[4/5] transition hover:-translate-y-1 hover:scale-[1.02] hover:shadow-2xl sm:aspect-square sm:min-w-[48%] lg:min-w-[10%]"
+          className="group relative flex flex-col justify-between overflow-hidden rounded-[2.2rem] border border-white/10 bg-black/10 text-left transition-all duration-500 hover:-translate-y-2 hover:scale-[1.01] hover:border-white/25 hover:shadow-[0_20px_50px_rgba(0,0,0,0.3)] min-w-[85%] snap-center sm:min-w-[46%] lg:min-w-0 lg:w-full min-h-[520px] h-auto aspect-auto lg:aspect-[4/5.6] lg:min-h-[530px] cursor-pointer"
         >
           {item.image ? (
             <Image
               src={item.image}
               alt={item.title}
               fill
-              sizes="(max-width: 640px) 78vw, (max-width: 1024px) 48vw, 28vw"
-              className="absolute inset-0 object-cover brightness-50 transition duration-500 group-hover:scale-105"
+              sizes="(max-width: 640px) 85vw, (max-width: 1024px) 50vw, 33vw"
+              className="absolute inset-0 object-cover brightness-[0.35] contrast-[1.05] transition duration-700 ease-out group-hover:scale-105 group-hover:brightness-[0.4]"
               priority={item === items[0]}
             />
           ) : null}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/30" />
           <div
-            className="absolute inset-0 opacity-30"
+            className="absolute inset-0 opacity-20 transition-opacity duration-300 group-hover:opacity-30"
             style={{ background: item.accent }}
           />
-          <div className="relative flex h-full flex-col justify-between p-6 text-white lg:p-7">
-            <div className="space-y-3">
-              <h2 className="font-display text-2xl font-semibold">
-                {item.title}
-              </h2>
-              <ul className="list-disc space-y-1 pl-4 text-xs font-medium text-white/90">
-                <li>{item.duration}</li>
-                <li>{item.schedule}</li>
-                <li>{item.rule}</li>
-              </ul>
-              <div className="flex flex-wrap items-baseline gap-2 text-white/95">
-                <span className="text-3xl font-semibold">{item.price}</span>
-                <span className="text-xs font-semibold uppercase tracking-[0.2em]">
+          <div className="relative flex flex-1 flex-col justify-between p-6 sm:p-8 text-white z-10 w-full">
+            {/* Top Section */}
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-white/50">
+                  Paquete
+                </p>
+                <h3 className="font-display text-2xl font-bold tracking-tight text-white sm:text-3xl">
+                  {item.title}
+                </h3>
+              </div>
+
+              {/* Pricing Section (Aligned consistently below the Title) */}
+              <div className="flex items-baseline gap-1.5 text-white">
+                <span className="font-display text-4xl font-extrabold tracking-tight">
+                  {item.price}
+                </span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-white/70">
                   {item.unit}
                 </span>
               </div>
+
+              {/* Bullet Points */}
+              <ul className="space-y-3.5 text-xs font-medium text-white/90">
+                <li className="flex items-start gap-2.5">
+                  <svg
+                    className="h-4 w-4 shrink-0 text-white/70 mt-0.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M5 13l4 4L19 7"
+                    />
+                  </svg>
+                  <span className="leading-tight">{item.duration}</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <svg
+                    className="h-4 w-4 shrink-0 text-white/70 mt-0.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M5 13l4 4L19 7"
+                    />
+                  </svg>
+                  <span className="leading-tight">{item.schedule}</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <svg
+                    className="h-4 w-4 shrink-0 text-white/70 mt-0.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M5 13l4 4L19 7"
+                    />
+                  </svg>
+                  <span className="leading-tight">{item.rule}</span>
+                </li>
+              </ul>
             </div>
-            <div className="space-y-3">
-              <p className="text-xs font-medium text-white/75">{item.note}</p>
+
+            {/* Bottom Section */}
+            <div className="space-y-4 pt-6 border-t border-white/10">
+              <p className="text-[11px] font-medium text-white/75 leading-relaxed">
+                {item.note}
+              </p>
               {/* Liquid-glass "Seleccionar" button */}
               <span
-                className="block w-full rounded-[1.1rem] border border-white/25 bg-white/[0.11] px-5 py-2.5 text-center text-sm font-semibold text-white backdrop-blur-md transition-colors duration-200 group-hover:bg-white/[0.2] group-hover:border-white/35"
+                className="block w-full rounded-2xl border border-white/20 bg-white/10 px-5 py-3.5 text-center text-sm font-bold text-white backdrop-blur-md transition-all duration-300 group-hover:bg-white/20 group-hover:border-white/30 group-hover:scale-[1.01]"
                 style={{
                   boxShadow:
-                    "inset 0 1px 0 rgba(255,255,255,0.18), 0 2px 8px rgba(0,0,0,0.15)",
+                    "inset 0 1px 0 rgba(255,255,255,0.2), 0 4px 12px rgba(0,0,0,0.15)",
                 }}
               >
                 Seleccionar
               </span>
             </div>
           </div>
-        </button>
+        </div>
       ))}
     </div>
   );

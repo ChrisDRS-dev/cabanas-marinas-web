@@ -58,28 +58,28 @@ function buildFallbackItems(): InstagramGalleryItem[] {
   return [
     {
       id: "fallback-1",
-      image: "/photos/cabin-from-beach.jpg",
+      image: "/photos/new-cabin-beach.jpg",
       text: "Vista frente al mar desde nuestras cabañas flotantes.",
       link: INSTAGRAM_PROFILE_URL,
       isVideo: false,
     },
     {
       id: "fallback-2",
-      image: "/photos/cabin-from-beach-sunrise.jpg",
+      image: "/photos/new-sunrise.jpg",
       text: "Amaneceres tranquilos para empezar el día frente al agua.",
       link: INSTAGRAM_PROFILE_URL,
       isVideo: false,
     },
     {
       id: "fallback-3",
-      image: "/photos/Kayak-view.webp",
+      image: "/photos/new-activities.jpg",
       text: "Experiencias acuáticas y planes para compartir en grupo.",
       link: INSTAGRAM_PROFILE_URL,
       isVideo: false,
     },
     {
       id: "fallback-4",
-      image: "/photos/night-up-view.webp",
+      image: "/photos/new-night-view.jpg",
       text: "Tardes y noches con ambiente relajado junto al mar.",
       link: INSTAGRAM_PROFILE_URL,
       isVideo: false,

@@ -1,13 +1,14 @@
 "use client";
 
-import type { Icon } from "leaflet";
+import type { Icon, DivIcon } from "leaflet";
 import { MapContainer, Marker, Popup, TileLayer, ZoomControl } from "react-leaflet";
 
 type LeafletLocationMapInnerProps = {
   latitude: number;
   longitude: number;
   title: string;
-  markerIcon: Icon;
+  markerIcon: Icon | DivIcon;
+  theme?: "light" | "dark";
 };
 
 export default function LeafletLocationMapInner({
@@ -15,6 +16,7 @@ export default function LeafletLocationMapInner({
   longitude,
   title,
   markerIcon,
+  theme = "dark",
 }: LeafletLocationMapInnerProps) {
   return (
     <MapContainer
@@ -26,8 +28,12 @@ export default function LeafletLocationMapInner({
     >
       <ZoomControl position="bottomright" />
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+        url={
+          theme === "dark"
+            ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+        }
       />
       <Marker position={[latitude, longitude]} icon={markerIcon}>
         <Popup>{title}</Popup>

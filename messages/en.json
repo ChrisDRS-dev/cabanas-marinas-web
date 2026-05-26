@@ -128,30 +128,30 @@
         "name": "4 hours",
         "price": "$12",
         "unit": "per person",
-        "duration": "4 hours per reservation",
-        "rule": "Includes round-trip boat transfer + full grill.",
-        "schedule": "Choose your slot between 8:00 a.m. and 10:00 p.m.",
-        "note": "Perfect for a quick seaside escape."
+        "duration": "Quick escape to recharge your energy",
+        "rule": "Disconnect without disrupting your schedule",
+        "schedule": "The perfect excuse for a seaside BBQ",
+        "note": "Recreational equipment (kayak, paddleboard, etc.) is selected and paid separately."
       },
       {
         "id": "8H",
         "name": "8 hours",
         "price": "$24",
         "unit": "per person",
-        "duration": "8 hours per reservation",
-        "rule": "Equipped terrace with cushions and board games.",
-        "schedule": "Full day with a wide schedule",
-        "note": "To enjoy everything with time to spare."
+        "duration": "A full day of sun, breeze, and sea",
+        "rule": "Enjoy with absolutely no rush or worries",
+        "schedule": "The perfect timing for group sharing",
+        "note": "Choose the additional activities and equipment you prefer when booking."
       },
       {
         "id": "AMANECER",
         "name": "Sunrise experience",
         "price": "$12",
         "unit": "per person",
-        "duration": "6:00 a.m. - 9:00 a.m.",
-        "rule": "Boat transfer + private sunrise space.",
-        "schedule": "Fixed time to watch the sunrise",
-        "note": "A quiet experience, ideal for photos and relaxation."
+        "duration": "Watch the first rays of light hit the ocean",
+        "rule": "The perfect setting for spectacular photos",
+        "schedule": "Absolute peace and silence by the water",
+        "note": "Experience the sunrise in peace. Add extra equipment optionally."
       }
     ],
     "activities": [
@@ -254,7 +254,9 @@
   },
   "social": {
     "activePost": "Active post: {title}",
-    "viewPost": "View {title}"
+    "viewPost": "View {title}",
+    "galleryPrev": "Previous photo",
+    "galleryNext": "Next photo"
   },
   "booking": {
     "page": {

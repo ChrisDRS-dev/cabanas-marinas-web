@@ -28,13 +28,13 @@ export default function HomeActivitiesSection({
               key={activity.title}
               className="min-w-[250px] flex-1 rounded-3xl border border-border/80 bg-card shadow-lg shadow-black/5 transition hover:-translate-y-1 hover:shadow-xl"
             >
-              <div className="h-40 overflow-hidden rounded-t-3xl">
+              <div className="relative aspect-[16/10] w-full overflow-hidden rounded-t-3xl">
                 <Image
                   src={activity.image}
                   alt={activity.title}
-                  width={640}
-                  height={320}
-                  className="h-full w-full object-cover transition duration-500 hover:scale-105"
+                  fill
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                  className="object-cover transition duration-500 hover:scale-105"
                 />
               </div>
               <div className="space-y-2 p-5">
