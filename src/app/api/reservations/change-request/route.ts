@@ -1,4 +1,9 @@
 import { NextResponse } from "next/server";
+import {
+  getReservationEmailData,
+  notifyChangeRequestCreated,
+} from "@/lib/notifications/events";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { supabaseServer } from "@/lib/supabase/server";
 
 type ChangeRequestPayload = {
@@ -112,6 +117,16 @@ export async function POST(request: Request) {
   if (insertError) {
     return NextResponse.json({ error: insertError.message }, { status: 400 });
   }
+
+  const admin = supabaseAdmin();
+  await notifyChangeRequestCreated({
+    supabase: admin,
+    actorId: user.id,
+    data: await getReservationEmailData(admin, reservationId, {
+      customerEmail: reservation.customer_email ?? user.email ?? null,
+      note: payload.note?.trim() || null,
+    }),
+  });
 
   return NextResponse.json({ ok: true });
 }

@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import {
+  getReservationEmailData,
+  notifyPaymentConfirmed,
+  notifyPaymentFailed,
+} from "@/lib/notifications/events";
+import {
   applyVerifiedPagueloFacilPayment,
   getCodOper,
   getPayloadAmount,
@@ -63,6 +68,25 @@ export async function POST(req: Request) {
       rawPayload: payload,
     });
 
+    if (result.ok) {
+      await notifyPaymentConfirmed({
+        supabase: admin,
+        paymentId: paymentId || null,
+        data: await getReservationEmailData(admin, reservationId, {
+          amount: result.verifiedAmount,
+        }),
+      });
+    } else {
+      await notifyPaymentFailed({
+        supabase: admin,
+        paymentId: paymentId || null,
+        data: await getReservationEmailData(admin, reservationId, {
+          amount,
+          reason: result.reason,
+        }),
+      });
+    }
+
     return NextResponse.json({
       received: true,
       verified: result.ok,
@@ -81,6 +105,15 @@ export async function POST(req: Request) {
         source: "webhook",
         error: error instanceof Error ? error.message : "Unknown verify error",
       },
+    });
+
+    await notifyPaymentFailed({
+      supabase: admin,
+      paymentId: paymentId || null,
+      data: await getReservationEmailData(admin, reservationId, {
+        amount,
+        reason: "verify_failed",
+      }),
     });
 
     return NextResponse.json({ received: true, verified: false, reason: "verify_failed" });

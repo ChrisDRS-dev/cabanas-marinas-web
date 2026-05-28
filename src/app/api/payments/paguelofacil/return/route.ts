@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { isAppLocale, type AppLocale } from "@/i18n/routing";
 import {
+  getReservationEmailData,
+  notifyPaymentConfirmed,
+  notifyPaymentFailed,
+} from "@/lib/notifications/events";
+import {
   applyVerifiedPagueloFacilPayment,
   getCodOper,
   getPayloadAmount,
@@ -92,10 +97,36 @@ async function handleReturn(req: Request) {
         rawPayload: payload,
       });
       target.searchParams.set("verified", result.ok ? "1" : "0");
-      if (!result.ok) target.searchParams.set("reason", result.reason);
+      if (result.ok) {
+        await notifyPaymentConfirmed({
+          supabase: admin,
+          paymentId: paymentId || null,
+          data: await getReservationEmailData(admin, reservationId, {
+            amount: result.verifiedAmount,
+          }),
+        });
+      } else {
+        target.searchParams.set("reason", result.reason);
+        await notifyPaymentFailed({
+          supabase: admin,
+          paymentId: paymentId || null,
+          data: await getReservationEmailData(admin, reservationId, {
+            amount,
+            reason: result.reason,
+          }),
+        });
+      }
     } catch {
       target.searchParams.set("verified", "0");
       target.searchParams.set("reason", "verify_failed");
+      await notifyPaymentFailed({
+        supabase: admin,
+        paymentId: paymentId || null,
+        data: await getReservationEmailData(admin, reservationId, {
+          amount,
+          reason: "verify_failed",
+        }),
+      });
     }
   } else {
     target.searchParams.set("verified", "0");

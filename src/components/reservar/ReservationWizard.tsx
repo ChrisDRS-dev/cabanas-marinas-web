@@ -231,6 +231,7 @@ export default function ReservationWizard({
   const [confirmationId, setConfirmationId] = useState<string | null>(null);
   const [profileName, setProfileName] = useState<string | null>(null);
   const [profilePhone, setProfilePhone] = useState<string | null>(null);
+  const [emailNotificationsOptIn, setEmailNotificationsOptIn] = useState(false);
   const [showPhonePrompt, setShowPhonePrompt] = useState(false);
   const [confirmationData, setConfirmationData] = useState<{
     id: string | null;
@@ -485,7 +486,7 @@ export default function ReservationWizard({
         setProfileUserId(user.id);
         const { data } = await supabase
           .from("profiles")
-          .select("full_name, phone")
+          .select("full_name, phone, email_notifications_opt_in")
           .eq("user_id", user.id)
           .maybeSingle();
         if (!active) return;
@@ -499,10 +500,12 @@ export default function ReservationWizard({
           (user.user_metadata?.phone as string | undefined) ?? null;
         setProfileName(nameFromProfile ?? nameFromMeta);
         setProfilePhone(phoneFromProfile ?? phoneFromMeta);
+        setEmailNotificationsOptIn(data?.email_notifications_opt_in === true);
       } catch {
         if (!active) return;
         setProfileName(null);
         setProfilePhone(null);
+        setEmailNotificationsOptIn(false);
       }
     };
     loadProfile();
@@ -717,6 +720,7 @@ export default function ReservationWizard({
           kids: state.kids,
           extras: selectedExtras,
           paymentMethod: state.paymentMethod ?? "CARD",
+          emailNotificationsOptIn,
         }),
       });
 
@@ -1330,30 +1334,45 @@ export default function ReservationWizard({
           isModal ? "sticky bottom-4" : "fixed inset-x-0 bottom-4"
         } z-50 flex justify-center px-4`}
       >
-        <div className="flex w-full max-w-3xl items-center gap-3 rounded-full border border-border/70 bg-card/95 p-2 shadow-lg backdrop-blur">
-          {state.packageId && (
-            <div className="hidden flex-1 flex-col pl-4 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground sm:flex">
-              <span>{t("summaryTitle")}</span>
-              <span className="text-lg font-semibold text-foreground">
-                {formatCurrency(totals.total)}
+        <div className="flex w-full max-w-3xl flex-col gap-2 rounded-[1.5rem] border border-border/70 bg-card/95 p-2 shadow-lg backdrop-blur sm:rounded-full">
+          {state.step === totalSteps ? (
+            <label className="flex w-full items-start gap-2 px-3 pt-1 text-xs font-medium text-muted-foreground sm:px-4">
+              <input
+                type="checkbox"
+                checked={emailNotificationsOptIn}
+                onChange={(event) => setEmailNotificationsOptIn(event.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-border"
+              />
+              <span>
+                Acepto recibir correos sobre mi reserva, pagos y cambios importantes.
               </span>
-            </div>
-          )}
-          <Button
-            className="flex-1 rounded-full text-base font-semibold sm:text-sm"
-            size="lg"
-            onClick={handlePrimaryAction}
-            disabled={!isStepComplete() || isSubmitting || showConfirmation || showPhonePrompt}
-          >
-            <span className="flex w-full items-center justify-between">
-              {isSubmitting ? t("sending") : primaryLabel}
-              {state.packageId && (
-                <span className="text-sm font-medium opacity-80 sm:hidden">
+            </label>
+          ) : null}
+          <div className="flex w-full items-center gap-3">
+            {state.packageId && (
+              <div className="hidden flex-1 flex-col pl-4 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground sm:flex">
+                <span>{t("summaryTitle")}</span>
+                <span className="text-lg font-semibold text-foreground">
                   {formatCurrency(totals.total)}
                 </span>
-              )}
-            </span>
-          </Button>
+              </div>
+            )}
+            <Button
+              className="flex-1 rounded-full text-base font-semibold sm:text-sm"
+              size="lg"
+              onClick={handlePrimaryAction}
+              disabled={!isStepComplete() || isSubmitting || showConfirmation || showPhonePrompt}
+            >
+              <span className="flex w-full items-center justify-between">
+                {isSubmitting ? t("sending") : primaryLabel}
+                {state.packageId && (
+                  <span className="text-sm font-medium opacity-80 sm:hidden">
+                    {formatCurrency(totals.total)}
+                  </span>
+                )}
+              </span>
+            </Button>
+          </div>
         </div>
       </div>
     </div>

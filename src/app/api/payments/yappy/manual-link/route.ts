@@ -1,4 +1,8 @@
 import { NextResponse } from "next/server";
+import {
+  getReservationEmailData,
+  notifyPaymentLinkGenerated,
+} from "@/lib/notifications/events";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { supabaseServer } from "@/lib/supabase/server";
 
@@ -155,6 +159,17 @@ export async function POST(req: Request) {
     })
     .select("id")
     .maybeSingle();
+
+  await notifyPaymentLinkGenerated({
+    supabase: admin,
+    paymentId: payment?.id ?? null,
+    actorId: user.id,
+    data: await getReservationEmailData(admin, reservation.id, {
+      amount: effectiveAmount,
+      paymentUrl: undefined,
+      customerEmail: reservation.customer_email ?? user.email ?? null,
+    }),
+  });
 
   return NextResponse.json({
     ok: true,

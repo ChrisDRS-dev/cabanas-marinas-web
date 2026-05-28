@@ -1,4 +1,9 @@
 import { NextResponse } from "next/server";
+import {
+  getReservationEmailData,
+  notifyReservationPendingPayment,
+} from "@/lib/notifications/events";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { supabaseServer } from "@/lib/supabase/server";
 
 type ReservationPayload = {
@@ -10,6 +15,7 @@ type ReservationPayload = {
   extras: Array<{ id: string; quantity?: number }>;
   paymentMethod: string;
   specialRequest?: string | null;
+  emailNotificationsOptIn?: boolean;
 };
 
 function toNumber(value: unknown, fallback = 0) {
@@ -154,6 +160,7 @@ export async function POST(req: Request) {
   const timeSlot = String(payload.timeSlot ?? "").trim();
   const adults = toNumber(payload.adults, 0);
   const kids = toNumber(payload.kids, 0);
+  const emailNotificationsOptIn = payload.emailNotificationsOptIn === true;
 
   if (!packageId || !reservedDate || !timeSlot) {
     return NextResponse.json({ error: "missing_fields" }, { status: 400 });
@@ -187,6 +194,16 @@ export async function POST(req: Request) {
   if (!profilePhone) {
     return NextResponse.json({ error: "missing_phone" }, { status: 400 });
   }
+
+  await supabase
+    .from("profiles")
+    .update({
+      email_notifications_opt_in: emailNotificationsOptIn,
+      email_notifications_consented_at: emailNotificationsOptIn
+        ? new Date().toISOString()
+        : null,
+    })
+    .eq("user_id", user.id);
 
   const range = parseTimeRange(timeSlot);
   const startTime = range.start;
@@ -274,6 +291,21 @@ export async function POST(req: Request) {
         customer_email: profile?.email ?? initialProfile?.email ?? user.email ?? null,
       })
       .eq("id", reservationId);
+
+    const admin = supabaseAdmin();
+    const emailData = await getReservationEmailData(admin, reservationId, {
+      customerName: profile?.full_name ?? initialProfile?.full_name ?? null,
+      customerEmail: profile?.email ?? initialProfile?.email ?? user.email ?? null,
+      customerPhone: profile?.phone ?? profilePhone,
+      totalAmount,
+      depositAmount,
+      paymentMethod,
+    });
+    await notifyReservationPendingPayment({
+      supabase: admin,
+      data: emailData,
+      actorId: user.id,
+    });
   }
 
   return NextResponse.json({

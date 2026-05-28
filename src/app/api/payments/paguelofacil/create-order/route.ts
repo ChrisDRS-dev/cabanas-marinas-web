@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { isAppLocale, type AppLocale } from "@/i18n/routing";
 import {
+  getReservationEmailData,
+  notifyPaymentFailed,
+  notifyPaymentLinkGenerated,
+} from "@/lib/notifications/events";
+import {
   createPaymentLink,
   PagueloFacilConfigError,
   PagueloFacilProviderError,
@@ -162,6 +167,17 @@ export async function POST(req: Request) {
       },
     });
 
+    await notifyPaymentLinkGenerated({
+      supabase: admin,
+      paymentId: reusablePayment.id,
+      actorId: user.id,
+      data: await getReservationEmailData(admin, reservationId, {
+        amount,
+        paymentUrl: reusablePayment.link_url,
+        customerEmail: context.reservation.customer_email ?? user.email ?? null,
+      }),
+    });
+
     return NextResponse.json({
       url: reusablePayment.link_url,
       paymentId: reusablePayment.id,
@@ -294,6 +310,17 @@ export async function POST(req: Request) {
       },
     });
 
+    await notifyPaymentLinkGenerated({
+      supabase: admin,
+      paymentId: payment.id,
+      actorId: user.id,
+      data: await getReservationEmailData(admin, reservationId, {
+        amount,
+        paymentUrl: checkoutUrl,
+        customerEmail: context.reservation.customer_email ?? user.email ?? null,
+      }),
+    });
+
     return NextResponse.json({ url: checkoutUrl, paymentId: payment.id, expiresAt: linkExpiresAt });
   } catch (error) {
     await admin
@@ -326,6 +353,17 @@ export async function POST(req: Request) {
         amount_type: amountType,
         error: error instanceof Error ? error.message : "Unknown error",
       },
+    });
+
+    await notifyPaymentFailed({
+      supabase: admin,
+      paymentId: payment.id,
+      actorId: user.id,
+      data: await getReservationEmailData(admin, reservationId, {
+        amount,
+        reason: error instanceof Error ? error.message : "No se pudo generar el enlace de pago.",
+        customerEmail: context.reservation.customer_email ?? user.email ?? null,
+      }),
     });
 
     return errorResponse(error);

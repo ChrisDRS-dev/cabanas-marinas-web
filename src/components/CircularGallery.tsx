@@ -190,7 +190,7 @@ function InstagramEmbedCard({
 
       <div
         className={cn(
-          "h-full w-full overflow-y-auto scrollbar-none rounded-[1.4rem] bg-white transition-all duration-700 ease-out border-0",
+          "h-full w-full overflow-hidden rounded-[1.4rem] bg-white transition-all duration-700 ease-out border-0",
           isLoaded ? "opacity-100 scale-100" : "opacity-0 scale-95",
           isActive ? "pointer-events-auto" : "pointer-events-none"
         )}

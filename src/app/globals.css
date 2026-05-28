@@ -229,3 +229,13 @@
     filter: blur(0);
   }
 }
+
+/* Hide scrollbars inside Instagram embeds and iframes */
+iframe[src*="instagram.com"] {
+  scrollbar-width: none !important;
+  overflow: hidden !important;
+}
+iframe[src*="instagram.com"]::-webkit-scrollbar {
+  display: none !important;
+}
+

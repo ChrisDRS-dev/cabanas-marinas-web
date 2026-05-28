@@ -1,5 +1,9 @@
+"use client";
+
 import Image from "next/image";
+import { useState } from "react";
 import FadeIn from "@/components/FadeIn";
+import ImageLightbox from "@/components/ui/ImageLightbox";
 
 export default function HomeActivitiesSection({
   eyebrow,
@@ -12,6 +16,15 @@ export default function HomeActivitiesSection({
   subtitle: string;
   activities: Array<{ title: string; description: string; image: string }>;
 }) {
+  const [activeGalleryIndex, setActiveGalleryIndex] = useState<number | null>(null);
+
+  const lightboxItems = activities.map((activity, index) => ({
+    id: String(index),
+    image: activity.image,
+    title: activity.title,
+    description: activity.description,
+  }));
+
   return (
     <section id="actividades" className="mx-auto max-w-6xl px-6 py-14">
       <FadeIn className="space-y-6">
@@ -23,10 +36,19 @@ export default function HomeActivitiesSection({
           <p className="text-sm text-muted-foreground">{subtitle}</p>
         </div>
         <div className="gallery-scroll flex gap-4 overflow-x-auto pb-2 pt-1 lg:grid lg:grid-cols-3 lg:overflow-visible">
-          {activities.map((activity) => (
+          {activities.map((activity, index) => (
             <div
               key={activity.title}
-              className="min-w-[250px] flex-1 rounded-3xl border border-border/80 bg-card shadow-lg shadow-black/5 transition hover:-translate-y-1 hover:shadow-xl"
+              role="button"
+              tabIndex={0}
+              onClick={() => setActiveGalleryIndex(index)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setActiveGalleryIndex(index);
+                }
+              }}
+              className="min-w-[250px] flex-1 rounded-3xl border border-border/80 bg-card shadow-lg shadow-black/5 transition hover:-translate-y-1 hover:shadow-xl cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
             >
               <div className="relative aspect-[16/10] w-full overflow-hidden rounded-t-3xl">
                 <Image
@@ -47,6 +69,15 @@ export default function HomeActivitiesSection({
           ))}
         </div>
       </FadeIn>
+
+      {activeGalleryIndex !== null && (
+        <ImageLightbox
+          items={lightboxItems}
+          activeIndex={activeGalleryIndex}
+          onClose={() => setActiveGalleryIndex(null)}
+          onChange={setActiveGalleryIndex}
+        />
+      )}
     </section>
   );
 }
