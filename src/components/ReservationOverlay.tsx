@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useLocale } from "next-intl";
 import { useAuth } from "@/components/AuthProvider";
+import { PushNotificationPrompt } from "@/components/PushNotificationPrompt";
 import { localizeHref, stripLocaleFromPathname, type AppLocale } from "@/i18n/routing";
 
 const ReservationWizard = dynamic(
@@ -51,6 +52,17 @@ type ReservationItem = {
   paguelofacil_amount?: number | string | null;
   paguelofacil_provider_ref?: string | null;
   paguelofacil_provider_verified_at?: string | null;
+};
+
+type NotificationItem = {
+  id: string;
+  title: string;
+  body: string;
+  status: string;
+  target_url: string | null;
+  reservation_id: string | null;
+  read_at: string | null;
+  created_at: string;
 };
 
 const ACTIVE_STATUS = new Set(["PENDING_PAYMENT", "CONFIRMED"]);
@@ -175,6 +187,7 @@ export default function ReservationOverlay() {
   const [showWizard, setShowWizard] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [copiedPaymentLink, setCopiedPaymentLink] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
 
   const stepParam = searchParams.get("step");
   const forceWizard = stepParam === "payment";
@@ -265,18 +278,33 @@ export default function ReservationOverlay() {
     }
   }, [session]);
 
+  const loadNotifications = useCallback(async () => {
+    if (!session) return;
+    try {
+      const response = await fetch("/api/notifications", { cache: "no-store" });
+      const result = await response.json();
+      if (response.ok && Array.isArray(result?.notifications)) {
+        setNotifications(result.notifications as NotificationItem[]);
+      }
+    } catch {
+      setNotifications([]);
+    }
+  }, [session]);
+
   useEffect(() => {
     if (!show || !session) return;
     void loadReservations();
-  }, [loadReservations, show, session]);
+    void loadNotifications();
+  }, [loadNotifications, loadReservations, show, session]);
 
   useEffect(() => {
     if (!show || !session) return;
     const interval = window.setInterval(() => {
       void loadReservations();
+      void loadNotifications();
     }, 15000);
     return () => window.clearInterval(interval);
-  }, [loadReservations, show, session]);
+  }, [loadNotifications, loadReservations, show, session]);
 
   useEffect(() => {
     setCopiedPaymentLink(false);
@@ -342,6 +370,40 @@ export default function ReservationOverlay() {
                   Toca una reserva para ver sus detalles o realiza una nueva.
                 </p>
               </div>
+
+              <PushNotificationPrompt reservationId={firstActive?.id ?? null} />
+
+              {notifications.length > 0 && (
+                <section className="rounded-3xl border border-border/70 bg-background px-5 py-4">
+                  <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
+                    Mis notificaciones
+                  </p>
+                  <div className="mt-3 space-y-3">
+                    {notifications.slice(0, 4).map((notification) => (
+                      <div
+                        key={notification.id}
+                        className="rounded-2xl border border-border/50 px-4 py-3 text-sm"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-semibold text-foreground">
+                              {notification.title}
+                            </p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {notification.body}
+                            </p>
+                          </div>
+                          {!notification.read_at ? (
+                            <span className="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-semibold uppercase text-primary">
+                              Nuevo
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
 
               <div className="space-y-3">
                 {activeReservations.map((reservation) => {
