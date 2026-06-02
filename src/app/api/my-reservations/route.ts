@@ -14,6 +14,26 @@ function getPanamaTodayYMD() {
   return `${year}-${month}-${day}`;
 }
 
+function isReusablePagueloFacilLink(payment: {
+  status?: string | null;
+  link_status?: string | null;
+  link_url?: string | null;
+  link_expires_at?: string | null;
+  provider_message?: string | null;
+}) {
+  if (
+    payment.status !== "PENDING" ||
+    payment.link_status !== "ACTIVE" ||
+    !payment.link_url ||
+    payment.provider_message
+  ) {
+    return false;
+  }
+  if (!payment.link_expires_at) return true;
+  const expiresAt = new Date(payment.link_expires_at).getTime();
+  return Number.isFinite(expiresAt) && expiresAt > Date.now();
+}
+
 export async function GET() {
   const supabase = await supabaseServer();
   const {
@@ -37,7 +57,7 @@ export async function GET() {
   const base = supabase
     .from("reservations")
     .select(
-      "id,reserved_date,start_at,end_at,status,total_amount,deposit_amount,payment_method,package_id,adults_count,kids_count,packages(label),invoices(status,payments(id,provider,status,provider_ref,amount,paid_at,created_at,gateway,amount_type,expected_amount,link_url,link_code,link_status,link_expires_at,provider_verified_at))"
+      "id,reserved_date,start_at,end_at,status,total_amount,deposit_amount,payment_method,package_id,adults_count,kids_count,packages(label),invoices(status,payments(id,provider,status,provider_ref,amount,paid_at,created_at,gateway,amount_type,expected_amount,link_url,link_code,link_status,link_expires_at,provider_verified_at,provider_message))"
     );
   const { data, error } = await base
     .eq("customer_id", user.id)
@@ -67,17 +87,11 @@ export async function GET() {
         (p.gateway === "paguelofacil" || Boolean(p.link_url))
     );
     const paguelofacilPayment =
-      paguelofacilPayments.find((p) => {
-        const expiresAt = p.link_expires_at ? new Date(p.link_expires_at).getTime() : 0;
-        return (
-          p.status === "PENDING" &&
-          p.link_status === "ACTIVE" &&
-          Boolean(p.link_url) &&
-          (!expiresAt || expiresAt > Date.now())
-        );
-      }) ??
+      paguelofacilPayments.find((p) => isReusablePagueloFacilLink(p)) ??
       paguelofacilPayments[0] ??
       null;
+    const exposePagueloFacilLink =
+      paguelofacilPayment != null && isReusablePagueloFacilLink(paguelofacilPayment);
 
     const paidAmount = payments
       .filter((p) => p.status === "SUCCEEDED")
@@ -100,7 +114,7 @@ export async function GET() {
             amount_type: paguelofacilPayment.amount_type ?? null,
             expected_amount: paguelofacilPayment.expected_amount ?? null,
             status: paguelofacilPayment.status ?? null,
-            link_url: paguelofacilPayment.link_url ?? null,
+            link_url: exposePagueloFacilLink ? paguelofacilPayment.link_url ?? null : null,
             link_code: paguelofacilPayment.link_code ?? null,
             link_status: paguelofacilPayment.link_status ?? null,
             link_expires_at: paguelofacilPayment.link_expires_at ?? null,
@@ -111,7 +125,7 @@ export async function GET() {
       paguelofacil_payment_id: paguelofacilPayment?.id ?? null,
       paguelofacil_amount: paguelofacilPayment?.amount ?? null,
       paguelofacil_amount_type: paguelofacilPayment?.amount_type ?? null,
-      paguelofacil_link_url: paguelofacilPayment?.link_url ?? null,
+      paguelofacil_link_url: exposePagueloFacilLink ? paguelofacilPayment?.link_url ?? null : null,
       paguelofacil_link_code: paguelofacilPayment?.link_code ?? null,
       paguelofacil_link_status: paguelofacilPayment?.link_status ?? null,
       paguelofacil_link_expires_at: paguelofacilPayment?.link_expires_at ?? null,

@@ -19,6 +19,7 @@ type Props = {
   initialProviderRef?: string | null;
   autoStart?: boolean;
   autoRedirect?: boolean;
+  forceNew?: boolean;
 };
 
 function formatCurrency(value: number | string | null | undefined) {
@@ -87,6 +88,7 @@ export default function PagueloFacilPayment({
   initialProviderRef = null,
   autoStart = false,
   autoRedirect = false,
+  forceNew = false,
 }: Props) {
   const t = useTranslations("payment.paguelofacil");
   const [busy, setBusy] = useState(false);
@@ -105,16 +107,23 @@ export default function PagueloFacilPayment({
     setOpened(false);
   }, [initialCheckoutUrl, initialExpiresAt, initialProviderRef]);
 
-  const handleCreateLink = useCallback(async () => {
+  const handleCreateLink = useCallback(async (options?: { forceNew?: boolean }) => {
     if (disabled || !reservationId) return;
+    const requestedForceNew = forceNew || options?.forceNew === true;
     setBusy(true);
     setError(null);
+    if (requestedForceNew) {
+      setCheckoutUrl(null);
+      setExpiresAt(null);
+      setProviderRef(null);
+      setOpened(false);
+    }
 
     try {
       const res = await fetch("/api/payments/paguelofacil/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reservationId, amountType, locale }),
+        body: JSON.stringify({ reservationId, amountType, locale, forceNew: requestedForceNew }),
       });
       const data = (await res.json().catch(() => null)) as
         | { url?: string; error?: string; paymentId?: string; expiresAt?: string; reused?: boolean }
@@ -141,16 +150,23 @@ export default function PagueloFacilPayment({
     } finally {
       setBusy(false);
     }
-  }, [amountType, autoRedirect, disabled, locale, onStarted, reservationId, t]);
+  }, [amountType, autoRedirect, disabled, forceNew, locale, onStarted, reservationId, t]);
 
   useEffect(() => {
-    if (!autoStart || autoStartedRef.current || checkoutUrl || busy || disabled || blockedReason) {
+    if (
+      !autoStart ||
+      autoStartedRef.current ||
+      (checkoutUrl && !forceNew) ||
+      busy ||
+      disabled ||
+      blockedReason
+    ) {
       return;
     }
 
     autoStartedRef.current = true;
-    void handleCreateLink();
-  }, [autoStart, blockedReason, busy, checkoutUrl, disabled, handleCreateLink]);
+    void handleCreateLink({ forceNew });
+  }, [autoStart, blockedReason, busy, checkoutUrl, disabled, forceNew, handleCreateLink]);
 
   const openCheckout = () => {
     if (!checkoutUrl) return;
@@ -183,13 +199,24 @@ export default function PagueloFacilPayment({
               : t("createCta", { amount: formatCurrency(amount) })}
         </button>
       ) : (
-        <button
-          type="button"
-          onClick={openCheckout}
-          className="flex w-full items-center justify-center rounded-full bg-foreground px-6 py-3 text-sm font-semibold text-background transition-opacity hover:opacity-80"
-        >
-          {t("openCheckout")}
-        </button>
+        <div className="flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={openCheckout}
+            disabled={busy}
+            className="flex w-full items-center justify-center rounded-full bg-foreground px-6 py-3 text-sm font-semibold text-background transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {t("openCheckout")}
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleCreateLink({ forceNew: true })}
+            disabled={busy || disabled || !reservationId}
+            className="flex w-full items-center justify-center rounded-full border border-border/70 px-6 py-3 text-sm font-semibold text-foreground transition hover:border-primary/50 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {busy ? t("regenerating") : t("regenerateCta")}
+          </button>
+        </div>
       )}
 
       {error ? <p className="text-xs text-rose-600 dark:text-rose-400">{error}</p> : null}

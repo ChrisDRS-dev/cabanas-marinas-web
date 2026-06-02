@@ -700,9 +700,11 @@
     "paguelofacil": {
       "body": "Paga {amount} con Visa, Mastercard o CLAVE en el checkout seguro de PagueloFácil.",
       "creating": "Generando enlace...",
+      "regenerating": "Generando nuevo enlace...",
       "redirecting": "Generando link y redirigiendo...",
       "createCta": "Generar enlace por {amount}",
       "openCheckout": "Abrir checkout seguro",
+      "regenerateCta": "Generar nuevo link",
       "createError": "No se pudo generar el enlace de pago. Intenta de nuevo.",
       "configError": "El pago con tarjeta no está configurado correctamente. Escríbenos por WhatsApp para ayudarte a completar la reserva.",
       "providerError": "PagueloFácil no pudo generar el enlace en este momento. Intenta nuevamente o contáctanos por WhatsApp.",

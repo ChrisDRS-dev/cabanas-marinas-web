@@ -93,7 +93,7 @@ function buildVerifiedPaymentFields(args: {
   tx: Awaited<ReturnType<typeof verifyTransaction>>;
   verifiedAmount: number | null;
   verifiedAt: string;
-  linkStatus: "PAID" | "ACTIVE";
+  linkStatus: "PAID" | "ACTIVE" | "FAILED";
 }) {
   return {
     provider_status: normalizeProviderStatus(args.tx?.status),
@@ -279,7 +279,7 @@ export async function applyVerifiedPagueloFacilPayment(args: {
     tx,
     verifiedAmount,
     verifiedAt,
-    linkStatus: approved ? "PAID" : "ACTIVE",
+    linkStatus: approved ? "PAID" : "FAILED",
   });
 
   if (targetPayment?.id) {

@@ -219,6 +219,7 @@ export default function PaymentConfirmation() {
   const [polling, setPolling] = useState(false);
   const restoredActiveLinkRef = useRef(false);
   const requestedReservationId = searchParams.get("rid");
+  const forceNewLink = searchParams.get("forceNew") === "1";
   const formatStatus = (status: string | null | undefined) => {
     switch (status) {
       case "PENDING_PAYMENT":
@@ -291,7 +292,9 @@ export default function PaymentConfirmation() {
 
           if (activeReservation) {
             const pfPayment = activeReservation.paguelofacil_payment ?? null;
-            const pfLinkUrl = pfPayment?.link_url ?? activeReservation.paguelofacil_link_url ?? null;
+            const pfLinkUrl = forceNewLink
+              ? null
+              : pfPayment?.link_url ?? activeReservation.paguelofacil_link_url ?? null;
             const pfLinkStatus =
               pfPayment?.link_status ?? activeReservation.paguelofacil_link_status ?? null;
             const pfLinkExpiresAt =
@@ -353,7 +356,7 @@ export default function PaymentConfirmation() {
               pagueloFacilProviderRef:
                 pfPayment?.provider_ref ?? activeReservation.paguelofacil_provider_ref ?? null,
             });
-            if (hasActiveLink && !restoredActiveLinkRef.current) {
+            if (hasActiveLink && !forceNewLink && !restoredActiveLinkRef.current) {
               restoredActiveLinkRef.current = true;
               setSelectedAmountType(pfAmountType ?? "deposit");
               setPayStep("pay");
@@ -369,7 +372,7 @@ export default function PaymentConfirmation() {
         return null;
       }
       return { status: nextStatus, invoiceStatus: nextInvoiceStatus };
-  }, [catalog, requestedReservationId]);
+  }, [catalog, forceNewLink, requestedReservationId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -709,6 +712,7 @@ export default function PaymentConfirmation() {
                   initialProviderRef={data?.pagueloFacilProviderRef ?? null}
                   autoStart
                   autoRedirect
+                  forceNew={forceNewLink}
                 />
               </div>
 

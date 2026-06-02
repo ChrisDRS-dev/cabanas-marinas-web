@@ -27,6 +27,63 @@ function toPayload(searchParams: URLSearchParams) {
   return payload;
 }
 
+function getFailureReason(payload: Record<string, unknown>) {
+  const raw =
+    payload.Razon ??
+    payload.razon ??
+    payload.reason ??
+    payload.Reason ??
+    payload.error ??
+    payload.Error ??
+    payload.message ??
+    payload.Message ??
+    "";
+  const reason = String(raw).trim();
+  return reason.slice(0, 300);
+}
+
+function isDeniedStatus(status: string) {
+  const normalized = status.trim().toLowerCase();
+  return ["denegada", "denegado", "declined", "denied", "rechazada", "rechazado"].includes(
+    normalized,
+  );
+}
+
+function hasProviderFailureSignal(payload: Record<string, unknown>, status: string) {
+  const reason = getFailureReason(payload).toLowerCase();
+  return (
+    isDeniedStatus(status) ||
+    reason.includes("300") ||
+    reason.includes("error") ||
+    reason.includes("deneg") ||
+    reason.includes("declin") ||
+    reason.includes("rechaz")
+  );
+}
+
+async function markPaymentLinkFailed(args: {
+  paymentId: string;
+  reason: string;
+  payload: Record<string, unknown>;
+}) {
+  const providerMessage = args.reason || "paguelofacil_return_failed";
+  await supabaseAdmin()
+    .from("payments")
+    .update({
+      status: "FAILED",
+      link_status: "FAILED",
+      provider_message: providerMessage,
+      meta: {
+        failure_reason: "paguelofacil_return_failed",
+        failure_message: providerMessage,
+        failure_payload: args.payload,
+        failed_at: new Date().toISOString(),
+      },
+    })
+    .eq("id", args.paymentId)
+    .eq("status", "PENDING");
+}
+
 async function parseRequest(req: Request) {
   const url = new URL(req.url);
   const payload = toPayload(url.searchParams);
@@ -58,6 +115,7 @@ async function handleReturn(req: Request) {
   const status = getPayloadStatus(payload);
   const amount = getPayloadAmount(payload);
   const email = String(payload.Email ?? payload.email ?? "").trim();
+  const failureReason = getFailureReason(payload);
   const url = new URL(req.url);
   const target = new URL(`/${locale}/reservar/pago/resultado`, url.origin);
 
@@ -67,6 +125,7 @@ async function handleReturn(req: Request) {
   if (amount != null) target.searchParams.set("TotalPagado", amount.toFixed(2));
   if (status) target.searchParams.set("Estado", status);
   if (typeof payload.Razon === "string") target.searchParams.set("Razon", payload.Razon);
+  else if (failureReason) target.searchParams.set("Razon", failureReason);
 
   if (!reservationId) {
     target.searchParams.set("verified", "0");
@@ -84,6 +143,14 @@ async function handleReturn(req: Request) {
     customerEmail: email || null,
     payload,
   });
+
+  if (paymentId && hasProviderFailureSignal(payload, status)) {
+    await markPaymentLinkFailed({
+      paymentId,
+      reason: failureReason || status || "paguelofacil_return_failed",
+      payload,
+    });
+  }
 
   if (codOper) {
     try {

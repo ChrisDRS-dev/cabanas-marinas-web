@@ -158,7 +158,12 @@ export default function ResultadoContent() {
         </a>
 
         <Link
-          href={localizeHref(locale, reservationId ? `/reservar/pago?method=CARD&rid=${reservationId}` : "/reservar/pago")}
+          href={localizeHref(
+            locale,
+            reservationId
+              ? `/reservar/pago?method=CARD&rid=${reservationId}&forceNew=1`
+              : "/reservar/pago",
+          )}
           className="w-full rounded-full border border-border px-4 py-2 text-center text-sm font-semibold"
         >
           {t("retry")}
@@ -189,7 +194,10 @@ export default function ResultadoContent() {
         <div className="flex flex-col gap-2">
           {reservationId && (
             <Link
-              href={localizeHref(locale, `/reservar/pago?method=CARD&rid=${reservationId}`)}
+              href={localizeHref(
+                locale,
+                `/reservar/pago?method=CARD&rid=${reservationId}&forceNew=1`,
+              )}
               className="w-full rounded-full bg-foreground px-4 py-2 text-center text-sm font-semibold text-background"
             >
               {t("retry")}

@@ -700,9 +700,11 @@
     "paguelofacil": {
       "body": "Pay {amount} with Visa, Mastercard or CLAVE in PagueloFácil secure checkout.",
       "creating": "Generating link...",
+      "regenerating": "Generating new link...",
       "redirecting": "Generating link and redirecting...",
       "createCta": "Generate link for {amount}",
       "openCheckout": "Open secure checkout",
+      "regenerateCta": "Generate new link",
       "createError": "Could not generate the payment link. Please try again.",
       "configError": "Card payments are not configured correctly. Contact us on WhatsApp so we can help complete the booking.",
       "providerError": "PagueloFácil could not generate the link right now. Try again or contact us on WhatsApp.",

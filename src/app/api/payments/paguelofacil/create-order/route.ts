@@ -44,6 +44,23 @@ function addSeconds(date: Date, seconds: number) {
   return new Date(date.getTime() + seconds * 1000).toISOString();
 }
 
+function shouldForceNewLink(value: unknown) {
+  return value === true || value === "1" || value === "true";
+}
+
+function isPagueloFacilPendingPayment(payment: {
+  provider?: string | null;
+  status?: string | null;
+  gateway?: string | null;
+  meta?: unknown;
+}) {
+  return (
+    payment.provider === "CARD" &&
+    payment.status === "PENDING" &&
+    (payment.gateway === "paguelofacil" || paymentMeta(payment.meta).gateway === "paguelofacil")
+  );
+}
+
 function errorResponse(error: unknown) {
   if (error instanceof PagueloFacilConfigError) {
     return NextResponse.json(
@@ -80,6 +97,7 @@ export async function POST(req: Request) {
   const reservationId = String(body?.reservationId ?? "").trim();
   const amountType = normalizeAmountType(body?.amountType);
   const locale = normalizeLocale(body?.locale);
+  const forceNew = shouldForceNewLink(body?.forceNew);
 
   if (!reservationId) {
     return NextResponse.json({ error: "missing_reservation" }, { status: 400 });
@@ -135,6 +153,49 @@ export async function POST(req: Request) {
   }
 
   const now = new Date();
+  const nowTime = now.getTime();
+  const expiredPayments = context.payments.filter((payment) => {
+    const expiresAt = payment.link_expires_at ? new Date(payment.link_expires_at).getTime() : 0;
+    return (
+      isPagueloFacilPendingPayment(payment) &&
+      payment.link_status === "ACTIVE" &&
+      Boolean(expiresAt) &&
+      expiresAt <= nowTime
+    );
+  });
+
+  if (expiredPayments.length > 0) {
+    await admin
+      .from("payments")
+      .update({
+        link_status: "EXPIRED",
+        provider_message: "paguelofacil_link_expired",
+      })
+      .in(
+        "id",
+        expiredPayments.map((payment) => payment.id),
+      );
+
+    await Promise.all(
+      expiredPayments.map((payment) =>
+        insertPaymentEvent(admin, {
+          paymentId: payment.id,
+          reservationId,
+          eventType: "CREATE_LINK",
+          status: "EXPIRED",
+          amount: Number(payment.expected_amount ?? payment.amount ?? amount),
+          customerEmail: context.reservation.customer_email ?? user.email ?? null,
+          payload: {
+            amount_type: payment.amount_type ?? amountType,
+            link_code: payment.link_code ?? null,
+            link_expires_at: payment.link_expires_at ?? null,
+            reason: "local_expiration_elapsed",
+          },
+        }),
+      ),
+    );
+  }
+
   const reusablePayment = context.payments.find((payment) => {
     const meta = paymentMeta(payment.meta);
     const gateway = payment.gateway ?? meta.gateway;
@@ -142,13 +203,15 @@ export async function POST(req: Request) {
     const expiresAt = payment.link_expires_at ? new Date(payment.link_expires_at).getTime() : 0;
 
     return (
+      !forceNew &&
       payment.provider === "CARD" &&
       payment.status === "PENDING" &&
       gateway === "paguelofacil" &&
       payment.link_status === "ACTIVE" &&
       Boolean(payment.link_url) &&
+      !payment.provider_message &&
       Math.abs(expected - amount) <= 0.01 &&
-      expiresAt > now.getTime()
+      expiresAt > nowTime
     );
   });
 
@@ -189,24 +252,51 @@ export async function POST(req: Request) {
   const pendingIds = context.payments
     .filter(
       (payment) =>
-        payment.provider === "CARD" &&
-        payment.status === "PENDING" &&
-        (payment.gateway === "paguelofacil" || paymentMeta(payment.meta).gateway === "paguelofacil"),
+        isPagueloFacilPendingPayment(payment) &&
+        !expiredPayments.some((expiredPayment) => expiredPayment.id === payment.id) &&
+        payment.link_status !== "EXPIRED" &&
+        payment.link_status !== "FAILED",
     )
     .map((payment) => payment.id);
 
   if (pendingIds.length > 0) {
+    const invalidatedAt = new Date().toISOString();
+    const invalidationReason = forceNew
+      ? "replaced_by_customer_retry"
+      : "replaced_by_new_paguelofacil_link";
     await admin
       .from("payments")
       .update({
         status: "CANCELLED",
         link_status: "CANCELLED",
+        provider_message: invalidationReason,
         meta: {
-          invalidation_reason: "replaced_by_new_paguelofacil_link",
-          invalidated_at: new Date().toISOString(),
+          invalidation_reason: invalidationReason,
+          invalidated_at: invalidatedAt,
         },
       })
       .in("id", pendingIds);
+
+    await Promise.all(
+      context.payments
+        .filter((payment) => pendingIds.includes(payment.id))
+        .map((payment) =>
+          insertPaymentEvent(admin, {
+            paymentId: payment.id,
+            reservationId,
+            eventType: "CREATE_LINK",
+            status: "CANCELLED",
+            amount: Number(payment.expected_amount ?? payment.amount ?? amount),
+            customerEmail: context.reservation.customer_email ?? user.email ?? null,
+            payload: {
+              amount_type: payment.amount_type ?? amountType,
+              link_code: payment.link_code ?? null,
+              reason: invalidationReason,
+              invalidated_at: invalidatedAt,
+            },
+          }),
+        ),
+    );
   }
 
   const { data: payment, error: paymentError } = await admin
@@ -277,6 +367,7 @@ export async function POST(req: Request) {
         link_created_at: linkCreatedAt.toISOString(),
         link_expires_at: linkExpiresAt,
         link_status: "ACTIVE",
+        provider_message: null,
         meta: {
           reservation_id: reservationId,
           customer_id: user.id,
@@ -321,7 +412,12 @@ export async function POST(req: Request) {
       }),
     });
 
-    return NextResponse.json({ url: checkoutUrl, paymentId: payment.id, expiresAt: linkExpiresAt });
+    return NextResponse.json({
+      url: checkoutUrl,
+      paymentId: payment.id,
+      expiresAt: linkExpiresAt,
+      reused: false,
+    });
   } catch (error) {
     await admin
       .from("payments")
