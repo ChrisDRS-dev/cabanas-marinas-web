@@ -36,7 +36,7 @@ export const siteData = {
       image: "/photos/new-cabin-night.jpg",
     },
     {
-      image: "/photos/new-cabin-interior.jpg",
+      image: "/photos/cabin-interior1.webp",
     },
     {
       image: "/photos/cabin-from-beach.jpg",
