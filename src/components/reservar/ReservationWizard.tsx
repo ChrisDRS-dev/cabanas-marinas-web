@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Bell, CheckCircle2, MailCheck, Sparkles, X } from "lucide-react";
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -15,6 +16,7 @@ import StepExtras from "@/components/reservar/steps/StepExtras";
 import StepSummary from "@/components/reservar/steps/StepSummary";
 import PhoneDialog from "@/components/PhoneDialog";
 import { getSessionSafe, supabase } from "@/lib/supabase/client";
+import { usePushNotifications } from "@/lib/notifications/usePushNotifications";
 import { siteData } from "@/lib/siteData";
 import {
   fetchCatalog,
@@ -187,6 +189,116 @@ function getPaymentPath(method: PaymentMethod | null | undefined, reservationId:
   return `/reservar/pago?method=${normalized}&rid=${reservationId ?? ""}`;
 }
 
+function NotificationInviteModal({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const { state, error, subscribe } = usePushNotifications();
+  const [busy, setBusy] = useState(false);
+
+  const activate = async () => {
+    setBusy(true);
+    const ok = await subscribe();
+    setBusy(false);
+    if (ok) {
+      window.setTimeout(onClose, 900);
+    }
+  };
+
+  const isSubscribed = state === "subscribed";
+  const isUnavailable = state === "unsupported" || state === "denied";
+
+  return (
+    <AnimatePresence>
+      {open ? (
+        <motion.div
+          className="fixed inset-0 z-[100] flex items-end justify-center bg-black/45 px-4 pb-5 backdrop-blur-sm sm:items-center sm:p-6"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={onClose}
+        >
+          <motion.div
+            className="relative w-full max-w-sm overflow-hidden rounded-[2rem] border border-primary/25 bg-card shadow-2xl"
+            initial={{ opacity: 0, y: 30, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 24, scale: 0.98 }}
+            transition={{ type: "spring", stiffness: 360, damping: 30 }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-[radial-gradient(circle_at_18%_20%,rgba(0,133,161,0.24),transparent_34%),radial-gradient(circle_at_82%_10%,rgba(255,179,71,0.3),transparent_36%)]" />
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Cerrar"
+              className="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-border/70 bg-background/80 text-muted-foreground shadow-sm transition hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <div className="relative px-5 pb-5 pt-6">
+              <motion.div
+                className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20"
+                animate={{ rotate: isSubscribed ? 0 : [0, -6, 6, 0] }}
+                transition={{ duration: 1.8, repeat: isSubscribed ? 0 : Infinity, repeatDelay: 1.4 }}
+              >
+                {isSubscribed ? (
+                  <CheckCircle2 className="h-7 w-7" />
+                ) : (
+                  <Bell className="h-7 w-7" />
+                )}
+              </motion.div>
+
+              <div className="mt-5">
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-primary">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Avisos
+                </div>
+                <h3 className="mt-2 text-xl font-semibold text-foreground">
+                  {isSubscribed ? "Notificaciones activas" : "Mantente al tanto"}
+                </h3>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {isUnavailable
+                    ? "Tu navegador no permite activar avisos ahora."
+                    : "Te avisamos sobre pagos y cambios importantes de tu reserva."}
+                </p>
+                {error ? (
+                  <p className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                    No pudimos activar los avisos. Puedes intentar más tarde.
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="mt-5 flex gap-2">
+                {!isSubscribed && !isUnavailable ? (
+                  <button
+                    type="button"
+                    onClick={activate}
+                    disabled={busy}
+                    className="flex-1 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition hover:brightness-105 disabled:opacity-60"
+                  >
+                    {busy ? "Activando..." : "Activar avisos"}
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className={`${isSubscribed || isUnavailable ? "flex-1" : ""} rounded-full border border-border/70 px-4 py-2.5 text-sm font-semibold text-foreground transition hover:bg-muted`}
+                >
+                  {isSubscribed ? "Listo" : "Ahora no"}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
+  );
+}
+
 function isWeekend(dateValue: string | null) {
   if (!dateValue) return false;
   const [year, month, dayOfMonth] = dateValue.split("-").map(Number);
@@ -213,6 +325,8 @@ export default function ReservationWizard({
   const [state, dispatch] = useReducer(reducer, initialState);
   const searchParams = useSearchParams();
   const pathname = usePathname();
+  const wantsDraft = searchParams.get("draft") === "1";
+  const wantsLastReservation = searchParams.get("last_reservation") === "1";
   const isModal = mode === "modal";
   const [packages, setPackages] = useState<Package[]>([]);
   const [timeSlotsByPackage, setTimeSlotsByPackage] = useState<
@@ -232,6 +346,7 @@ export default function ReservationWizard({
   const [profileName, setProfileName] = useState<string | null>(null);
   const [profilePhone, setProfilePhone] = useState<string | null>(null);
   const [emailNotificationsOptIn, setEmailNotificationsOptIn] = useState(false);
+  const [showNotificationInvite, setShowNotificationInvite] = useState(false);
   const [showPhonePrompt, setShowPhonePrompt] = useState(false);
   const [confirmationData, setConfirmationData] = useState<{
     id: string | null;
@@ -372,7 +487,6 @@ export default function ReservationWizard({
       setDraftLoaded(true);
       return;
     }
-    const wantsDraft = searchParams.get("draft") === "1";
     if (!wantsDraft) {
       setDraftLoaded(true);
       return;
@@ -399,7 +513,7 @@ export default function ReservationWizard({
     return () => {
       active = false;
     };
-  }, [profileUserId, searchParams]);
+  }, [profileUserId, wantsDraft]);
 
   useEffect(() => {
     if (!profileUserId) return;
@@ -517,6 +631,7 @@ export default function ReservationWizard({
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!profileUserId) return;
+    if (!wantsLastReservation) return;
     const key = `cm_last_reservation:${profileUserId}`;
     const saved = window.localStorage.getItem(key);
     if (!saved) return;
@@ -555,11 +670,10 @@ export default function ReservationWizard({
     } catch {
       window.localStorage.removeItem(key);
     }
-  }, [profileUserId, searchParams]);
+  }, [profileUserId, wantsLastReservation]);
 
   useEffect(() => {
     const pkg = searchParams.get("package") as PackageType | null;
-    const wantsDraft = searchParams.get("draft") === "1";
     if (wantsDraft || prefill) return;
     if (!pkg || packagePrefillRef.current) return;
     const exists = packages.some((item) => item.id === pkg);
@@ -588,7 +702,7 @@ export default function ReservationWizard({
     params.delete("package");
     const query = params.toString();
     router.replace(query ? `${pathname}?${query}` : pathname);
-  }, [searchParams, packages, extrasCatalog, router, pathname, prefill]);
+  }, [searchParams, packages, extrasCatalog, router, pathname, prefill, wantsDraft]);
 
   useEffect(() => {
     if (!prefill || prefillRef.current) return;
@@ -869,6 +983,13 @@ export default function ReservationWizard({
     }
     dispatch({ type: "nextStep", max: totalSteps });
     topAnchorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const handleNotificationConsentChange = (checked: boolean) => {
+    setEmailNotificationsOptIn(checked);
+    if (checked) {
+      setShowNotificationInvite(true);
+    }
   };
 
   const handleCancelReservation = async () => {
@@ -1170,6 +1291,11 @@ export default function ReservationWizard({
         }}
       />
 
+      <NotificationInviteModal
+        open={showNotificationInvite}
+        onClose={() => setShowNotificationInvite(false)}
+      />
+
       {showConfirmation && (
         <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/50 sm:items-center sm:p-6">
           <div className="w-full max-w-lg overflow-hidden rounded-t-[2rem] border border-border/70 bg-card shadow-2xl sm:rounded-[2rem]">
@@ -1336,15 +1462,52 @@ export default function ReservationWizard({
       >
         <div className="flex w-full max-w-3xl flex-col gap-2 rounded-[1.5rem] border border-border/70 bg-card/95 p-2 shadow-lg backdrop-blur sm:rounded-full">
           {state.step === totalSteps ? (
-            <label className="flex w-full items-start gap-2 px-3 pt-1 text-xs font-medium text-muted-foreground sm:px-4">
+            <label
+              className={`group flex w-full cursor-pointer items-center gap-3 rounded-[1.15rem] border px-3 py-2.5 text-left transition-all duration-300 sm:rounded-full sm:px-4 ${
+                emailNotificationsOptIn
+                  ? "border-primary/40 bg-primary/10 shadow-sm shadow-primary/10"
+                  : "border-border/60 bg-background/60 hover:border-primary/30 hover:bg-primary/5"
+              }`}
+            >
               <input
                 type="checkbox"
                 checked={emailNotificationsOptIn}
-                onChange={(event) => setEmailNotificationsOptIn(event.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-border"
+                onChange={(event) => handleNotificationConsentChange(event.target.checked)}
+                className="sr-only"
               />
-              <span>
-                Acepto recibir correos sobre mi reserva, pagos y cambios importantes.
+              <span
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition ${
+                  emailNotificationsOptIn
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground group-hover:text-primary"
+                }`}
+                aria-hidden="true"
+              >
+                {emailNotificationsOptIn ? (
+                  <CheckCircle2 className="h-5 w-5" />
+                ) : (
+                  <MailCheck className="h-5 w-5" />
+                )}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-xs font-semibold text-foreground">
+                  Recibir avisos de mi reserva
+                </span>
+                <span className="mt-0.5 block text-[11px] font-medium leading-snug text-muted-foreground">
+                  Correos y notificaciones sobre pagos o cambios importantes.
+                </span>
+              </span>
+              <span
+                className={`flex h-6 w-11 shrink-0 items-center rounded-full p-1 transition ${
+                  emailNotificationsOptIn ? "bg-primary" : "bg-muted"
+                }`}
+                aria-hidden="true"
+              >
+                <span
+                  className={`h-4 w-4 rounded-full bg-background shadow-sm transition-transform ${
+                    emailNotificationsOptIn ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
               </span>
             </label>
           ) : null}
