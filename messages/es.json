@@ -178,6 +178,18 @@
       {
         "title": "Paseo en lancha",
         "description": "Tu aventura comienza con un emocionante traslado de ida y vuelta en lancha."
+      },
+      {
+        "title": "Noches de magia y brisa",
+        "description": "Disfruta del cielo estrellado y la paz del mar bajo la iluminación nocturna de las cabañas."
+      },
+      {
+        "title": "Espacio íntimo y confort",
+        "description": "Cabañas acogedoras con cojines, alfombras y privacidad total para desconectarse de verdad."
+      },
+      {
+        "title": "Sol y relax en la orilla",
+        "description": "Acceso directo a una playa tranquila, limpia y perfecta para refrescarte a cualquier hora."
       }
     ],
     "location": {

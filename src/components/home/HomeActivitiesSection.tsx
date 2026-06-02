@@ -1,7 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import FadeIn from "@/components/FadeIn";
 import ImageLightbox from "@/components/ui/ImageLightbox";
 
@@ -17,6 +18,17 @@ export default function HomeActivitiesSection({
   activities: Array<{ title: string; description: string; image: string }>;
 }) {
   const [activeGalleryIndex, setActiveGalleryIndex] = useState<number | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const scroll = (direction: "left" | "right") => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const cardWidth = 350; // card min-width + gap
+    container.scrollBy({
+      left: direction === "left" ? -cardWidth : cardWidth,
+      behavior: "smooth",
+    });
+  };
 
   const lightboxItems = activities.map((activity, index) => ({
     id: String(index),
@@ -28,14 +40,37 @@ export default function HomeActivitiesSection({
   return (
     <section id="actividades" className="mx-auto max-w-6xl px-6 py-14">
       <FadeIn className="space-y-6">
-        <div className="space-y-3">
-          <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-            {eyebrow}
-          </p>
-          <h2 className="font-display text-3xl font-semibold">{title}</h2>
-          <p className="text-sm text-muted-foreground">{subtitle}</p>
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+          <div className="space-y-3">
+            <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+              {eyebrow}
+            </p>
+            <h2 className="font-display text-3xl font-semibold">{title}</h2>
+            <p className="text-sm text-muted-foreground">{subtitle}</p>
+          </div>
+          {/* Navigation buttons for desktop/tablet */}
+          <div className="hidden sm:flex gap-2.5">
+            <button
+              onClick={() => scroll("left")}
+              className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card text-foreground shadow-md shadow-black/5 hover:-translate-y-0.5 hover:shadow-lg active:scale-95 transition cursor-pointer"
+              aria-label="Anterior"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <button
+              onClick={() => scroll("right")}
+              className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card text-foreground shadow-md shadow-black/5 hover:-translate-y-0.5 hover:shadow-lg active:scale-95 transition cursor-pointer"
+              aria-label="Siguiente"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </div>
         </div>
-        <div className="gallery-scroll flex gap-4 overflow-x-auto pb-2 pt-1 lg:grid lg:grid-cols-3 lg:overflow-visible">
+        
+        <div
+          ref={scrollContainerRef}
+          className="gallery-scroll flex gap-6 overflow-x-auto pb-6 pt-2 snap-x snap-mandatory scroll-smooth"
+        >
           {activities.map((activity, index) => (
             <div
               key={activity.title}
@@ -48,7 +83,7 @@ export default function HomeActivitiesSection({
                   setActiveGalleryIndex(index);
                 }
               }}
-              className="min-w-[250px] flex-1 rounded-3xl border border-border/80 bg-card shadow-lg shadow-black/5 transition hover:-translate-y-1 hover:shadow-xl cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+              className="min-w-[280px] sm:min-w-[320px] md:min-w-[350px] flex-none snap-center rounded-3xl border border-border/85 bg-card shadow-md shadow-black/5 transition hover:-translate-y-1 hover:shadow-xl cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
             >
               <div className="relative aspect-[16/10] w-full overflow-hidden rounded-t-3xl">
                 <Image
@@ -61,7 +96,7 @@ export default function HomeActivitiesSection({
               </div>
               <div className="space-y-2 p-5">
                 <h3 className="text-lg font-semibold">{activity.title}</h3>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground leading-relaxed">
                   {activity.description}
                 </p>
               </div>

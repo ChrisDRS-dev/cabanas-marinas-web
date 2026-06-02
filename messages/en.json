@@ -178,6 +178,18 @@
       {
         "title": "Boat shuttle experience",
         "description": "Your adventure starts with an exciting round-trip boat transfer."
+      },
+      {
+        "title": "Magic nights & breeze",
+        "description": "Enjoy the starry sky and the peaceful sea under the warm nighttime illumination."
+      },
+      {
+        "title": "Cozy & private spaces",
+        "description": "Inviting cabins with cushions, rugs, and complete privacy to truly disconnect."
+      },
+      {
+        "title": "Sun & shore relaxation",
+        "description": "Direct access to a calm, clean beach perfect for cooling off at any time of day."
       }
     ],
     "location": {
