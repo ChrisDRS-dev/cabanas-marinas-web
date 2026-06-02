@@ -23,6 +23,15 @@ export const siteData = {
     {
       image: "/photos/new-interior-group.jpg",
     },
+    {
+      image: "/photos/new-cabin-day.jpg",
+    },
+    {
+      image: "/photos/Kayak-view.webp",
+    },
+    {
+      image: "/photos/new-cabin-beach.jpg",
+    },
   ],
   location: {
     latitude: 8.1013942,

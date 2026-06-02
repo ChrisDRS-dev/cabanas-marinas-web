@@ -157,15 +157,27 @@
     "activities": [
       {
         "title": "Oceanfront kayak",
-        "description": "Launch straight from the beach to explore the coast."
+        "description": "Explore the coast and have fun with our single and fishing kayaks."
       },
       {
         "title": "Sunrise and coffee",
-        "description": "The first rays of light with an open ocean view."
+        "description": "The first rays of light with hot coffee and a stunning open ocean view."
       },
       {
         "title": "Relaxing afternoons",
-        "description": "Spacious areas to unwind and share with your group."
+        "description": "Spacious areas with board games, comfy cushions, and constant sea breeze."
+      },
+      {
+        "title": "Seaside BBQ & Grill",
+        "description": "Prepare your best barbecues on the private grill of your oceanfront cabin."
+      },
+      {
+        "title": "Paddleboard adventure",
+        "description": "Glide over the calm waters of Limones and balance yourself in front of the sea."
+      },
+      {
+        "title": "Boat shuttle experience",
+        "description": "Your adventure starts with an exciting round-trip boat transfer."
       }
     ],
     "location": {

@@ -157,15 +157,27 @@
     "activities": [
       {
         "title": "Kayak frente al mar",
-        "description": "Salida directa desde la playa para explorar la costa."
+        "description": "Explora la costa y diviértete con nuestros kayaks individuales y de pesca."
       },
       {
         "title": "Amanecer y café",
-        "description": "Los primeros rayos con vista abierta al océano."
+        "description": "Los primeros rayos de sol con café caliente y una vista abierta impresionante al océano."
       },
       {
         "title": "Tardes de descanso",
-        "description": "Espacios amplios para descansar y compartir en grupo."
+        "description": "Espacios amplios con juegos de mesa, cojines y la brisa marina constante."
+      },
+      {
+        "title": "Asador y almuerzo costero",
+        "description": "Prepara tus mejores asados en el asador privado de tu cabaña frente al mar."
+      },
+      {
+        "title": "Paddleboard y aventura",
+        "description": "Deslízate sobre las tranquilas aguas de Limones y mantén el equilibrio frente al mar."
+      },
+      {
+        "title": "Paseo en lancha",
+        "description": "Tu aventura comienza con un emocionante traslado de ida y vuelta en lancha."
       }
     ],
     "location": {
