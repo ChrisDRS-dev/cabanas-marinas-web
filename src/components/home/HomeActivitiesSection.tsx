@@ -1,8 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState, useRef, useEffect } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useState } from "react";
 import FadeIn from "@/components/FadeIn";
 import ImageLightbox from "@/components/ui/ImageLightbox";
 
@@ -18,122 +17,9 @@ export default function HomeActivitiesSection({
   activities: Array<{ title: string; description: string; image: string }>;
 }) {
   const [activeGalleryIndex, setActiveGalleryIndex] = useState<number | null>(null);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const isHoveredRef = useRef(false);
-  const directionRef = useRef<1 | -1>(1);
 
-  // Custom buttery-smooth easeOutQuart scroll animation that avoids snap stutters
-  const smoothScrollTo = (container: HTMLDivElement, targetLeft: number, duration: number = 650) => {
-    // Temporarily disable snap type during programmatic animation
-    container.style.scrollSnapType = "none";
-
-    const startLeft = container.scrollLeft;
-    const distance = targetLeft - startLeft;
-    const startTime = performance.now();
-
-    const animateScroll = (now: number) => {
-      const timeElapsed = now - startTime;
-      const progress = Math.min(timeElapsed / duration, 1);
-
-      // EaseOutQuart curve
-      const ease = 1 - Math.pow(1 - progress, 4);
-
-      container.scrollLeft = startLeft + distance * ease;
-
-      if (progress < 1) {
-        requestAnimationFrame(animateScroll);
-      } else {
-        // Restore snap type once target scroll is reached
-        container.style.scrollSnapType = "";
-      }
-    };
-
-    requestAnimationFrame(animateScroll);
-  };
-
-  // Smooth scroll to next/prev card's offset
-  const scroll = (direction: "left" | "right") => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-    const cards = Array.from(container.querySelectorAll<HTMLElement>("[data-activity-card]"));
-    if (cards.length === 0) return;
-
-    const containerScrollLeft = container.scrollLeft;
-    let targetCard: HTMLElement | null = null;
-
-    if (direction === "left") {
-      for (let i = cards.length - 1; i >= 0; i--) {
-        if (cards[i].offsetLeft < containerScrollLeft - 15) {
-          targetCard = cards[i];
-          break;
-        }
-      }
-      if (!targetCard) targetCard = cards[0];
-    } else {
-      for (let i = 0; i < cards.length; i++) {
-        if (cards[i].offsetLeft > containerScrollLeft + 15) {
-          targetCard = cards[i];
-          break;
-        }
-      }
-      if (!targetCard) targetCard = cards[cards.length - 1];
-    }
-
-    if (targetCard) {
-      smoothScrollTo(container, targetCard.offsetLeft);
-    }
-  };
-
-  // Autoplay slideshow with hover-pause behavior
-  useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-
-    const autoplayInterval = setInterval(() => {
-      if (isHoveredRef.current) return;
-
-      const cards = Array.from(container.querySelectorAll<HTMLElement>("[data-activity-card]"));
-      if (cards.length < 2) return;
-
-      const containerScrollLeft = container.scrollLeft;
-      const maxScroll = container.scrollWidth - container.clientWidth;
-
-      let currentIndex = 0;
-      let closestDist = Infinity;
-      cards.forEach((card, index) => {
-        const dist = Math.abs(card.offsetLeft - containerScrollLeft);
-        if (dist < closestDist) {
-          closestDist = dist;
-          currentIndex = index;
-        }
-      });
-
-      let nextIndex = currentIndex;
-      if (directionRef.current === 1) {
-        if (currentIndex >= cards.length - 1 || containerScrollLeft >= maxScroll - 10) {
-          directionRef.current = -1;
-          nextIndex = currentIndex - 1;
-        } else {
-          nextIndex = currentIndex + 1;
-        }
-      } else {
-        if (currentIndex <= 0 || containerScrollLeft <= 10) {
-          directionRef.current = 1;
-          nextIndex = currentIndex + 1;
-        } else {
-          nextIndex = currentIndex - 1;
-        }
-      }
-
-      nextIndex = Math.max(0, Math.min(nextIndex, cards.length - 1));
-      const targetCard = cards[nextIndex];
-      if (targetCard) {
-        smoothScrollTo(container, targetCard.offsetLeft);
-      }
-    }, 4500);
-
-    return () => clearInterval(autoplayInterval);
-  }, [activities.length]);
+  // Duplicate activities for seamless marquee loop
+  const duplicatedActivities = [...activities, ...activities];
 
   const lightboxItems = activities.map((activity, index) => ({
     id: String(index),
@@ -143,7 +29,44 @@ export default function HomeActivitiesSection({
   }));
 
   return (
-    <section id="actividades" className="mx-auto max-w-6xl px-6 py-14">
+    <section id="actividades" className="mx-auto max-w-6xl px-6 py-14 overflow-hidden">
+      <style>{`
+        @keyframes scroll-marquee {
+          0% {
+            transform: translateX(0);
+          }
+          100% {
+            transform: translateX(-50%);
+          }
+        }
+
+        .marquee-scroll {
+          animation: scroll-marquee 40s linear infinite;
+        }
+
+        .marquee-container {
+          mask-image: linear-gradient(
+            90deg,
+            transparent 0%,
+            black 8%,
+            black 92%,
+            transparent 100%
+          );
+          -webkit-mask-image: linear-gradient(
+            90deg,
+            transparent 0%,
+            black 8%,
+            black 92%,
+            transparent 100%
+          );
+        }
+
+        .marquee-container:hover .marquee-scroll,
+        .marquee-container:active .marquee-scroll {
+          animation-play-state: paused;
+        }
+      `}</style>
+
       <FadeIn className="space-y-6">
         <div className="space-y-3">
           <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
@@ -153,39 +76,31 @@ export default function HomeActivitiesSection({
           <p className="text-sm text-muted-foreground">{subtitle}</p>
         </div>
         
-        <div className="relative group/gallery">
-          <div
-            ref={scrollContainerRef}
-            onMouseEnter={() => {
-              isHoveredRef.current = true;
-            }}
-            onMouseLeave={() => {
-              isHoveredRef.current = false;
-            }}
-            className="gallery-scroll flex gap-6 overflow-x-auto pb-6 pt-2 snap-x snap-mandatory"
-          >
-            {activities.map((activity, index) => (
+        <div className="marquee-container w-full relative overflow-hidden py-4">
+          <div className="marquee-scroll flex gap-6 w-max">
+            {duplicatedActivities.map((activity, index) => (
               <div
-                key={activity.title}
+                key={`${activity.title}-${index}`}
                 role="button"
                 tabIndex={0}
-                onClick={() => setActiveGalleryIndex(index)}
+                onClick={() => setActiveGalleryIndex(index % activities.length)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
-                    setActiveGalleryIndex(index);
+                    setActiveGalleryIndex(index % activities.length);
                   }
                 }}
                 data-activity-card
-                className="group relative flex flex-col justify-end overflow-hidden rounded-[2.2rem] border border-white/10 bg-black/10 text-left transition-all duration-500 hover:-translate-y-2 hover:scale-[1.01] hover:border-white/25 hover:shadow-[0_20px_50px_rgba(0,0,0,0.3)] min-w-[240px] sm:min-w-[260px] md:min-w-[280px] lg:min-w-[300px] flex-none snap-center h-[360px] cursor-pointer"
+                className="group relative flex flex-col justify-end overflow-hidden rounded-[2.2rem] border border-white/10 bg-black/10 text-left transition-all duration-500 hover:-translate-y-2 hover:scale-[1.01] hover:border-white/25 hover:shadow-[0_20px_50px_rgba(0,0,0,0.3)] w-[240px] sm:w-[260px] md:w-[280px] lg:w-[300px] flex-shrink-0 h-[360px] cursor-pointer"
               >
                 {activity.image ? (
                   <Image
                     src={activity.image}
                     alt={activity.title}
                     fill
-                    sizes="(max-width: 640px) 240px, (max-width: 1024px) 280px, 300px"
-                    className="absolute inset-0 object-cover brightness-[0.85] contrast-[1.02] transition duration-700 ease-out group-hover:scale-105 group-hover:brightness-[0.9]"
+                    sizes="(max-width: 640px) 480px, (max-width: 1024px) 600px, 600px"
+                    quality={90}
+                    className="absolute inset-0 object-cover brightness-[0.85] contrast-[1.02] transition duration-700 ease-out group-hover:scale-105 group-hover:brightness-[0.9] will-change-transform"
                   />
                 ) : null}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent" />
@@ -200,24 +115,6 @@ export default function HomeActivitiesSection({
               </div>
             ))}
           </div>
-
-          {/* Side Floating Navigation buttons */}
-          <button
-            type="button"
-            onClick={() => scroll("left")}
-            className="absolute left-2 top-[180px] -translate-y-1/2 z-30 hidden md:flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-black/40 text-white backdrop-blur-md transition-all duration-300 hover:bg-black/60 hover:scale-105 active:scale-95 cursor-pointer shadow-lg hover:border-white/40 opacity-0 group-hover/gallery:opacity-100 focus-visible:opacity-100"
-            aria-label="Anterior"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => scroll("right")}
-            className="absolute right-2 top-[180px] -translate-y-1/2 z-30 hidden md:flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-black/40 text-white backdrop-blur-md transition-all duration-300 hover:bg-black/60 hover:scale-105 active:scale-95 cursor-pointer shadow-lg hover:border-white/40 opacity-0 group-hover/gallery:opacity-100 focus-visible:opacity-100"
-            aria-label="Siguiente"
-          >
-            <ChevronRight className="h-5 w-5" />
-          </button>
         </div>
       </FadeIn>
 

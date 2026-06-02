@@ -100,17 +100,12 @@ function ensureInstagramScript() {
 function InstagramEmbedCard({
   permalink,
   isActive,
-  coverImage,
-  title,
 }: {
   permalink: string;
   isActive: boolean;
-  coverImage?: string;
-  title?: string;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
-  const [isScriptBlocked, setIsScriptBlocked] = useState(false);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -122,22 +117,10 @@ function InstagramEmbedCard({
       }
     };
 
-    const handleScriptError = () => {
-      if (script) script.dataset.failed = "true";
-      setIsScriptBlocked(true);
-      setIsLoaded(true);
-    };
-
     if (window.instgrm?.Embeds) {
       processEmbeds();
     } else if (script) {
-      if (script.dataset.failed === "true") {
-        setIsScriptBlocked(true);
-        setIsLoaded(true);
-      } else {
-        script.addEventListener("load", processEmbeds);
-        script.addEventListener("error", handleScriptError);
-      }
+      script.addEventListener("load", processEmbeds);
     }
 
     // Observe when the blockquote gets processed and replaced by/injected with an iframe
@@ -163,10 +146,6 @@ function InstagramEmbedCard({
 
     // Safety fallback: if load event fails to fire, resolve loading state after 3s
     const fallbackTimer = setTimeout(() => {
-      if (!window.instgrm) {
-        setIsScriptBlocked(true);
-        if (script) script.dataset.failed = "true";
-      }
       setIsLoaded(true);
     }, 3000);
 
@@ -175,57 +154,9 @@ function InstagramEmbedCard({
       clearTimeout(fallbackTimer);
       if (script) {
         script.removeEventListener("load", processEmbeds);
-        script.removeEventListener("error", handleScriptError);
       }
     };
   }, [permalink]);
-
-  if (isScriptBlocked) {
-    return (
-      <div
-        className={cn(
-          "relative overflow-hidden rounded-[1.85rem] border border-border bg-card p-2 shadow-[0_18px_54px_rgba(15,31,36,0.08)] transition-all duration-500 dark:border-white/10 dark:bg-black/30 w-[326px] h-[560px]",
-          isActive 
-            ? "border-primary/30 shadow-[0_24px_72px_rgba(15,31,36,0.14)] dark:shadow-[0_24px_80px_rgba(0,0,0,0.4),0_0_30px_rgba(52,182,200,0.15)] scale-[1.01]" 
-            : "border-border/60 shadow-[0_10px_30px_rgba(15,31,36,0.04)] dark:shadow-[0_10px_40px_rgba(0,0,0,0.2)] opacity-70"
-        )}
-      >
-        <div className="relative h-full w-full overflow-hidden rounded-[1.4rem] bg-[#0c1519]">
-          {coverImage && (
-            <img
-              src={coverImage}
-              alt={title || "Instagram Post"}
-              className="h-full w-full object-cover opacity-60 transition-transform duration-500 hover:scale-105"
-            />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent p-6 flex flex-col justify-end items-center text-center space-y-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[linear-gradient(135deg,#f4d34c_0%,#ff5d95_50%,#8a3ab9_100%)] text-white shadow-lg">
-              <svg className="h-6 w-6 fill-current" viewBox="0 0 24 24">
-                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.051.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z" />
-              </svg>
-            </div>
-            <div className="space-y-1.5">
-              <h4 className="text-white font-bold text-sm">Instagram</h4>
-              <p className="text-white/70 text-xs px-2 leading-relaxed">
-                El feed de Instagram fue bloqueado por tu navegador (adblocker/privacidad).
-              </p>
-            </div>
-            <a
-              href={permalink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={cn(
-                "inline-flex items-center justify-center rounded-full bg-white px-5 py-2.5 text-xs font-semibold text-black shadow-md hover:bg-white/90 transition duration-300",
-                isActive ? "pointer-events-auto" : "pointer-events-none"
-              )}
-            >
-              Abrir publicación
-            </a>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div
@@ -428,8 +359,6 @@ export default function CircularGallery({ items }: CircularGalleryProps) {
                     key={item.permalink}
                     permalink={item.permalink}
                     isActive={isActive}
-                    coverImage={item.coverImage}
-                    title={item.title}
                   />
                 </div>
               </div>
