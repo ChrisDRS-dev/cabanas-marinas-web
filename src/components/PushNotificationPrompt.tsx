@@ -4,7 +4,10 @@ import { Bell } from "lucide-react";
 import { useState } from "react";
 import { usePushNotifications } from "@/lib/notifications/usePushNotifications";
 
-const DISMISSED_KEY = "cm_client_push_prompt_dismissed";
+function dismissedKey() {
+  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "missing";
+  return `cm_client_push_prompt_dismissed:${publicKey}`;
+}
 
 export function PushNotificationPrompt({
   reservationId,
@@ -15,7 +18,7 @@ export function PushNotificationPrompt({
   const [dismissed, setDismissed] = useState(
     () =>
       typeof window !== "undefined" &&
-      window.localStorage.getItem(DISMISSED_KEY) === "1",
+      window.localStorage.getItem(dismissedKey()) === "1",
   );
   const [busy, setBusy] = useState(false);
 
@@ -24,7 +27,7 @@ export function PushNotificationPrompt({
   }
 
   const dismiss = () => {
-    window.localStorage.setItem(DISMISSED_KEY, "1");
+    window.localStorage.setItem(dismissedKey(), "1");
     setDismissed(true);
   };
 
