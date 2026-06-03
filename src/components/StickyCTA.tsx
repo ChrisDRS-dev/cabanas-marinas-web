@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { Instagram } from "lucide-react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useAuth } from "@/components/AuthProvider";
@@ -20,10 +19,12 @@ export default function StickyCTA({
   instagramHref,
 }: StickyCTAProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const locale = useLocale() as AppLocale;
   const t = useTranslations("stickyCta");
   const { session, dismissed } = useAuth();
   const [isVisible, setIsVisible] = useState(false);
+  const [isCheckingReservations, setIsCheckingReservations] = useState(false);
 
   useEffect(() => {
     if (!session || dismissed) {
@@ -77,6 +78,34 @@ export default function StickyCTA({
     return null;
   }
 
+  const openReservationsOrForm = async () => {
+    if (isCheckingReservations) return;
+    setIsCheckingReservations(true);
+    try {
+      const response = await fetch("/api/my-reservations", { cache: "no-store" });
+      const result = await response.json();
+      const todayStr = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/Panama",
+      }).format(new Date());
+      const reservations = Array.isArray(result?.reservations)
+        ? (result.reservations as Array<{ status?: string | null; reserved_date?: string | null }>)
+        : [];
+      const hasActiveReservation = reservations.some(
+        (reservation) =>
+          (reservation.status === "PENDING_PAYMENT" || reservation.status === "CONFIRMED") &&
+          typeof reservation.reserved_date === "string" &&
+          reservation.reserved_date >= todayStr,
+      );
+      router.push(
+        localizeHref(locale, hasActiveReservation ? "/?reservar=1" : primaryHref),
+      );
+    } catch {
+      router.push(localizeHref(locale, "/?reservar=1"));
+    } finally {
+      setIsCheckingReservations(false);
+    }
+  };
+
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-4 z-50 flex justify-center px-4">
       <div
@@ -87,12 +116,14 @@ export default function StickyCTA({
             : "pointer-events-none translate-y-8 opacity-0",
         ].join(" ")}
       >
-        <Link
-          href={localizeHref(locale, primaryHref)}
-          className="flex-1 rounded-full bg-primary px-6 py-3 text-center text-sm font-semibold uppercase tracking-wide text-primary-foreground shadow-lg shadow-primary/20 transition hover:brightness-110"
+        <button
+          type="button"
+          onClick={openReservationsOrForm}
+          disabled={isCheckingReservations}
+          className="flex-1 rounded-full bg-primary px-6 py-3 text-center text-sm font-semibold uppercase tracking-wide text-primary-foreground shadow-lg shadow-primary/20 transition hover:brightness-110 disabled:cursor-wait disabled:opacity-75"
         >
-          {t("myReservations")}
-        </Link>
+          {isCheckingReservations ? "Revisando..." : t("myReservations")}
+        </button>
         <a
           href={secondaryHref}
           aria-label={t("whatsappAria")}
