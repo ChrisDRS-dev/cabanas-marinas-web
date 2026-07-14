@@ -4,7 +4,7 @@ export const PACKAGES = [
     label: "4 horas",
     pricePerAdult: 12,
     minPeopleWeekday: 4,
-    minPeopleWeekend: 6,
+    minPeopleWeekend: 4,
     note: "Ideal para escapadas cortas.",
   },
   {
@@ -12,7 +12,7 @@ export const PACKAGES = [
     label: "8 horas",
     pricePerAdult: 24,
     minPeopleWeekday: 4,
-    minPeopleWeekend: 6,
+    minPeopleWeekend: 4,
     note: "Día completo frente al mar.",
   },
   {
@@ -20,7 +20,7 @@ export const PACKAGES = [
     label: "Ver el amanecer",
     pricePerAdult: 12,
     minPeopleWeekday: 4,
-    minPeopleWeekend: 6,
+    minPeopleWeekend: 4,
     note: "Madruga en grupo para ver el amanecer.",
   },
   {
@@ -28,7 +28,7 @@ export const PACKAGES = [
     label: "Evento especial",
     pricePerAdult: 89,
     minPeopleWeekday: 6,
-    minPeopleWeekend: 6,
+    minPeopleWeekend: 4,
     note: "Horario personalizado de 10 a 12 horas.",
   },
 ] as const;
