@@ -71,6 +71,15 @@ type ReservationPaymentContext = {
   payments: PaymentRow[];
 };
 
+type ManualPaymentLinkRow = {
+  id: string;
+  reservation_id: string | null;
+  amount: number | string;
+  status: string;
+  provider_ref: string | null;
+  customer_email: string | null;
+};
+
 export function roundCurrency(value: number) {
   return Math.round(value * 100) / 100;
 }
@@ -182,6 +191,59 @@ export async function insertPaymentEvent(
   });
 }
 
+export function isManualPaymentLinkMarker(value: string | null | undefined) {
+  return String(value ?? "").trim() === "manual_payment_link";
+}
+
+export async function insertManualPaymentLinkEvent(
+  admin: AdminClient,
+  event: {
+    manualPaymentLinkId: string;
+    eventType: "CREATE_LINK" | "RETURN" | "WEBHOOK" | "VERIFY" | "RECONCILE";
+    providerRef?: string | null;
+    status?: string | null;
+    amount?: number | null;
+    payload?: Record<string, unknown>;
+  },
+) {
+  await admin.from("manual_payment_link_events").insert({
+    manual_payment_link_id: event.manualPaymentLinkId,
+    event_type: event.eventType,
+    provider_ref: event.providerRef ?? null,
+    status: event.status ?? null,
+    amount: event.amount ?? null,
+    payload: event.payload ?? {},
+  });
+}
+
+export async function markManualPaymentLinkFailed(args: {
+  admin: AdminClient;
+  manualPaymentLinkId: string;
+  reason: string;
+  payload: Record<string, unknown>;
+}) {
+  const providerMessage = args.reason || "paguelofacil_manual_link_failed";
+  await args.admin
+    .from("manual_payment_links")
+    .update({
+      status: "FAILED",
+      provider_message: providerMessage,
+    })
+    .eq("id", args.manualPaymentLinkId)
+    .in("status", ["PENDING", "ACTIVE"]);
+
+  await insertManualPaymentLinkEvent(args.admin, {
+    manualPaymentLinkId: args.manualPaymentLinkId,
+    eventType: "VERIFY",
+    status: "FAILED",
+    payload: {
+      reason: providerMessage,
+      source: "manual_failure",
+      raw: args.payload,
+    },
+  });
+}
+
 export async function syncInvoiceStatus(admin: AdminClient, invoiceId: string) {
   const { data: payments } = await admin
     .from("payments")
@@ -204,6 +266,101 @@ export async function syncInvoiceStatus(admin: AdminClient, invoiceId: string) {
 
   await admin.from("invoices").update({ status }).eq("id", invoiceId);
   return status;
+}
+
+export async function applyVerifiedManualPagueloFacilPayment(args: {
+  admin: AdminClient;
+  manualPaymentLinkId: string;
+  codOper: string;
+  source: "return" | "webhook" | "admin";
+  rawPayload: Record<string, unknown>;
+}) {
+  const tx = await verifyTransaction(args.codOper);
+  const verifiedAmount = getTransactionAmount(tx);
+  const approved = isApproved(tx);
+  const verifiedAt = new Date().toISOString();
+
+  await insertManualPaymentLinkEvent(args.admin, {
+    manualPaymentLinkId: args.manualPaymentLinkId,
+    eventType: "VERIFY",
+    providerRef: args.codOper,
+    status: approved ? "APPROVED" : "DECLINED",
+    amount: verifiedAmount,
+    payload: {
+      source: args.source,
+      transaction: tx ?? null,
+    },
+  });
+
+  const { data } = await args.admin
+    .from("manual_payment_links")
+    .select("id,reservation_id,amount,status,provider_ref,customer_email")
+    .eq("id", args.manualPaymentLinkId)
+    .maybeSingle();
+  const link = data as ManualPaymentLinkRow | null;
+
+  if (!link) {
+    return { ok: false as const, reason: "manual_link_not_found", tx, verifiedAmount };
+  }
+
+  const providerFields = {
+    provider_status: normalizeProviderStatus(tx?.status),
+    provider_auth_status: normalizeProviderStatus(tx?.authStatus),
+    provider_message: getTransactionMessage(tx),
+    provider_amount: verifiedAmount,
+    provider_fee: getTransactionFee(tx),
+    provider_net_amount: getTransactionNetAmount(tx),
+    provider_verified_at: verifiedAt,
+    card_brand: getTransactionCardBrand(tx),
+    card_last4: getTransactionCardLast4(tx),
+    provider_operation_type: getTransactionOperationType(tx),
+  };
+
+  if (link.status === "PAID" && link.provider_ref === args.codOper) {
+    await args.admin
+      .from("manual_payment_links")
+      .update(providerFields)
+      .eq("id", args.manualPaymentLinkId);
+    return { ok: true as const, tx, verifiedAmount, idempotent: true };
+  }
+
+  if (!approved) {
+    await args.admin
+      .from("manual_payment_links")
+      .update({
+        ...providerFields,
+        status: "FAILED",
+        provider_ref: args.codOper,
+      })
+      .eq("id", args.manualPaymentLinkId);
+    return { ok: false as const, reason: "not_approved", tx, verifiedAmount };
+  }
+
+  const expectedAmount = Number(link.amount ?? 0);
+  if (!paymentAmountMatches(expectedAmount, verifiedAmount)) {
+    await args.admin
+      .from("manual_payment_links")
+      .update({
+        ...providerFields,
+        status: "FAILED",
+        provider_ref: args.codOper,
+        provider_message: providerFields.provider_message ?? "amount_mismatch",
+      })
+      .eq("id", args.manualPaymentLinkId);
+    return { ok: false as const, reason: "amount_mismatch", tx, verifiedAmount };
+  }
+
+  await args.admin
+    .from("manual_payment_links")
+    .update({
+      ...providerFields,
+      status: "PAID",
+      provider_ref: args.codOper,
+      paid_at: verifiedAt,
+    })
+    .eq("id", args.manualPaymentLinkId);
+
+  return { ok: true as const, tx, verifiedAmount };
 }
 
 export async function applyVerifiedPagueloFacilPayment(args: {

@@ -5,11 +5,14 @@ import {
   notifyPaymentFailed,
 } from "@/lib/notifications/events";
 import {
+  applyVerifiedManualPagueloFacilPayment,
   applyVerifiedPagueloFacilPayment,
   getCodOper,
   getPayloadAmount,
   getPayloadStatus,
   insertPaymentEvent,
+  insertManualPaymentLinkEvent,
+  isManualPaymentLinkMarker,
   objectFromUnknown,
 } from "@/lib/paguelofacil/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -32,11 +35,67 @@ export async function POST(req: Request) {
   const payload = await parseWebhookPayload(req);
   const reservationId = String(payload.PARM_1 ?? payload.parm_1 ?? "").trim();
   const paymentId = String(payload.PARM_2 ?? payload.parm_2 ?? "").trim();
+  const isManualPaymentLink = isManualPaymentLinkMarker(reservationId);
   const codOper = getCodOper(payload);
   const status = getPayloadStatus(payload);
   const amount = getPayloadAmount(payload);
   const email = String(payload.email ?? payload.Email ?? "").trim();
   const admin = supabaseAdmin();
+
+  if (isManualPaymentLink) {
+    if (!paymentId) {
+      return NextResponse.json({ received: true, ignored: "missing_manual_link" });
+    }
+
+    await insertManualPaymentLinkEvent(admin, {
+      manualPaymentLinkId: paymentId,
+      eventType: "WEBHOOK",
+      providerRef: codOper || null,
+      status: status || null,
+      amount,
+      payload,
+    });
+
+    if (!codOper) {
+      return NextResponse.json({ received: true, ignored: "missing_operation" });
+    }
+
+    try {
+      const result = await applyVerifiedManualPagueloFacilPayment({
+        admin,
+        manualPaymentLinkId: paymentId,
+        codOper,
+        source: "webhook",
+        rawPayload: payload,
+      });
+
+      return NextResponse.json({
+        received: true,
+        manual: true,
+        verified: result.ok,
+        reason: result.ok ? null : result.reason,
+      });
+    } catch (error) {
+      await insertManualPaymentLinkEvent(admin, {
+        manualPaymentLinkId: paymentId,
+        eventType: "VERIFY",
+        providerRef: codOper,
+        status: "ERROR",
+        amount,
+        payload: {
+          source: "webhook",
+          error: error instanceof Error ? error.message : "Unknown verify error",
+        },
+      });
+
+      return NextResponse.json({
+        received: true,
+        manual: true,
+        verified: false,
+        reason: "verify_failed",
+      });
+    }
+  }
 
   if (!reservationId) {
     return NextResponse.json({ received: true, ignored: "missing_reservation" });

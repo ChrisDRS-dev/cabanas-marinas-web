@@ -6,11 +6,15 @@ import {
   notifyPaymentFailed,
 } from "@/lib/notifications/events";
 import {
+  applyVerifiedManualPagueloFacilPayment,
   applyVerifiedPagueloFacilPayment,
   getCodOper,
   getPayloadAmount,
   getPayloadStatus,
   insertPaymentEvent,
+  insertManualPaymentLinkEvent,
+  isManualPaymentLinkMarker,
+  markManualPaymentLinkFailed,
   objectFromUnknown,
 } from "@/lib/paguelofacil/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -111,6 +115,7 @@ async function handleReturn(req: Request) {
   const { locale, payload } = await parseRequest(req);
   const reservationId = String(payload.PARM_1 ?? payload.parm_1 ?? "").trim();
   const paymentId = String(payload.PARM_2 ?? payload.parm_2 ?? "").trim();
+  const isManualPaymentLink = isManualPaymentLinkMarker(reservationId);
   const codOper = getCodOper(payload);
   const status = getPayloadStatus(payload);
   const amount = getPayloadAmount(payload);
@@ -119,13 +124,66 @@ async function handleReturn(req: Request) {
   const url = new URL(req.url);
   const target = new URL(`/${locale}/reservar/pago/resultado`, url.origin);
 
-  if (reservationId) target.searchParams.set("PARM_1", reservationId);
+  if (isManualPaymentLink) {
+    target.searchParams.set("manual", "1");
+    if (paymentId) target.searchParams.set("manualLinkId", paymentId);
+  } else if (reservationId) {
+    target.searchParams.set("PARM_1", reservationId);
+  }
   if (paymentId) target.searchParams.set("PARM_2", paymentId);
   if (codOper) target.searchParams.set("Oper", codOper);
   if (amount != null) target.searchParams.set("TotalPagado", amount.toFixed(2));
   if (status) target.searchParams.set("Estado", status);
   if (typeof payload.Razon === "string") target.searchParams.set("Razon", payload.Razon);
   else if (failureReason) target.searchParams.set("Razon", failureReason);
+
+  if (isManualPaymentLink) {
+    if (!paymentId) {
+      target.searchParams.set("verified", "0");
+      target.searchParams.set("reason", "missing_manual_link");
+      return NextResponse.redirect(target);
+    }
+
+    await insertManualPaymentLinkEvent(admin, {
+      manualPaymentLinkId: paymentId,
+      eventType: "RETURN",
+      providerRef: codOper || null,
+      status: status || null,
+      amount,
+      payload,
+    });
+
+    if (hasProviderFailureSignal(payload, status)) {
+      await markManualPaymentLinkFailed({
+        admin,
+        manualPaymentLinkId: paymentId,
+        reason: failureReason || status || "paguelofacil_return_failed",
+        payload,
+      });
+    }
+
+    if (codOper) {
+      try {
+        const result = await applyVerifiedManualPagueloFacilPayment({
+          admin,
+          manualPaymentLinkId: paymentId,
+          codOper,
+          source: "return",
+          rawPayload: payload,
+        });
+        target.searchParams.set("verified", result.ok ? "1" : "0");
+        if (!result.ok) target.searchParams.set("reason", result.reason);
+      } catch {
+        target.searchParams.set("verified", "0");
+        target.searchParams.set("reason", "verify_failed");
+      }
+    } else {
+      target.searchParams.set("verified", "0");
+      target.searchParams.set("reason", "missing_operation");
+    }
+
+    return NextResponse.redirect(target);
+  }
 
   if (!reservationId) {
     target.searchParams.set("verified", "0");
