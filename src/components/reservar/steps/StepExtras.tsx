@@ -22,9 +22,14 @@ type StepExtrasProps = {
   totalPeople: number;
 };
 
-function formatExtraUnit(value: Extra["pricingUnit"]) {
-  return value;
-}
+const EXTRA_IMAGE_BY_ID: Record<string, string> = {
+  cana_pesca: "/photos/extras/cana_pesca.webp",
+  kayak: "/photos/extras/kayak.webp",
+  mascara_bucear: "/photos/extras/mascara_bucear.webp",
+  paddleboard: "/photos/extras/paddleboard.webp",
+  sofa_marino: "/photos/extras/sofa_marino.webp",
+  wakeboarding: "/photos/extras/wakeboarding.webp",
+};
 
 export default function StepExtras({
   state,
@@ -115,12 +120,21 @@ export default function StepExtras({
               extra.pricingUnit === "PER_HOUR"
                 ? `$${extra.price}/hr`
                 : `$${extra.price} ${getPricingUnitLabel(extra.pricingUnit)}`;
+
+            const imageUrl = EXTRA_IMAGE_BY_ID[extra.id];
+
             return (
               <div
                 key={extra.id}
-                className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 rounded-2xl border border-border/70 bg-background px-4 py-4"
+                className="relative grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 overflow-hidden rounded-2xl border border-border/70 bg-background px-4 py-4"
               >
-                <div className="min-w-0">
+                {imageUrl ? (
+                  <div
+                    className="pointer-events-none absolute inset-0 bg-cover bg-center opacity-30 mix-blend-luminosity dark:opacity-20"
+                    style={{ backgroundImage: `url('${imageUrl}')` }}
+                  />
+                ) : null}
+                <div className="relative z-10 min-w-0">
                   <p className="text-base font-semibold">{localizedExtra.label}</p>
                   {localizedExtra.description && (
                     <p className="mt-1 text-xs text-muted-foreground">
@@ -136,8 +150,8 @@ export default function StepExtras({
                     </p>
                   )}
                 </div>
-                <div className="flex flex-col items-center gap-2">
-                  <div className="overflow-hidden rounded-[1.6rem] border border-border/70 bg-secondary/50 shadow-sm">
+                <div className="relative z-10 flex flex-col items-center gap-2">
+                  <div className="overflow-hidden rounded-[1.6rem] border border-border/70 bg-secondary/50 shadow-sm backdrop-blur-sm">
                     <div className="flex w-[4.25rem] flex-col items-stretch">
                       <button
                         type="button"
