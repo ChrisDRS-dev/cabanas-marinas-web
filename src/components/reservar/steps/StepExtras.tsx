@@ -23,6 +23,7 @@ type StepExtrasProps = {
 };
 
 const EXTRA_IMAGE_BY_ID: Record<string, string> = {
+  cana_pesca: "/photos/extras/cana_pesca.webp",
   kayak: "/photos/extras/kayak.webp",
   mascara_bucear: "/photos/extras/mascara_bucear.webp",
   paddleboard: "/photos/extras/paddleboard.webp",
