@@ -120,6 +120,24 @@ function buildVerifiedPaymentFields(args: {
   };
 }
 
+function isPagueloFacilPayment(payment: PaymentRow) {
+  const meta = objectFromUnknown(payment.meta);
+  return (
+    payment.provider === "CARD" &&
+    (payment.gateway === "paguelofacil" || meta.gateway === "paguelofacil")
+  );
+}
+
+function isPayablePagueloFacilPayment(payment: PaymentRow) {
+  return (
+    isPagueloFacilPayment(payment) &&
+    payment.status === "PENDING" &&
+    (payment.link_status == null ||
+      payment.link_status === "PENDING" ||
+      payment.link_status === "ACTIVE")
+  );
+}
+
 export async function getReservationPaymentContext(
   admin: AdminClient,
   reservationId: string,
@@ -420,30 +438,69 @@ export async function applyVerifiedPagueloFacilPayment(args: {
     return { ok: true as const, invoiceStatus, tx, verifiedAmount, idempotent: true };
   }
 
+  const requestedPayment = args.paymentId
+    ? (context.payments.find((payment) => payment.id === args.paymentId) ?? null)
+    : null;
+
+  if (args.paymentId && !requestedPayment) {
+    await insertPaymentEvent(args.admin, {
+      reservationId: args.reservationId,
+      eventType: "VERIFY",
+      providerRef: args.codOper,
+      status: "REJECTED",
+      amount: verifiedAmount,
+      customerEmail: getTransactionEmail(tx),
+      payload: {
+        source: args.source,
+        reason: "payment_not_found",
+        payment_id: args.paymentId,
+      },
+    });
+    return { ok: false as const, reason: "payment_not_found", tx, verifiedAmount };
+  }
+
   const targetPayment =
-    (args.paymentId
-      ? context.payments.find((payment) => payment.id === args.paymentId)
-      : null) ??
+    requestedPayment ??
     context.payments.find(
       (payment) =>
-        payment.provider === "CARD" &&
-        (payment.provider_ref === args.codOper ||
-          (payment.status === "PENDING" && payment.gateway === "paguelofacil")),
+        isPayablePagueloFacilPayment(payment) &&
+        (payment.provider_ref === args.codOper || payment.provider_ref == null),
     ) ??
     null;
 
-  const telemetryFields = buildVerifiedPaymentFields({
-    tx,
-    verifiedAmount,
-    verifiedAt,
-    linkStatus: approved ? "PAID" : "FAILED",
-  });
-
-  if (targetPayment?.id) {
-    await args.admin.from("payments").update(telemetryFields).eq("id", targetPayment.id);
+  if (targetPayment && !isPayablePagueloFacilPayment(targetPayment)) {
+    await insertPaymentEvent(args.admin, {
+      paymentId: targetPayment.id,
+      reservationId: args.reservationId,
+      eventType: "VERIFY",
+      providerRef: args.codOper,
+      status: "REJECTED",
+      amount: verifiedAmount,
+      customerEmail: getTransactionEmail(tx),
+      payload: {
+        source: args.source,
+        reason: "payment_not_payable",
+        payment_status: targetPayment.status,
+        link_status: targetPayment.link_status ?? null,
+      },
+    });
+    return { ok: false as const, reason: "payment_not_payable", tx, verifiedAmount };
   }
 
   if (!approved) {
+    if (targetPayment?.id) {
+      await args.admin
+        .from("payments")
+        .update(
+          buildVerifiedPaymentFields({
+            tx,
+            verifiedAmount,
+            verifiedAt,
+            linkStatus: "FAILED",
+          }),
+        )
+        .eq("id", targetPayment.id);
+    }
     return { ok: false as const, reason: "not_approved", tx, verifiedAmount };
   }
 
@@ -457,8 +514,28 @@ export async function applyVerifiedPagueloFacilPayment(args: {
     !Number.isFinite(expectedAmount) ||
     !paymentAmountMatches(expectedAmount, verifiedAmount)
   ) {
+    if (targetPayment?.id) {
+      await args.admin
+        .from("payments")
+        .update(
+          buildVerifiedPaymentFields({
+            tx,
+            verifiedAmount,
+            verifiedAt,
+            linkStatus: "ACTIVE",
+          }),
+        )
+        .eq("id", targetPayment.id);
+    }
     return { ok: false as const, reason: "amount_mismatch", tx, verifiedAmount };
   }
+
+  const telemetryFields = buildVerifiedPaymentFields({
+    tx,
+    verifiedAmount,
+    verifiedAt,
+    linkStatus: "PAID",
+  });
 
   const meta = {
     ...objectFromUnknown(targetPayment?.meta),

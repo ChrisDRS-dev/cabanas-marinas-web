@@ -32,3 +32,17 @@ test("PagueloFacil return and webhook route manual links away from reservation f
   assert.match(webhookRoute, /applyVerifiedManualPagueloFacilPayment/);
   assert.match(webhookRoute, /manual: true/);
 });
+
+test("PagueloFacil verification only settles payable active reservation payments", async () => {
+  const source = await readFile(
+    new URL("../src/lib/paguelofacil/server.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /function isPayablePagueloFacilPayment/);
+  assert.match(source, /payment\.status === "PENDING"/);
+  assert.match(source, /payment\.link_status === "ACTIVE"/);
+  assert.match(source, /const requestedPayment = args\.paymentId/);
+  assert.match(source, /reason: "payment_not_payable"/);
+  assert.match(source, /reason: "payment_not_found"/);
+});
